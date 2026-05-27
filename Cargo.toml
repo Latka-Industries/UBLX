@@ -3,7 +3,7 @@ name = "ublx"
 version = "0.1.6"
 edition = "2024"
 rust-version = "1.95"
-authors = ["AHurowitz <thicclatka@users.noreply.github.com>"]
+authors = ["AHurowitz <latkaindustries@gmail.com>"]
 description = "TUI to index once, enrich with metadata, and browse a flat snapshot in a 3-pane layout with multiple modes."
 license = "MIT or Apache-2.0"
 repository = "https://github.com/thicclatka/ublx"
@@ -45,7 +45,7 @@ nefaxer = "0.1.9"
 notify = "8.2.0"
 pulldown-cmark = "0.13.3"
 ratatui = "0.30"
-ratatui-image = { version = "10.0.8", default-features = false, features = [
+ratatui-image = { version = "11.0.2", default-features = false, features = [
   "crossterm",
   "image-defaults",
 ] }

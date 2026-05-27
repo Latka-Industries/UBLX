@@ -64,7 +64,7 @@ fn line_byte_starts_matches_joined_lines() {
 #[test]
 fn content_height_matches_kv_metrics() {
     let json = r#"{"x": 1}"#;
-    let h = content_height(json);
+    let h = content_height(json, ublx::config::ColumnStatsDisplay::default());
     let sections = parse_json_sections(json);
     let mut expected: u16 = 0;
     for (i, section) in sections.iter().enumerate() {
@@ -184,4 +184,43 @@ fn contents_natural_widths_parallel_path_deterministic() {
     let b = contents_natural_widths(&section, start, end, DEFAULT_MAX_ARRAY_INLINE);
     assert_eq!(a, b);
     assert_eq!(a.len(), 1);
+}
+
+#[test]
+fn column_stats_abbrev_hides_median() {
+    use ublx::config::ColumnStatsDisplay;
+    use ublx::render::kv_tables::{Section, parse_json_sections_with};
+    let json = r#"{
+        "row_count": 100,
+        "columns": [
+            {"i": 0, "name": "x", "t": "number", "null_pct": 0.0,
+             "num": {"min": 1.0, "max": 9.0, "mean": 5.0, "median": 5.0, "stdev": 2.0}}
+        ]
+    }"#;
+    let sections = parse_json_sections_with(json, 80, ColumnStatsDisplay::Abbrev);
+    let contents = sections
+        .iter()
+        .find_map(|s| match s {
+            Section::Contents(c) => Some(c),
+            _ => None,
+        })
+        .expect("number columns table");
+    assert!(contents.column_keys.iter().any(|k| k == "min"));
+    assert!(contents.column_keys.iter().any(|k| k == "mean"));
+    assert!(!contents.column_keys.iter().any(|k| k == "median"));
+    assert!(!contents.column_keys.iter().any(|k| k == "stdev"));
+}
+
+#[test]
+fn column_stats_none_skips_tables() {
+    use ublx::config::ColumnStatsDisplay;
+    use ublx::render::kv_tables::{Section, parse_json_sections_with};
+    let json = r#"{
+        "row_count": 100,
+        "columns": [
+            {"i": 0, "name": "x", "t": "number", "num": {"min": 1.0, "max": 9.0, "mean": 5.0}}
+        ]
+    }"#;
+    let sections = parse_json_sections_with(json, 80, ColumnStatsDisplay::None);
+    assert!(sections.iter().all(|s| !matches!(s, Section::Contents(_))));
 }

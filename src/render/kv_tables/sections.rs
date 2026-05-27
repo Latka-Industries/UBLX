@@ -3,12 +3,13 @@
 use rayon::prelude::*;
 use serde_json::Value;
 
-use crate::config::PARALLEL;
+use crate::config::{ColumnStatsDisplay, PARALLEL};
 use crate::ui::UI_STRINGS;
 
 use super::column_metadata;
 use super::consts::TABLE_GAP;
 use super::format;
+use super::parse_ctx::KvParseCtx;
 use super::walk;
 
 /// One key/value section: optional title and rows (key, value).
@@ -76,7 +77,7 @@ impl Section {
 }
 
 /// Parse one blob into sections (either `csv_metadata` or walk). Returns empty vec on parse failure.
-fn parse_one_blob(blob: &str, max_array_inline: usize) -> Vec<Section> {
+fn parse_one_blob(blob: &str, ctx: KvParseCtx) -> Vec<Section> {
     let value: Value = match serde_json::from_str(blob.trim()) {
         Ok(v) => v,
         Err(_) => return vec![],
@@ -89,11 +90,15 @@ fn parse_one_blob(blob: &str, max_array_inline: usize) -> Vec<Section> {
         .and_then(Value::as_object)
         .unwrap_or(map);
     if column_metadata::is_compact_column_metadata(map) {
-        column_metadata::sections_from_column_metadata_root(map, max_array_inline)
+        column_metadata::sections_from_column_metadata_root(
+            map,
+            ctx.max_array_inline,
+            ctx.column_stats,
+        )
     } else if column_metadata::is_legacy_parallel_column_metadata(map) {
         column_metadata::sections_from_legacy_column_metadata_root(map)
     } else {
-        walk::root_parts_sections(map, max_array_inline)
+        walk::root_parts_sections(map, ctx.max_array_inline, ctx.column_stats)
     }
 }
 
@@ -102,12 +107,22 @@ fn parse_one_blob(blob: &str, max_array_inline: usize) -> Vec<Section> {
 /// For width-aware array display, use [`parse_json_sections_with`].
 #[must_use]
 pub fn parse_json_sections(json: &str) -> Vec<Section> {
-    parse_json_sections_with(json, format::DEFAULT_MAX_ARRAY_INLINE)
+    parse_json_sections_with(json, format::DEFAULT_MAX_ARRAY_INLINE, ColumnStatsDisplay::default())
 }
 
 /// Like [`parse_json_sections`], with `max_array_inline` passed through to value formatting (e.g. `shape` arrays).
 #[must_use]
-pub fn parse_json_sections_with(json: &str, max_array_inline: usize) -> Vec<Section> {
+pub fn parse_json_sections_with(
+    json: &str,
+    max_array_inline: usize,
+    column_stats: ColumnStatsDisplay,
+) -> Vec<Section> {
+    parse_json_sections_with_ctx(json, KvParseCtx::new(max_array_inline, column_stats))
+}
+
+/// Like [`parse_json_sections_with`], with an explicit [`KvParseCtx`].
+#[must_use]
+pub fn parse_json_sections_with_ctx(json: &str, ctx: KvParseCtx) -> Vec<Section> {
     let blobs: Vec<&str> = json
         .split("\n\n")
         .filter(|s| !s.trim().is_empty())
@@ -116,12 +131,12 @@ pub fn parse_json_sections_with(json: &str, max_array_inline: usize) -> Vec<Sect
     let mut sections: Vec<Section> = if blobs.len() >= PARALLEL.json_sections_blobs {
         blobs
             .par_iter()
-            .flat_map(|blob| parse_one_blob(blob, max_array_inline))
+            .flat_map(|blob| parse_one_blob(blob, ctx))
             .collect()
     } else {
         blobs
             .iter()
-            .flat_map(|blob| parse_one_blob(blob, max_array_inline))
+            .flat_map(|blob| parse_one_blob(blob, ctx))
             .collect()
     };
 
@@ -202,24 +217,40 @@ pub fn line_byte_starts(s: &str) -> Vec<usize> {
 /// [`content_height`] line layout). Uses a fixed array inline cap; for draw alignment use [`searchable_text_from_json_with`].
 #[must_use]
 pub fn searchable_text_from_json(json: &str) -> String {
-    searchable_text_from_json_with(json, format::DEFAULT_MAX_ARRAY_INLINE)
+    searchable_text_from_json_with(json, format::DEFAULT_MAX_ARRAY_INLINE, ColumnStatsDisplay::default())
 }
 
 /// Same as [`searchable_text_from_json`], with `max_array_inline` matching [`parse_json_sections_with`].
 #[must_use]
-pub fn searchable_text_from_json_with(json: &str, max_array_inline: usize) -> String {
-    let sections = parse_json_sections_with(json, max_array_inline);
+pub fn searchable_text_from_json_with(
+    json: &str,
+    max_array_inline: usize,
+    column_stats: ColumnStatsDisplay,
+) -> String {
+    searchable_text_from_json_with_ctx(json, KvParseCtx::new(max_array_inline, column_stats))
+}
+
+/// Same as [`searchable_text_from_json_with`], with an explicit [`KvParseCtx`].
+#[must_use]
+pub fn searchable_text_from_json_with_ctx(json: &str, ctx: KvParseCtx) -> String {
+    let sections = parse_json_sections_with_ctx(json, ctx);
     if sections.is_empty() {
         return json.to_string();
     }
-    let lines = visual_lines_from_sections(&sections, max_array_inline);
+    let lines = visual_lines_from_sections(&sections, ctx.max_array_inline);
     lines.join("\n")
 }
 
 /// Total line count for the parsed sections (title + header + data rows + gaps). Used for scrollbar and clamping.
 #[must_use]
-pub fn content_height(json: &str) -> u16 {
-    let sections = parse_json_sections(json);
+pub fn content_height(json: &str, column_stats: ColumnStatsDisplay) -> u16 {
+    content_height_with_ctx(json, KvParseCtx::new(format::DEFAULT_MAX_ARRAY_INLINE, column_stats))
+}
+
+/// Like [`content_height`], with an explicit [`KvParseCtx`].
+#[must_use]
+pub fn content_height_with_ctx(json: &str, ctx: KvParseCtx) -> u16 {
+    let sections = parse_json_sections_with_ctx(json, ctx);
     if sections.is_empty() {
         return 0;
     }

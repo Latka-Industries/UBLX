@@ -303,7 +303,9 @@ pub fn viewer_total_lines(
     scroll_viewport_h: Option<u16>,
 ) -> usize {
     match (state.right_pane_mode, use_kv_tables) {
-        (_, Some(json)) => kv_tables::content_height(json) as usize,
+        (_, Some(json)) => {
+            kv_tables::content_height(json, state.panels.column_stats) as usize
+        }
         (RightPaneMode::Viewer, _) => {
             viewer_total_lines_for_viewer(right_content, content_width, state, scroll_viewport_h)
         }
@@ -671,6 +673,7 @@ pub fn json_tab_find_haystack(
     right_content: &RightPaneContent,
     mode: RightPaneMode,
     content_width: u16,
+    column_stats: crate::config::ColumnStatsDisplay,
 ) -> Option<String> {
     let json = match mode {
         RightPaneMode::Metadata => right_content.metadata.as_deref(),
@@ -680,9 +683,8 @@ pub fn json_tab_find_haystack(
     if json.trim().is_empty() {
         return None;
     }
-    let value_w = kv_tables::format::value_width_from_table_width(content_width);
-    let max_inline = kv_tables::format::max_array_inline_for_value_width(value_w);
-    Some(kv_tables::searchable_text_from_json_with(json, max_inline))
+    let ctx = kv_tables::KvParseCtx::from_content_width(content_width, column_stats);
+    Some(kv_tables::searchable_text_from_json_with_ctx(json, ctx))
 }
 
 #[must_use]
@@ -692,7 +694,12 @@ pub fn viewer_find_haystack_text(
     content_width: u16,
 ) -> String {
     ensure_viewer_text_cache(state, right_content, content_width);
-    if let Some(h) = json_tab_find_haystack(right_content, state.right_pane_mode, content_width) {
+    if let Some(h) = json_tab_find_haystack(
+        right_content,
+        state.right_pane_mode,
+        content_width,
+        state.panels.column_stats,
+    ) {
         return h;
     }
     text_to_plain_string(&content_display_text(
@@ -724,7 +731,12 @@ pub fn haystack_for_right_pane_mode(
     let saved = state.right_pane_mode;
     state.right_pane_mode = mode;
     ensure_viewer_text_cache(state, right_content, content_width);
-    let out = if let Some(h) = json_tab_find_haystack(right_content, mode, content_width) {
+    let out = if let Some(h) = json_tab_find_haystack(
+        right_content,
+        mode,
+        content_width,
+        state.panels.column_stats,
+    ) {
         h
     } else {
         text_to_plain_string(&content_display_text(

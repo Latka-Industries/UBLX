@@ -34,6 +34,27 @@ pub enum EnhancePolicy {
     Manual,
 }
 
+/// Right-pane Zahir **column stats** tables (`columns` compact JSON): none, abbreviated, or full.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ColumnStatsDisplay {
+    /// Hide typed column-stat tables; other metadata KV rows still render.
+    None,
+    /// Default: name, null %, and a short stat set per type (e.g. min/max/mean for numbers).
+    #[default]
+    Abbrev,
+    /// All stats present in the Zahir JSON.
+    Full,
+}
+
+impl ColumnStatsDisplay {
+    /// Typed per-column stat tables (compact `columns` JSON) are rendered when true.
+    #[must_use]
+    pub const fn shows_tables(self) -> bool {
+        !matches!(self, Self::None)
+    }
+}
+
 /// How to encode OSC 11 background when [`UblxOverlay::bg_opacity`] &lt; 1. `WezTerm` needs **`rgba`**; some
 /// terminals prefer **`hex8`** (`#RRGGBBAA`).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Deserialize, Serialize)]
@@ -60,7 +81,7 @@ pub struct EnhancePolicyEntry {
 /// **Global-only keys** (see [`strip_global_only_keys_from_local_overlay`]): [`Self::opacity_format`],
 /// [`Self::ask_enhance_on_new_root`]. Project-local files must not override these; they are stripped before merge and when saving local TOML.
 ///
-/// [theme], [layout], [hash], [`show_hidden_files`], [`Self::run_snapshot_on_startup`], and [`UblxOverlay::bg_opacity`] are hot-reloadable; [exclude] is applied only at startup.
+/// [theme], [layout], [hash], [`show_hidden_files`], [`Self::column_stats`], [`Self::run_snapshot_on_startup`], and [`UblxOverlay::bg_opacity`] are hot-reloadable; [exclude] is applied only at startup.
 #[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
 #[serde(default)]
 pub struct UblxOverlay {
@@ -101,6 +122,9 @@ pub struct UblxOverlay {
     /// When `true` (default), spawn a background index/snapshot when the TUI starts (if not first-run deferred). Set in global and/or local overlay; local wins on merge when both set.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub run_snapshot_on_startup: Option<bool>,
+    /// Typed column-stat tables in Metadata / Writing tabs. Global and local; local wins on merge. Default when omitted: [`ColumnStatsDisplay::Abbrev`].
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub column_stats: Option<ColumnStatsDisplay>,
 }
 
 /// Remove keys that apply only from global `ublx.toml`, so project-local merge and local file writes cannot set them.
@@ -148,6 +172,9 @@ impl UblxOverlay {
         }
         if other.run_snapshot_on_startup.is_some() {
             self.run_snapshot_on_startup = other.run_snapshot_on_startup;
+        }
+        if other.column_stats.is_some() {
+            self.column_stats = other.column_stats;
         }
     }
 

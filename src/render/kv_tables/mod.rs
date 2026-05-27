@@ -30,6 +30,7 @@ pub mod column_metadata;
 pub mod consts;
 pub mod draw;
 pub mod format;
+pub mod parse_ctx;
 pub mod ratatui_table;
 pub mod schema;
 pub mod sections;
@@ -37,6 +38,7 @@ pub mod tabular;
 pub mod walk;
 pub mod xlsx;
 
+pub use parse_ctx::KvParseCtx;
 pub use draw::*;
 pub use sections::*;
 pub use walk::WalkKeyVars;

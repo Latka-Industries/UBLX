@@ -63,6 +63,8 @@ pub struct PanelState {
     pub category_marquee: ContentMarqueeState,
     /// Marquee for the middle contents path list when the selected row overflows (Snapshot / Delta / Duplicates / Lenses).
     pub content_marquee: ContentMarqueeState,
+    /// Zahir compact `columns` table verbosity in Metadata / Writing tabs.
+    pub column_stats: crate::config::ColumnStatsDisplay,
 }
 
 impl PanelState {

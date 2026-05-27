@@ -109,6 +109,7 @@ fn opts_with(enable_enhance_all: bool, entries: Vec<EnhancePolicyEntry>) -> Ublx
         with_hash_cache_before_apply: None,
         enhance_policy: entries,
         run_snapshot_on_startup: true,
+        column_stats: ublx::config::ColumnStatsDisplay::default(),
     }
 }
 
@@ -171,4 +172,26 @@ fn deserializes_legacy_always_never_toml() {
     let entries = overlay.enhance_policy.expect("entries");
     assert_eq!(entries[0].policy, EnhancePolicy::Auto);
     assert_eq!(entries[1].policy, EnhancePolicy::Manual);
+}
+
+#[test]
+fn column_stats_overlay_merge_local_overrides_global() {
+    use ublx::config::ColumnStatsDisplay;
+    let global = UblxOverlay {
+        column_stats: Some(ColumnStatsDisplay::Full),
+        ..Default::default()
+    };
+    let local = UblxOverlay {
+        column_stats: Some(ColumnStatsDisplay::None),
+        ..Default::default()
+    };
+    let m = UblxOverlay::merge(Some(global), Some(local));
+    assert_eq!(m.column_stats, Some(ColumnStatsDisplay::None));
+}
+
+#[test]
+fn column_stats_overlay_parse_toml() {
+    use ublx::config::ColumnStatsDisplay;
+    let overlay: UblxOverlay = toml::from_str("column_stats = \"abbrev\"\n").unwrap();
+    assert_eq!(overlay.column_stats, Some(ColumnStatsDisplay::Abbrev));
 }

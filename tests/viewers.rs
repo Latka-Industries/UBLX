@@ -344,7 +344,7 @@ fn viewer_total_lines_kv_tables_matches_content_height() {
     rc.metadata = Some(json.to_string());
     let w = 80u16;
     let n = panes::viewer_total_lines(&rc, w, Some(json), &mut state, None);
-    assert_eq!(n, kv_tables::content_height(json) as usize);
+    assert_eq!(n, kv_tables::content_height(json, ublx::config::ColumnStatsDisplay::default()) as usize);
 }
 
 #[test]

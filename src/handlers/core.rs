@@ -297,6 +297,7 @@ pub fn run_tui_session(
         )
     };
     let mut state = setup::UblxState::new();
+    ublx_opts.sync_panels_display(&mut state.panels);
     state.right_pane_async.rx = right_pane_async_rx;
     {
         let paths = config::UblxPaths::new(params.dir_to_ublx.as_path());
