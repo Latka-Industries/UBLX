@@ -82,9 +82,9 @@ impl ColumnType {
 const TYPE_UNKNOWN: &str = "unknown";
 
 /// [`ColumnStatsDisplay::Abbrev`]: typed column tables longer than this show only [`ABBREV_TABLE_MAX_ROWS`].
-const ABBREV_TABLE_ROW_THRESHOLD: usize = 15;
+const ABBREV_TABLE_ROW_THRESHOLD: usize = 20;
 /// [`ColumnStatsDisplay::Abbrev`]: max data rows when over [`ABBREV_TABLE_ROW_THRESHOLD`].
-const ABBREV_TABLE_MAX_ROWS: usize = 10;
+const ABBREV_TABLE_MAX_ROWS: usize = 20;
 
 fn abbrev_cap_entries(entries: Vec<Value>, mode: ColumnStatsDisplay) -> (Vec<Value>, bool) {
     if mode != ColumnStatsDisplay::Abbrev || entries.len() <= ABBREV_TABLE_ROW_THRESHOLD {

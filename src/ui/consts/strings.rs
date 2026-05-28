@@ -525,7 +525,7 @@ impl UiStrings {
             typed_column_tables_none: " none ",
             typed_column_tables_abbrev: " abbrev ",
             typed_column_tables_full: " full ",
-            typed_column_tables_footnote: "none: hide String/Number/… column tables in Metadata; abbrev: cap tables longer than 15 columns to 10 rows; full: show all metadata",
+            typed_column_tables_footnote: "none: hide String/Number/… column tables in Metadata; abbrev: cap tables longer than 20 rows to 20 rows; full: show all metadata",
             opacity_format_label: "opacity_format: ",
             rgba_toggle: " rgba ",
             hex8_toggle: " hex8 ",

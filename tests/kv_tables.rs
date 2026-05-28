@@ -191,7 +191,7 @@ fn column_stats_abbrev_caps_long_tables() {
     use ublx::config::ColumnStatsDisplay;
     use ublx::render::kv_tables::{Section, parse_json_sections_with};
     let mut columns = String::from("[");
-    for i in 0..20 {
+    for i in 0..25 {
         if i > 0 {
             columns.push(',');
         }
@@ -217,9 +217,9 @@ fn column_stats_abbrev_caps_long_tables() {
             _ => None,
         })
         .expect("string columns table");
-    assert_eq!(abbrev_table.entries.len(), 10);
-    assert!(abbrev_table.title.contains("(10/20)"));
-    assert_eq!(full_table.entries.len(), 20);
+    assert_eq!(abbrev_table.entries.len(), 20);
+    assert!(abbrev_table.title.contains("(20/25)"));
+    assert_eq!(full_table.entries.len(), 25);
 }
 
 #[test]
