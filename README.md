@@ -2,7 +2,7 @@
 
 [![Crates.io](https://img.shields.io/crates/v/ublx.svg)](https://crates.io/crates/ublx)
 [![docs.rs](https://img.shields.io/docsrs/ublx)](https://docs.rs/ublx)
-![Build](https://github.com/thicclatka/ublx/workflows/Build/badge.svg)
+![Build](https://github.com/Latka-Industries/UBLX/workflows/Build/badge.svg)
 ![Rust](https://img.shields.io/badge/rust-1.95-orange.svg)
 
 [\_Ublx ... Safe when taken as directed.][ubik]
@@ -30,8 +30,8 @@ UBLX is a **TUI that turns any directory into a flat, navigable catalog** — ca
 ### Homebrew
 
 ```bash
-brew tap thicclatka/ublx https://github.com/thicclatka/ublx
-brew install thicclatka/ublx/ublx
+brew tap Latka-Industries/ublx https://github.com/Latka-Industries/UBLX
+brew install Latka-Industries/ublx/ublx
 ```
 
 ### Cargo
@@ -193,13 +193,13 @@ Options:
 
 Dual-licensed under [MIT](LICENSE-MIT) or [Apache-2.0](LICENSE-APACHE).
 
-[nefaxer]: https://github.com/thicclatka/nefaxer
+[nefaxer]: https://github.com/Latka-Industries/nefaxer
 [nerd-fonts]: https://github.com/ryanoasis/nerd-fonts
 [ratatui-image]: https://github.com/ratatui-org/ratatui-image
 [sublime-syntaxes]: https://crates.io/crates/sublime_syntaxes
 [syntect]: https://github.com/trishume/syntect
-[tetration]: https://github.com/thicclatka/tetration
+[tetration]: https://github.com/Latka-Industries/tetration
 [ubik]: https://bookshop.org/p/books/ubik-philip-k-dick/1fc432e3ade32290
 [yazi]: https://github.com/sxyazi/yazi
-[zahirscan]: https://github.com/thicclatka/zahirscan
-[zahirscan-formats]: https://github.com/thicclatka/zahirscan#metadata-extraction-by-format
+[zahirscan]: https://github.com/Latka-Industries/zahirscan
+[zahirscan-formats]: https://github.com/Latka-Industries/zahirscan#metadata-extraction-by-format
