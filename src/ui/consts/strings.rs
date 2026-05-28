@@ -196,6 +196,11 @@ pub struct UiStringsSettingsBool {
 pub struct UiStringsSettingsPane {
     pub global_careful_title: &'static str,
     pub global_careful_detail: &'static str,
+    pub typed_column_tables_label: &'static str,
+    pub typed_column_tables_none: &'static str,
+    pub typed_column_tables_abbrev: &'static str,
+    pub typed_column_tables_full: &'static str,
+    pub typed_column_tables_footnote: &'static str,
     pub opacity_format_label: &'static str,
     pub rgba_toggle: &'static str,
     pub hex8_toggle: &'static str,
@@ -516,6 +521,11 @@ impl UiStrings {
         UiStringsSettingsPane {
             global_careful_title: "BE CAREFUL: CHANGING GLOBAL SETTINGS",
             global_careful_detail: "Any change here affects values not set in local",
+            typed_column_tables_label: "typed_column_tables: ",
+            typed_column_tables_none: " none ",
+            typed_column_tables_abbrev: " abbrev ",
+            typed_column_tables_full: " full ",
+            typed_column_tables_footnote: "none: hide String/Number/… column tables in Metadata; abbrev: cap tables longer than 20 rows to 20 rows; full: show all metadata",
             opacity_format_label: "opacity_format: ",
             rgba_toggle: " rgba ",
             hex8_toggle: " hex8 ",

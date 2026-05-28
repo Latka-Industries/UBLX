@@ -37,11 +37,16 @@ pub fn on_first_tick(state_mut: &mut UblxState, params_ref: &RunUblxParams<'_>) 
 }
 
 /// Copy theme / layout / background opacity from [`UblxOpts`] into [`RunUblxParams`] after reload, and refresh OSC 11.
-pub fn sync_run_params_from_opts(params_mut: &mut RunUblxParams<'_>, ublx_opts_ref: &UblxOpts) {
+pub fn sync_run_params_from_opts(
+    params_mut: &mut RunUblxParams<'_>,
+    ublx_opts_ref: &UblxOpts,
+    state_mut: &mut UblxState,
+) {
     params_mut.theme.clone_from(&ublx_opts_ref.theme);
     params_mut.layout.clone_from(&ublx_opts_ref.layout);
     params_mut.bg_opacity = ublx_opts_ref.bg_opacity.unwrap_or(1.0);
     params_mut.opacity_format = ublx_opts_ref.opacity_format;
+    ublx_opts_ref.sync_panels_display(&mut state_mut.panels);
     let _ = sync_osc11_page_background(
         params_mut.theme.as_deref(),
         params_mut.bg_opacity,
@@ -89,7 +94,7 @@ pub fn apply_config_reload(
     let result = ublx_opts_mut.reload_hot_config(&paths, &valid_themes);
 
     if result.applied {
-        sync_run_params_from_opts(params_mut, ublx_opts_mut);
+        sync_run_params_from_opts(params_mut, ublx_opts_mut, state_mut);
         set_snapshot_cache_before_apply_on_flip_to_true(
             !old_enable_enhance_all && ublx_opts_mut.enable_enhance_all,
             &mut ublx_opts_mut.enable_enhance_all_cache_before_apply,
@@ -102,7 +107,7 @@ pub fn apply_config_reload(
             show_operation_toast(state_mut, params_mut, msg, "settings", log::Level::Info);
         }
     } else if !result.validation_errors.is_empty() {
-        sync_run_params_from_opts(params_mut, ublx_opts_mut);
+        sync_run_params_from_opts(params_mut, ublx_opts_mut, state_mut);
         let msg = first_validation_error_message(&result.validation_errors);
         let warn_msg = format!("Config validation: {msg}");
         show_operation_toast(

@@ -8,7 +8,12 @@ use log::warn;
 use crate::config::paths::{UblxPaths, normalize_rel_path_for_policy};
 use crate::config::theme::auto_correct_theme_name;
 
-use super::{EnhancePolicy, EnhancePolicyEntry, LayoutOverlay, UblxOverlay};
+use super::{ColumnStatsDisplay, EnhancePolicy, EnhancePolicyEntry, LayoutOverlay, UblxOverlay};
+
+/// When true, [`ensure_local_config_file_with_defaults`] backfills missing template keys into an
+/// existing project `.ublx.toml` / `ublx.toml`. Off by default — global backfill only for now.
+#[allow(dead_code)]
+const BACKFILL_LOCAL_CONFIG_ON_DISK: bool = false;
 
 /// Creates `path.parent()` when set; logs `could not create {what} …` and returns `false` on failure.
 fn ensure_parent_dir(path: &Path, what: &str) -> bool {
@@ -33,59 +38,58 @@ pub fn default_overlay_for_new_file(default_theme_display_name: &str) -> UblxOve
         enable_enhance_all: Some(false),
         ask_enhance_on_new_root: Some(true),
         run_snapshot_on_startup: Some(true),
+        typed_column_tables: Some(ColumnStatsDisplay::default()),
         ..Default::default()
     }
 }
 
-/// Create `~/.config/ublx/ublx.toml` with [`default_overlay_for_new_file`] when missing (once per app dir).
+/// Create `~/.config/ublx/ublx.toml` with [`default_overlay_for_new_file`] when missing, or backfill
+/// newly introduced template keys into an existing file (additive only; never overwrites user values).
 pub fn ensure_global_config_file_with_defaults(
     global_path: &Path,
     default_theme_display_name: &str,
 ) {
-    if global_path.exists() {
-        return;
-    }
     if !ensure_parent_dir(global_path, "global config parent") {
         return;
     }
-    let overlay = default_overlay_for_new_file(default_theme_display_name);
-    match toml::to_string_pretty(&overlay) {
-        Ok(s) => {
-            if let Err(e) = fs::write(global_path, s) {
-                warn!(
-                    "could not write default global config {}: {}",
-                    global_path.display(),
-                    e
-                );
-            }
-        }
-        Err(e) => warn!("could not serialize default global overlay: {e}"),
+    let template = default_overlay_for_new_file(default_theme_display_name);
+    if global_path.exists() {
+        backfill_config_file_if_needed(global_path, &template, false);
+        return;
     }
+    write_ublx_overlay_at(global_path, &template);
 }
 
 /// Ensure the local config file used for the indexed dir exists (visible `ublx.toml` preferred when creating).
+/// When [`BACKFILL_LOCAL_CONFIG_ON_DISK`] is enabled, also backfills missing template keys into an existing file.
 /// Call when opening the Settings tab so first-run (no local file) still gets an on-disk template without breaking
 /// the welcome gate [`crate::config::paths::should_show_initial_prompt`] (only the `ubli/` DB file gates that flow).
 pub fn ensure_local_config_file_with_defaults(paths: &UblxPaths, default_theme_display_name: &str) {
     let path = paths.toml_path().unwrap_or_else(|| paths.hidden_toml());
     if path.exists() {
+        if BACKFILL_LOCAL_CONFIG_ON_DISK {
+            if !ensure_parent_dir(&path, "local config parent") {
+                return;
+            }
+            let template = default_overlay_for_new_file(default_theme_display_name);
+            backfill_config_file_if_needed(&path, &template, true);
+        }
         return;
     }
     if !ensure_parent_dir(&path, "local config parent") {
         return;
     }
     let overlay = default_overlay_for_new_file(default_theme_display_name);
-    match toml::to_string_pretty(&overlay) {
-        Ok(s) => {
-            if let Err(e) = fs::write(&path, s) {
-                warn!(
-                    "could not write default local config {}: {}",
-                    path.display(),
-                    e
-                );
-            }
-        }
-        Err(e) => warn!("could not serialize default local overlay: {e}"),
+    write_ublx_overlay_at(&path, &overlay);
+}
+
+/// When `local_scope` is true, global-only keys ([`super::strip_global_only_keys_from_local_overlay`]) are not backfilled.
+fn backfill_config_file_if_needed(path: &Path, template: &UblxOverlay, local_scope: bool) {
+    let Some(mut overlay) = load_ublx_toml(Some(path.to_path_buf()), None) else {
+        return;
+    };
+    if overlay.backfill_missing_from_template(template, local_scope) {
+        write_ublx_overlay_at(path, &overlay);
     }
 }
 

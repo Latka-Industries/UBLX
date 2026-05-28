@@ -22,11 +22,13 @@
 use serde_json::{Map, Value};
 use std::collections::HashSet;
 
+use crate::config::ColumnStatsDisplay;
 use crate::ui::UI_STRINGS;
 
 use super::column_metadata;
 use super::consts::SectionKeys;
 use super::format;
+use super::parse_ctx::KvParseCtx;
 use super::schema;
 use super::sections::{ContentsSection, KvSection, Section, SingleColumnListSection};
 use super::tabular::{
@@ -50,49 +52,8 @@ impl WalkKeyVars {
     pub const DEFAULT_COLUMN_LABEL: &'static str = "column";
 }
 
-/// Flatten a map to key/value rows with [`format::format_key`] / [`format::format_value`].
-/// Does not apply tabular merging; use [`super::tabular::map_to_kv_rows_merging_tabular_lists`] for that.
-fn map_to_kv_rows(
-    map_ref: &Map<String, Value>,
-    exclude_key: Option<&str>,
-    max_array_inline: usize,
-) -> Vec<(String, String)> {
-    map_ref
-        .iter()
-        .filter(|(k, _)| exclude_key != Some(k.as_str()))
-        .map(|(k, val)| {
-            (
-                format::format_key(k),
-                format::format_value(val, k, max_array_inline),
-            )
-        })
-        .collect()
-}
-
 /// Per-walk limits for formatting JSON in table cells (see [`format::format_value`]).
-#[derive(Clone, Copy)]
-pub struct WalkCtx {
-    /// Inline width for small primitive arrays before falling back to full JSON text.
-    pub max_array_inline: usize,
-}
-
-impl Default for WalkCtx {
-    fn default() -> Self {
-        Self {
-            max_array_inline: format::DEFAULT_MAX_ARRAY_INLINE,
-        }
-    }
-}
-
-impl WalkCtx {
-    /// Builds context; [`WalkCtx::max_array_inline`] is clamped to at least 1.
-    #[must_use]
-    pub fn new(max_array_inline: usize) -> Self {
-        Self {
-            max_array_inline: max_array_inline.max(1),
-        }
-    }
-}
+pub type WalkCtx = KvParseCtx;
 
 /// Clones `map_ref` and removes [`WalkKeyVars::FILE_TYPE`] so it is not shown again in KV tables.
 fn map_without_display_file_type(map_ref: &Map<String, Value>) -> Map<String, Value> {
@@ -157,9 +118,13 @@ fn push_contents_from_entries(
 
 /// Parses `map_ref` into a new `Vec` of sections (convenience wrapper around [`push_root_parts`]).
 #[must_use]
-pub fn root_parts_sections(map_ref: &Map<String, Value>, max_array_inline: usize) -> Vec<Section> {
+pub fn root_parts_sections(
+    map_ref: &Map<String, Value>,
+    max_array_inline: usize,
+    column_stats: ColumnStatsDisplay,
+) -> Vec<Section> {
     let mut sections = Vec::new();
-    push_root_parts(&mut sections, map_ref, max_array_inline);
+    push_root_parts(&mut sections, map_ref, max_array_inline, column_stats);
     sections
 }
 
@@ -168,8 +133,9 @@ pub fn push_root_parts(
     sections_mut_ref: &mut Vec<Section>,
     map_ref: &Map<String, Value>,
     max_array_inline: usize,
+    column_stats: ColumnStatsDisplay,
 ) {
-    let ctx = WalkCtx::new(max_array_inline);
+    let ctx = KvParseCtx::new(max_array_inline, column_stats);
     let map_owned = map_without_display_file_type(map_ref);
     push_root_parts_inner(sections_mut_ref, &map_owned, ctx);
 }
@@ -213,6 +179,7 @@ fn push_root_parts_inner(
                     &map,
                     ctx.max_array_inline,
                     None,
+                    ctx.typed_column_tables,
                 );
             }
             RootCsvMetadata::Legacy { display_title } => {
@@ -475,6 +442,7 @@ fn push_tables_sections(
                 v,
                 walk_ctx.max_array_inline,
                 title_override,
+                walk_ctx.typed_column_tables,
             );
             continue;
         }
@@ -503,6 +471,7 @@ fn push_tables_sections(
                 sections_mut_ref.extend(column_metadata::typed_sections_from_compact_columns(
                     col_arr,
                     Some(table_name.as_str()),
+                    walk_ctx.typed_column_tables,
                 ));
             } else if let Some((column_keys, columns, entries)) =
                 object_array_to_contents_data(col_arr)
@@ -519,6 +488,7 @@ fn push_tables_sections(
                     &table_name,
                     &entries,
                     walk_ctx.max_array_inline,
+                    walk_ctx.typed_column_tables,
                 );
             }
         }
@@ -540,7 +510,11 @@ fn push_column_stats_sections(
     table_name_ref: &str,
     column_objs_ref: &[Value],
     max_array_inline: usize,
+    mode: ColumnStatsDisplay,
 ) {
+    if !mode.shows_tables() {
+        return;
+    }
     for col in column_objs_ref.iter().filter_map(Value::as_object) {
         let col_name = object_name_or(col, WalkKeyVars::DEFAULT_COLUMN_LABEL);
         for (stats_key, stats_val) in col {
@@ -548,7 +522,12 @@ fn push_column_stats_sections(
                 continue;
             }
             if let Some(stats_obj) = stats_val.as_object() {
-                let rows = map_to_kv_rows(stats_obj, None, max_array_inline);
+                let rows = column_metadata::nested_stats_kv_rows(
+                    stats_key,
+                    stats_obj,
+                    max_array_inline,
+                    mode,
+                );
                 if !rows.is_empty() {
                     let stats_label = format::format_key(stats_key);
                     sections_mut_ref.push(Section::KeyValue(KvSection {
@@ -585,6 +564,7 @@ pub fn process_nested_map(
             map_ref,
             ctx_ref.max_array_inline,
             Some(own_title.as_str()),
+            ctx_ref.typed_column_tables,
         );
         return;
     }

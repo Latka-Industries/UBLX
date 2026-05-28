@@ -128,7 +128,7 @@ pub(super) fn kv_rows_for_map_field(
     )]
 }
 
-/// Like [`super::map_to_kv_rows`], but array fields with tabular shapes merge as multiple rows.
+/// Flatten a map to key/value rows; array fields with tabular shapes merge as multiple rows.
 pub(super) fn map_to_kv_rows_merging_tabular_lists(
     map_ref: &serde_json::Map<String, Value>,
     exclude_key: Option<&str>,

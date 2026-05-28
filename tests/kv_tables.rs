@@ -64,7 +64,7 @@ fn line_byte_starts_matches_joined_lines() {
 #[test]
 fn content_height_matches_kv_metrics() {
     let json = r#"{"x": 1}"#;
-    let h = content_height(json);
+    let h = content_height(json, ublx::config::ColumnStatsDisplay::default());
     let sections = parse_json_sections(json);
     let mut expected: u16 = 0;
     for (i, section) in sections.iter().enumerate() {
@@ -184,4 +184,78 @@ fn contents_natural_widths_parallel_path_deterministic() {
     let b = contents_natural_widths(&section, start, end, DEFAULT_MAX_ARRAY_INLINE);
     assert_eq!(a, b);
     assert_eq!(a.len(), 1);
+}
+
+#[test]
+fn column_stats_abbrev_caps_long_tables() {
+    use ublx::config::ColumnStatsDisplay;
+    use ublx::render::kv_tables::{Section, parse_json_sections_with};
+    let mut columns = String::from("[");
+    for i in 0..25 {
+        if i > 0 {
+            columns.push(',');
+        }
+        columns.push_str(&format!(
+            r#"{{"i": {i}, "name": "col_{i}", "t": "string", "null_pct": 0.0}}"#
+        ));
+    }
+    columns.push(']');
+    let json = format!(r#"{{"row_count": 100, "columns": {columns}}}"#);
+    let abbrev = parse_json_sections_with(&json, 80, ColumnStatsDisplay::Abbrev);
+    let full = parse_json_sections_with(&json, 80, ColumnStatsDisplay::Full);
+    let abbrev_table = abbrev
+        .iter()
+        .find_map(|s| match s {
+            Section::Contents(c) => Some(c),
+            _ => None,
+        })
+        .expect("string columns table");
+    let full_table = full
+        .iter()
+        .find_map(|s| match s {
+            Section::Contents(c) => Some(c),
+            _ => None,
+        })
+        .expect("string columns table");
+    assert_eq!(abbrev_table.entries.len(), 20);
+    assert!(abbrev_table.title.contains("(20/25)"));
+    assert_eq!(full_table.entries.len(), 25);
+}
+
+#[test]
+fn column_stats_abbrev_keeps_all_stat_columns_on_short_table() {
+    use ublx::config::ColumnStatsDisplay;
+    use ublx::render::kv_tables::{Section, parse_json_sections_with};
+    let json = r#"{
+        "row_count": 100,
+        "columns": [
+            {"i": 0, "name": "x", "t": "number", "null_pct": 0.0,
+             "num": {"min": 1.0, "max": 9.0, "mean": 5.0, "median": 5.0, "stdev": 2.0}}
+        ]
+    }"#;
+    let sections = parse_json_sections_with(json, 80, ColumnStatsDisplay::Abbrev);
+    let contents = sections
+        .iter()
+        .find_map(|s| match s {
+            Section::Contents(c) => Some(c),
+            _ => None,
+        })
+        .expect("number columns table");
+    assert_eq!(contents.entries.len(), 1);
+    assert!(contents.column_keys.iter().any(|k| k == "median"));
+    assert!(contents.column_keys.iter().any(|k| k == "stdev"));
+}
+
+#[test]
+fn column_stats_none_skips_tables() {
+    use ublx::config::ColumnStatsDisplay;
+    use ublx::render::kv_tables::{Section, parse_json_sections_with};
+    let json = r#"{
+        "row_count": 100,
+        "columns": [
+            {"i": 0, "name": "x", "t": "number", "num": {"min": 1.0, "max": 9.0, "mean": 5.0}}
+        ]
+    }"#;
+    let sections = parse_json_sections_with(json, 80, ColumnStatsDisplay::None);
+    assert!(sections.iter().all(|s| !matches!(s, Section::Contents(_))));
 }

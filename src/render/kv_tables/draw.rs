@@ -8,7 +8,6 @@ use crate::modules::viewer_search;
 use crate::ui::UI_STRINGS;
 
 use super::consts::TABLE_GAP;
-use super::format;
 use super::ratatui_table;
 use super::sections;
 use super::sections::{ContentsSection, KvSection, Section, SingleColumnListSection};
@@ -407,9 +406,9 @@ pub fn draw_tables(
     use ratatui::widgets::Paragraph;
 
     let table_area = style::rect_with_h_pad(area);
-    let value_w = format::value_width_from_table_width(table_area.width);
-    let max_array_inline = format::max_array_inline_for_value_width(value_w);
-    let sections = sections::parse_json_sections_with(json, max_array_inline);
+    let ctx =
+        super::KvParseCtx::from_table_width(table_area.width, state.panels.typed_column_tables);
+    let sections = sections::parse_json_sections_with_ctx(json, ctx);
     if sections.is_empty() {
         f.render_widget(
             Paragraph::new(UI_STRINGS.pane.not_available).style(style::text_style()),
@@ -427,7 +426,7 @@ pub fn draw_tables(
     let line_starts_vec = if viewer_search::option_needle_nonempty(find_needle)
         && !state.viewer_find.ranges.is_empty()
     {
-        let hay = sections::searchable_text_from_json_with(json, max_array_inline);
+        let hay = sections::searchable_text_from_json_with_ctx(json, ctx);
         Some(sections::line_byte_starts(&hay))
     } else {
         None
@@ -443,7 +442,7 @@ pub fn draw_tables(
         line_starts,
         find_ranges: &state.viewer_find.ranges,
         find_current: state.viewer_find.current,
-        max_array_inline,
+        max_array_inline: ctx.max_array_inline,
         metadata_mode: state.right_pane_mode == crate::layout::setup::RightPaneMode::Metadata,
         current_line_idx: current_find_line_idx(
             line_starts,

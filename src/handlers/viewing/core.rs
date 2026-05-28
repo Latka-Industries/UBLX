@@ -15,7 +15,7 @@ use crate::layout::setup::{
 };
 use crate::render::kv_tables::WalkKeyVars;
 use crate::ui::UI_STRINGS;
-use crate::utils;
+use crate::utils::{self, path_is_tet_file};
 
 use super::zarrstore::{ZarrStoreRightPaneView, right_pane_from_zarr_tree_and_zahir};
 
@@ -186,8 +186,16 @@ fn resolve_viewer_disk_payload(
     let viewer_can_open = !utils::is_likely_binary(full_path)
         || matches!(
             viewer_zahir_type,
-            Some(ZahirFT::Image | ZahirFT::Pdf | ZahirFT::Video | ZahirFT::Audio | ZahirFT::Epub)
-        );
+            Some(
+                ZahirFT::Image
+                    | ZahirFT::Pdf
+                    | ZahirFT::Video
+                    | ZahirFT::Audio
+                    | ZahirFT::Epub
+                    | ZahirFT::Tetration
+            )
+        )
+        || path_is_tet_file(full_path);
     let cache = meta_opt_ref.map(|meta| ViewerDiskContentCache {
         rel_path: path.to_string(),
         category: category.to_string(),
@@ -237,7 +245,8 @@ pub fn build_non_directory_right_pane_inner(
     let viewer_mtime_ns = *viewer_mtime_ns;
     let enable_enhance_all = *enable_enhance_all;
 
-    let viewer_zahir_type = file_type_from_metadata_name(category);
+    let viewer_zahir_type = file_type_from_metadata_name(category)
+        .or_else(|| path_is_tet_file(full_path).then_some(ZahirFT::Tetration));
 
     let meta_opt = std::fs::metadata(full_path).ok();
     let disk_cache_hit = meta_opt
