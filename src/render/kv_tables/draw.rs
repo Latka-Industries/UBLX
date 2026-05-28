@@ -406,7 +406,8 @@ pub fn draw_tables(
     use ratatui::widgets::Paragraph;
 
     let table_area = style::rect_with_h_pad(area);
-    let ctx = super::KvParseCtx::from_table_width(table_area.width, state.panels.column_stats);
+    let ctx =
+        super::KvParseCtx::from_table_width(table_area.width, state.panels.typed_column_tables);
     let sections = sections::parse_json_sections_with_ctx(json, ctx);
     if sections.is_empty() {
         f.render_widget(

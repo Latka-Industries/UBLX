@@ -304,7 +304,7 @@ pub fn viewer_total_lines(
 ) -> usize {
     match (state.right_pane_mode, use_kv_tables) {
         (_, Some(json)) => {
-            kv_tables::content_height(json, state.panels.column_stats) as usize
+            kv_tables::content_height(json, state.panels.typed_column_tables) as usize
         }
         (RightPaneMode::Viewer, _) => {
             viewer_total_lines_for_viewer(right_content, content_width, state, scroll_viewport_h)
@@ -698,7 +698,7 @@ pub fn viewer_find_haystack_text(
         right_content,
         state.right_pane_mode,
         content_width,
-        state.panels.column_stats,
+        state.panels.typed_column_tables,
     ) {
         return h;
     }
@@ -735,7 +735,7 @@ pub fn haystack_for_right_pane_mode(
         right_content,
         mode,
         content_width,
-        state.panels.column_stats,
+        state.panels.typed_column_tables,
     ) {
         h
     } else {

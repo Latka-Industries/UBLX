@@ -141,7 +141,7 @@ fn sync_layout_buffers_for_scope(
 /// Refresh `editing_path` and layout buffers from disk.
 ///
 /// When scope is Global and the global path is known, writes the default global TOML there if missing
-/// ([`ensure_global_config_file_with_defaults`]) — same behavior as TUI startup.
+/// or backfills new template keys ([`ensure_global_config_file_with_defaults`]) — same behavior as TUI startup.
 pub fn refresh_editing_metadata(state_mut: &mut UblxState, params_ref: &RunUblxParams<'_>) {
     let paths = UblxPaths::new(&params_ref.dir_to_ublx);
     let scope = state_mut.settings.scope;

@@ -17,6 +17,7 @@ use super::apply_config_reload;
 use super::bool_rows;
 use super::context;
 use super::layout_edit;
+use super::typed_column_tables_row;
 
 pub fn on_enter_settings(state_mut: &mut UblxState, params_ref: &RunUblxParams<'_>) {
     state_mut.settings.left_cursor = 0;
@@ -82,6 +83,42 @@ fn submit_settings_bool_row(
         params_mut,
         msg,
         "settings-bool",
+        log::Level::Info,
+    );
+}
+
+fn submit_settings_typed_column_tables_row(
+    state_mut: &mut UblxState,
+    params_mut: &mut RunUblxParams<'_>,
+    ublx_opts_mut: &mut UblxOpts,
+    scope: SettingsConfigScope,
+) {
+    let Some(path) = state_mut.settings.editing_path.clone() else {
+        return;
+    };
+    let paths = UblxPaths::new(&params_mut.dir_to_ublx);
+    let mut overlay = load_ublx_toml(Some(path.clone()), None).unwrap_or_default();
+    let merged_before = context::merged_overlay_before_write(&paths, scope, &overlay);
+    let current = typed_column_tables_row::overlay_typed_column_tables(&merged_before);
+    let next = typed_column_tables_row::cycle_typed_column_tables(current);
+    typed_column_tables_row::write_typed_column_tables(&mut overlay, next);
+    persist_overlay_reload_refresh(
+        path.as_path(),
+        &overlay,
+        scope,
+        state_mut,
+        params_mut,
+        ublx_opts_mut,
+        |_| {},
+    );
+    show_operation_toast(
+        state_mut,
+        params_mut,
+        format!(
+            "typed_column_tables = {}",
+            typed_column_tables_row::typed_column_tables_toml_value(next)
+        ),
+        "settings-typed-column-tables",
         log::Level::Info,
     );
 }
@@ -269,6 +306,8 @@ fn handle_settings_search_submit(
     let cur = state_mut.settings.left_cursor;
     if cur < bool_rows::bool_row_count(scope) {
         submit_settings_bool_row(state_mut, params_mut, ublx_opts_mut, scope, cur);
+    } else if cur == typed_column_tables_row::typed_column_tables_row_index(scope) {
+        submit_settings_typed_column_tables_row(state_mut, params_mut, ublx_opts_mut, scope);
     } else if Some(cur) == layout_edit::opacity_format_row_index(scope) {
         submit_settings_opacity_format_row(state_mut, params_mut, ublx_opts_mut, scope);
     } else if cur == layout_btn {

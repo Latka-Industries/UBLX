@@ -109,7 +109,7 @@ fn opts_with(enable_enhance_all: bool, entries: Vec<EnhancePolicyEntry>) -> Ublx
         with_hash_cache_before_apply: None,
         enhance_policy: entries,
         run_snapshot_on_startup: true,
-        column_stats: ublx::config::ColumnStatsDisplay::default(),
+        typed_column_tables: ublx::config::ColumnStatsDisplay::default(),
     }
 }
 
@@ -175,23 +175,147 @@ fn deserializes_legacy_always_never_toml() {
 }
 
 #[test]
-fn column_stats_overlay_merge_local_overrides_global() {
+fn typed_column_tables_overlay_merge_local_overrides_global() {
     use ublx::config::ColumnStatsDisplay;
     let global = UblxOverlay {
-        column_stats: Some(ColumnStatsDisplay::Full),
+        typed_column_tables: Some(ColumnStatsDisplay::Full),
         ..Default::default()
     };
     let local = UblxOverlay {
-        column_stats: Some(ColumnStatsDisplay::None),
+        typed_column_tables: Some(ColumnStatsDisplay::None),
         ..Default::default()
     };
     let m = UblxOverlay::merge(Some(global), Some(local));
-    assert_eq!(m.column_stats, Some(ColumnStatsDisplay::None));
+    assert_eq!(m.typed_column_tables, Some(ColumnStatsDisplay::None));
 }
 
 #[test]
-fn column_stats_overlay_parse_toml() {
+fn typed_column_tables_overlay_parse_toml() {
     use ublx::config::ColumnStatsDisplay;
-    let overlay: UblxOverlay = toml::from_str("column_stats = \"abbrev\"\n").unwrap();
-    assert_eq!(overlay.column_stats, Some(ColumnStatsDisplay::Abbrev));
+    let overlay: UblxOverlay = toml::from_str("typed_column_tables = \"abbrev\"\n").unwrap();
+    assert_eq!(
+        overlay.typed_column_tables,
+        Some(ColumnStatsDisplay::Abbrev)
+    );
+}
+
+#[test]
+fn typed_column_tables_overlay_parse_legacy_column_stats_alias() {
+    use ublx::config::ColumnStatsDisplay;
+    let overlay: UblxOverlay = toml::from_str("column_stats = \"full\"\n").unwrap();
+    assert_eq!(overlay.typed_column_tables, Some(ColumnStatsDisplay::Full));
+}
+
+#[test]
+fn overlay_backfill_adds_typed_column_tables_when_missing() {
+    use ublx::config::{ColumnStatsDisplay, default_overlay_for_new_file};
+    let template = default_overlay_for_new_file("default");
+    let mut existing = UblxOverlay {
+        theme: Some("custom".into()),
+        ..Default::default()
+    };
+    assert!(existing.backfill_missing_from_template(&template, false));
+    assert_eq!(
+        existing.typed_column_tables,
+        Some(ColumnStatsDisplay::Abbrev)
+    );
+    assert_eq!(existing.theme.as_deref(), Some("custom"));
+}
+
+#[test]
+fn overlay_backfill_does_not_overwrite_existing_typed_column_tables() {
+    use ublx::config::{ColumnStatsDisplay, default_overlay_for_new_file};
+    let template = default_overlay_for_new_file("default");
+    let mut existing = UblxOverlay {
+        typed_column_tables: Some(ColumnStatsDisplay::Full),
+        ..Default::default()
+    };
+    existing.backfill_missing_from_template(&template, false);
+    assert_eq!(existing.typed_column_tables, Some(ColumnStatsDisplay::Full));
+}
+
+#[test]
+fn overlay_backfill_skips_global_only_keys_on_local_scope() {
+    use ublx::config::default_overlay_for_new_file;
+    let template = default_overlay_for_new_file("default");
+    let mut existing = UblxOverlay::default();
+    assert!(existing.backfill_missing_from_template(&template, true));
+    assert!(existing.ask_enhance_on_new_root.is_none());
+    assert!(existing.opacity_format.is_none());
+    assert_eq!(
+        existing.typed_column_tables,
+        Some(ublx::config::ColumnStatsDisplay::Abbrev)
+    );
+}
+
+#[test]
+fn ensure_global_config_backfills_existing_file_on_disk() {
+    use std::fs;
+    use ublx::config::{
+        ColumnStatsDisplay, ensure_global_config_file_with_defaults, load_ublx_toml,
+    };
+    let path = std::env::temp_dir().join(format!(
+        "ublx-global-config-test-{}-column-stats",
+        std::process::id()
+    ));
+    let _cleanup = TempConfigCleanup(path.clone());
+    fs::write(&path, "theme = \"custom\"\n").unwrap();
+    ensure_global_config_file_with_defaults(&path, "default");
+    let overlay = load_ublx_toml(Some(path), None).unwrap();
+    assert_eq!(overlay.theme.as_deref(), Some("custom"));
+    assert_eq!(
+        overlay.typed_column_tables,
+        Some(ColumnStatsDisplay::Abbrev)
+    );
+}
+
+#[test]
+fn settings_typed_column_tables_row_layout_indices() {
+    use ublx::layout::setup::SettingsConfigScope;
+    use ublx::modules::settings::{
+        bool_row_count, layout_button_index, opacity_format_row_index,
+        typed_column_tables_row_index,
+    };
+
+    assert_eq!(
+        typed_column_tables_row_index(SettingsConfigScope::Global),
+        5
+    );
+    assert_eq!(typed_column_tables_row_index(SettingsConfigScope::Local), 4);
+    assert_eq!(
+        opacity_format_row_index(SettingsConfigScope::Global),
+        Some(6)
+    );
+    assert_eq!(opacity_format_row_index(SettingsConfigScope::Local), None);
+    assert_eq!(layout_button_index(SettingsConfigScope::Global), 7);
+    assert_eq!(layout_button_index(SettingsConfigScope::Local), 5);
+    assert_eq!(bool_row_count(SettingsConfigScope::Global), 5);
+    assert_eq!(bool_row_count(SettingsConfigScope::Local), 4);
+}
+
+#[test]
+fn typed_column_tables_cycle_order() {
+    use ublx::config::ColumnStatsDisplay;
+    use ublx::modules::settings::cycle_typed_column_tables;
+
+    assert_eq!(
+        cycle_typed_column_tables(ColumnStatsDisplay::None),
+        ColumnStatsDisplay::Abbrev
+    );
+    assert_eq!(
+        cycle_typed_column_tables(ColumnStatsDisplay::Abbrev),
+        ColumnStatsDisplay::Full
+    );
+    assert_eq!(
+        cycle_typed_column_tables(ColumnStatsDisplay::Full),
+        ColumnStatsDisplay::None
+    );
+}
+
+struct TempConfigCleanup(std::path::PathBuf);
+
+impl Drop for TempConfigCleanup {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_file(&self.0);
+    }
 }

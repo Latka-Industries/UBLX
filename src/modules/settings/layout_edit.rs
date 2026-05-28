@@ -5,24 +5,24 @@ use crossterm::event::{KeyCode, KeyModifiers};
 use crate::layout::setup::{SettingsConfigScope, SettingsPaneState, UblxState};
 use crate::utils::clamp_selection;
 
-use super::bool_rows::bool_row_count;
+use super::typed_column_tables_row::typed_column_tables_row_index;
 
-/// Row index for OSC 11 opacity payload format (`rgba` | `hex8`), directly after bool rows.
+/// Row index for OSC 11 opacity payload format (`rgba` | `hex8`), after bool rows + `typed_column_tables`.
 /// [`None`] on Local — that row exists only on the Global settings tab.
 #[must_use]
 pub fn opacity_format_row_index(scope: SettingsConfigScope) -> Option<usize> {
     match scope {
-        SettingsConfigScope::Global => Some(bool_row_count(scope)),
+        SettingsConfigScope::Global => Some(typed_column_tables_row_index(scope) + 1),
         SettingsConfigScope::Local => None,
     }
 }
 
-/// "Edit layout" button row (after bool rows on Local; after bool rows + opacity format on Global).
+/// "Edit layout" button row (after bool rows + `typed_column_tables` on Local; + opacity format on Global).
 #[must_use]
 pub fn layout_button_index(scope: SettingsConfigScope) -> usize {
     match scope {
-        SettingsConfigScope::Global => bool_row_count(scope) + 1,
-        SettingsConfigScope::Local => bool_row_count(scope),
+        SettingsConfigScope::Global => typed_column_tables_row_index(scope) + 2,
+        SettingsConfigScope::Local => typed_column_tables_row_index(scope) + 1,
     }
 }
 

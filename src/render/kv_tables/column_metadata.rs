@@ -81,43 +81,34 @@ impl ColumnType {
 
 const TYPE_UNKNOWN: &str = "unknown";
 
-/// Numeric stat keys shown in [`ColumnStatsDisplay::Abbrev`] (order preserved when present).
-const ABBREV_NUMERIC_KEYS: &[&str] = &["min", "max", "mean"];
+/// [`ColumnStatsDisplay::Abbrev`]: typed column tables longer than this show only [`ABBREV_TABLE_MAX_ROWS`].
+const ABBREV_TABLE_ROW_THRESHOLD: usize = 15;
+/// [`ColumnStatsDisplay::Abbrev`]: max data rows when over [`ABBREV_TABLE_ROW_THRESHOLD`].
+const ABBREV_TABLE_MAX_ROWS: usize = 10;
 
-/// Date stat keys shown in [`ColumnStatsDisplay::Abbrev`].
-const ABBREV_DATE_KEYS: &[&str] = &["min", "max"];
-
-const FULL_DATE_STAT_KEYS: &[&str] = &[
-    DateStatsKeys::SPAN_DAYS,
-    DateStatsKeys::MIN,
-    DateStatsKeys::MAX,
-];
-
-fn filter_stat_keys(keys: &[String], mode: ColumnStatsDisplay, abbrev_keys: &[&str]) -> Vec<String> {
-    match mode {
-        ColumnStatsDisplay::None => Vec::new(),
-        ColumnStatsDisplay::Full => keys.to_vec(),
-        ColumnStatsDisplay::Abbrev => abbrev_keys
-            .iter()
-            .filter(|k| keys.iter().any(|existing| existing == *k))
-            .map(|k| (*k).to_string())
-            .collect(),
+fn abbrev_cap_entries(entries: Vec<Value>, mode: ColumnStatsDisplay) -> (Vec<Value>, bool) {
+    if mode != ColumnStatsDisplay::Abbrev || entries.len() <= ABBREV_TABLE_ROW_THRESHOLD {
+        return (entries, false);
     }
-}
-
-fn date_stat_column_keys(mode: ColumnStatsDisplay) -> Vec<String> {
-    filter_stat_keys(
-        &FULL_DATE_STAT_KEYS
-            .iter()
-            .map(|k| (*k).to_string())
-            .collect::<Vec<_>>(),
-        mode,
-        ABBREV_DATE_KEYS,
+    (
+        entries.into_iter().take(ABBREV_TABLE_MAX_ROWS).collect(),
+        true,
     )
 }
 
-fn numeric_stat_keys(num_stats: &[Value], mode: ColumnStatsDisplay) -> Vec<String> {
-    filter_stat_keys(&numeric_stats_keys(num_stats), mode, ABBREV_NUMERIC_KEYS)
+/// KV rows for per-column nested stats under sheet-style `columns` lists.
+#[must_use]
+pub fn nested_stats_kv_rows(
+    stats_key: &str,
+    stats_obj: &Map<String, Value>,
+    max_array_inline: usize,
+    mode: ColumnStatsDisplay,
+) -> Vec<(String, String)> {
+    let _ = stats_key;
+    if !mode.shows_tables() {
+        return vec![];
+    }
+    stats_object_to_kv_rows(stats_obj, max_array_inline)
 }
 
 fn stats_object_to_kv_rows(
@@ -134,43 +125,13 @@ fn stats_object_to_kv_rows(
         .collect()
 }
 
-/// Abbrev stat keys for sheet-style nested stats objects (`num`, `date`, …), if any.
-#[must_use]
-fn abbrev_keys_for_nested_stats(stats_key: &str) -> Option<&'static [&'static str]> {
-    match stats_key {
-        "num" | "numeric_stats" => Some(ABBREV_NUMERIC_KEYS),
-        "date" | "date_stats" => Some(ABBREV_DATE_KEYS),
-        _ => None,
-    }
-}
-
-/// KV rows for per-column nested stats under sheet-style `columns` lists.
-#[must_use]
-pub fn nested_stats_kv_rows(
-    stats_key: &str,
-    stats_obj: &Map<String, Value>,
-    max_array_inline: usize,
-    mode: ColumnStatsDisplay,
-) -> Vec<(String, String)> {
-    if !mode.shows_tables() {
-        return vec![];
-    }
-    if mode == ColumnStatsDisplay::Full {
-        return stats_object_to_kv_rows(stats_obj, max_array_inline);
-    }
-    let Some(allowed) = abbrev_keys_for_nested_stats(stats_key) else {
-        return stats_object_to_kv_rows(stats_obj, max_array_inline);
-    };
-    stats_obj
-        .iter()
-        .filter(|(k, _)| allowed.contains(&k.as_str()))
-        .map(|(k, val)| {
-            (
-                format::format_key(k),
-                format::format_value(val, k, max_array_inline),
-            )
-        })
-        .collect()
+/// Keys inside `date_stats` objects for typed column tables.
+fn date_stat_column_keys() -> [String; 3] {
+    [
+        DateStatsKeys::SPAN_DAYS.to_string(),
+        DateStatsKeys::MIN.to_string(),
+        DateStatsKeys::MAX.to_string(),
+    ]
 }
 
 /// JSON keys used **inside rendered table rows** (from compact stats); parallel arrays at the top level are no longer ingested.
@@ -222,10 +183,18 @@ fn contents_section(
     title: String,
     column_keys: Vec<String>,
     entries: Vec<Value>,
+    mode: ColumnStatsDisplay,
 ) -> Option<ContentsSection> {
     if entries.is_empty() {
         return None;
     }
+    let total = entries.len();
+    let (entries, truncated) = abbrev_cap_entries(entries, mode);
+    let title = if truncated {
+        format!("{title} ({}/{total})", entries.len())
+    } else {
+        title
+    };
     Some(ContentsSection {
         title,
         columns: stat_column_headers_display(&column_keys),
@@ -288,16 +257,7 @@ pub fn typed_sections_from_compact_columns(
     let Some(parallel) = compact_columns_to_parallel_arrays(&cols) else {
         return vec![];
     };
-    let mut out = parallel_arrays_to_sections(
-        &parallel.names,
-        &parallel.types,
-        &parallel.null_pct,
-        &parallel.unique,
-        &parallel.date_stats,
-        &parallel.bool_stats,
-        &parallel.num_stats,
-        mode,
-    );
+    let mut out = parallel_arrays_to_sections(&parallel, mode);
     if let Some(prefix) = title_prefix.filter(|s| !s.is_empty()) {
         for section in &mut out {
             if let Section::Contents(c) = section {
@@ -402,18 +362,21 @@ pub fn column_metadata_to_sections(
 }
 
 fn parallel_arrays_to_sections(
-    names: &[Value],
-    types: &[Value],
-    null_pct: &[Option<Value>],
-    uniq: &[Option<Value>],
-    date_stats: &[Value],
-    bool_stats: &[Value],
-    num_stats: &[Value],
+    parallel: &ParallelColumnArrays,
     mode: ColumnStatsDisplay,
 ) -> Vec<Section> {
     if !mode.shows_tables() {
         return vec![];
     }
+    let ParallelColumnArrays {
+        names,
+        types,
+        null_pct,
+        unique: uniq,
+        date_stats,
+        bool_stats,
+        num_stats,
+    } = parallel;
     let mut by_type: BTreeMap<String, Vec<usize>> = BTreeMap::new();
     for (i, t) in types.iter().enumerate() {
         let key = t.as_str().unwrap_or(TYPE_UNKNOWN).to_string();
@@ -424,11 +387,16 @@ fn parallel_arrays_to_sections(
     for (type_name, indices) in by_type {
         let col_type = ColumnType::from_type_str(&type_name);
         let section = match col_type {
-            ColumnType::String => table_string(names, null_pct, uniq, indices),
-            ColumnType::Date => {
-                table_date(names, null_pct, date_stats, indices, type_name.as_str(), mode)
-            }
-            ColumnType::Boolean => table_boolean(names, null_pct, bool_stats, indices),
+            ColumnType::String => table_string(names, null_pct, uniq, indices, mode),
+            ColumnType::Date => table_date(
+                names,
+                null_pct,
+                date_stats,
+                indices,
+                type_name.as_str(),
+                mode,
+            ),
+            ColumnType::Boolean => table_boolean(names, null_pct, bool_stats, indices, mode),
             ColumnType::Other => {
                 table_numeric_or_other(&type_name, names, null_pct, num_stats, indices, mode)
             }
@@ -495,6 +463,7 @@ fn table_string(
     null_pct: &[Option<Value>],
     uniq: &[Option<Value>],
     indices: Vec<usize>,
+    mode: ColumnStatsDisplay,
 ) -> Option<ContentsSection> {
     let show_null = any_row_has_field(&indices, null_pct);
     let show_uniq = any_row_has_field(&indices, uniq);
@@ -519,6 +488,7 @@ fn table_string(
         ColumnType::String.section_title("string"),
         column_keys,
         entries,
+        mode,
     )
 }
 
@@ -543,8 +513,7 @@ fn table_date(
     mode: ColumnStatsDisplay,
 ) -> Option<ContentsSection> {
     let show_null = any_row_has_field(&indices, null_pct);
-    let column_keys =
-        column_keys_typed_with_null(show_null, date_stat_column_keys(mode));
+    let column_keys = column_keys_typed_with_null(show_null, date_stat_column_keys());
     let entries: Vec<Value> = indices
         .into_iter()
         .map(|i| {
@@ -552,7 +521,10 @@ fn table_date(
             push_column_name_row(&mut row, names, i);
             push_null_pct_cell(&mut row, null_pct, i, show_null);
             let stats = date_stats.get(i).and_then(Value::as_object);
-            for key in column_keys.iter().filter(|k| *k != MetadataArrayKey::ColumnNames.as_str() && *k != MetadataArrayKey::NullPercentages.as_str()) {
+            for key in column_keys.iter().filter(|k| {
+                *k != MetadataArrayKey::ColumnNames.as_str()
+                    && *k != MetadataArrayKey::NullPercentages.as_str()
+            }) {
                 let val = stats
                     .and_then(|s| s.get(key.as_str()))
                     .cloned()
@@ -566,6 +538,7 @@ fn table_date(
         ColumnType::Date.section_title(zahir_t),
         column_keys,
         entries,
+        mode,
     )
 }
 
@@ -574,6 +547,7 @@ fn table_boolean(
     null_pct: &[Option<Value>],
     bool_stats: &[Value],
     indices: Vec<usize>,
+    mode: ColumnStatsDisplay,
 ) -> Option<ContentsSection> {
     let show_null = any_row_has_field(&indices, null_pct);
     let column_keys = column_keys_typed_with_null(show_null, [BOOLEAN_STATS_TRUE_PCT.to_string()]);
@@ -599,6 +573,7 @@ fn table_boolean(
         ColumnType::Boolean.section_title("boolean"),
         column_keys,
         entries,
+        mode,
     )
 }
 
@@ -625,7 +600,7 @@ fn table_numeric_or_other(
     mode: ColumnStatsDisplay,
 ) -> Option<ContentsSection> {
     let show_null = any_row_has_field(&indices, null_pct);
-    let stat_keys = numeric_stat_keys(num_stats, mode);
+    let stat_keys = numeric_stats_keys(num_stats);
     let column_keys = column_keys_typed_with_null(show_null, stat_keys.clone());
     let entries: Vec<Value> = indices
         .into_iter()
@@ -645,6 +620,7 @@ fn table_numeric_or_other(
         ColumnType::Other.section_title(type_name),
         column_keys,
         entries,
+        mode,
     )
 }
 
@@ -699,7 +675,13 @@ pub fn push_column_metadata_sections(
     mode: ColumnStatsDisplay,
 ) {
     let title = display_title.map_or_else(|| format::format_key(section_key), str::to_string);
-    push_column_metadata_flat_kv_and_tables(sections, Some(title), metadata, max_array_inline, mode);
+    push_column_metadata_flat_kv_and_tables(
+        sections,
+        Some(title),
+        metadata,
+        max_array_inline,
+        mode,
+    );
 }
 
 /// Root blob is entirely compact column metadata (flat KV for scalars + typed tables).

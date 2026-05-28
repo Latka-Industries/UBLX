@@ -187,7 +187,43 @@ fn contents_natural_widths_parallel_path_deterministic() {
 }
 
 #[test]
-fn column_stats_abbrev_hides_median() {
+fn column_stats_abbrev_caps_long_tables() {
+    use ublx::config::ColumnStatsDisplay;
+    use ublx::render::kv_tables::{Section, parse_json_sections_with};
+    let mut columns = String::from("[");
+    for i in 0..20 {
+        if i > 0 {
+            columns.push(',');
+        }
+        columns.push_str(&format!(
+            r#"{{"i": {i}, "name": "col_{i}", "t": "string", "null_pct": 0.0}}"#
+        ));
+    }
+    columns.push(']');
+    let json = format!(r#"{{"row_count": 100, "columns": {columns}}}"#);
+    let abbrev = parse_json_sections_with(&json, 80, ColumnStatsDisplay::Abbrev);
+    let full = parse_json_sections_with(&json, 80, ColumnStatsDisplay::Full);
+    let abbrev_table = abbrev
+        .iter()
+        .find_map(|s| match s {
+            Section::Contents(c) => Some(c),
+            _ => None,
+        })
+        .expect("string columns table");
+    let full_table = full
+        .iter()
+        .find_map(|s| match s {
+            Section::Contents(c) => Some(c),
+            _ => None,
+        })
+        .expect("string columns table");
+    assert_eq!(abbrev_table.entries.len(), 10);
+    assert!(abbrev_table.title.contains("(10/20)"));
+    assert_eq!(full_table.entries.len(), 20);
+}
+
+#[test]
+fn column_stats_abbrev_keeps_all_stat_columns_on_short_table() {
     use ublx::config::ColumnStatsDisplay;
     use ublx::render::kv_tables::{Section, parse_json_sections_with};
     let json = r#"{
@@ -205,10 +241,9 @@ fn column_stats_abbrev_hides_median() {
             _ => None,
         })
         .expect("number columns table");
-    assert!(contents.column_keys.iter().any(|k| k == "min"));
-    assert!(contents.column_keys.iter().any(|k| k == "mean"));
-    assert!(!contents.column_keys.iter().any(|k| k == "median"));
-    assert!(!contents.column_keys.iter().any(|k| k == "stdev"));
+    assert_eq!(contents.entries.len(), 1);
+    assert!(contents.column_keys.iter().any(|k| k == "median"));
+    assert!(contents.column_keys.iter().any(|k| k == "stdev"));
 }
 
 #[test]

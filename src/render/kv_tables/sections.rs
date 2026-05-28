@@ -93,12 +93,12 @@ fn parse_one_blob(blob: &str, ctx: KvParseCtx) -> Vec<Section> {
         column_metadata::sections_from_column_metadata_root(
             map,
             ctx.max_array_inline,
-            ctx.column_stats,
+            ctx.typed_column_tables,
         )
     } else if column_metadata::is_legacy_parallel_column_metadata(map) {
         column_metadata::sections_from_legacy_column_metadata_root(map)
     } else {
-        walk::root_parts_sections(map, ctx.max_array_inline, ctx.column_stats)
+        walk::root_parts_sections(map, ctx.max_array_inline, ctx.typed_column_tables)
     }
 }
 
@@ -107,7 +107,11 @@ fn parse_one_blob(blob: &str, ctx: KvParseCtx) -> Vec<Section> {
 /// For width-aware array display, use [`parse_json_sections_with`].
 #[must_use]
 pub fn parse_json_sections(json: &str) -> Vec<Section> {
-    parse_json_sections_with(json, format::DEFAULT_MAX_ARRAY_INLINE, ColumnStatsDisplay::default())
+    parse_json_sections_with(
+        json,
+        format::DEFAULT_MAX_ARRAY_INLINE,
+        ColumnStatsDisplay::default(),
+    )
 }
 
 /// Like [`parse_json_sections`], with `max_array_inline` passed through to value formatting (e.g. `shape` arrays).
@@ -217,7 +221,11 @@ pub fn line_byte_starts(s: &str) -> Vec<usize> {
 /// [`content_height`] line layout). Uses a fixed array inline cap; for draw alignment use [`searchable_text_from_json_with`].
 #[must_use]
 pub fn searchable_text_from_json(json: &str) -> String {
-    searchable_text_from_json_with(json, format::DEFAULT_MAX_ARRAY_INLINE, ColumnStatsDisplay::default())
+    searchable_text_from_json_with(
+        json,
+        format::DEFAULT_MAX_ARRAY_INLINE,
+        ColumnStatsDisplay::default(),
+    )
 }
 
 /// Same as [`searchable_text_from_json`], with `max_array_inline` matching [`parse_json_sections_with`].
@@ -244,7 +252,10 @@ pub fn searchable_text_from_json_with_ctx(json: &str, ctx: KvParseCtx) -> String
 /// Total line count for the parsed sections (title + header + data rows + gaps). Used for scrollbar and clamping.
 #[must_use]
 pub fn content_height(json: &str, column_stats: ColumnStatsDisplay) -> u16 {
-    content_height_with_ctx(json, KvParseCtx::new(format::DEFAULT_MAX_ARRAY_INLINE, column_stats))
+    content_height_with_ctx(
+        json,
+        KvParseCtx::new(format::DEFAULT_MAX_ARRAY_INLINE, column_stats),
+    )
 }
 
 /// Like [`content_height`], with an explicit [`KvParseCtx`].

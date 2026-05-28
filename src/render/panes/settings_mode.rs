@@ -8,7 +8,9 @@ use ratatui::style::{Modifier, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Borders, Paragraph};
 
-use crate::config::{Osc11BackgroundFormat, UblxOverlay, UblxPaths, load_ublx_toml};
+use crate::config::{
+    ColumnStatsDisplay, Osc11BackgroundFormat, UblxOverlay, UblxPaths, load_ublx_toml,
+};
 use crate::layout::setup::{SettingsConfigScope, UblxState};
 use crate::layout::style;
 use crate::modules::settings;
@@ -43,13 +45,9 @@ fn settings_snapshot_star_if_inactive(
     }
 }
 
-/// `‣` before `opacity_format` when the row is inactive; focused rows use [`row_prefix`] only.
-fn settings_opacity_note_mark_if_inactive(row_active: bool) -> &'static str {
-    if row_active {
-        ""
-    } else {
-        UI_GLYPHS.settings_note_arrow
-    }
+/// `‣` before `opacity_format` (OSC 11 encoding row); focused rows still use [`row_prefix`] first.
+fn settings_opacity_note_mark() -> &'static str {
+    UI_GLYPHS.settings_note_arrow
 }
 
 /// Row label: dimmed (hint) when inherited-only and not focused; bold when active.
@@ -202,14 +200,88 @@ fn format_rgba_cell(is_rgba_cell: bool, value_is_rgba: bool, dimmed: bool) -> Sp
     Span::styled(label.to_string(), st)
 }
 
+fn typed_column_tables_cell(
+    variant: ColumnStatsDisplay,
+    current: ColumnStatsDisplay,
+    dimmed: bool,
+) -> Span<'static> {
+    let chosen = variant == current;
+    let label = settings::typed_column_tables_button_label(variant);
+    let st = if dimmed {
+        if chosen {
+            style::hint_text().add_modifier(Modifier::BOLD)
+        } else {
+            style::hint_text()
+        }
+    } else if chosen {
+        style::tab_active()
+    } else {
+        style::tab_inactive()
+    };
+    Span::styled(label.to_string(), st)
+}
+
+fn settings_typed_column_tables_note_mark() -> &'static str {
+    UI_GLYPHS.settings_note_square
+}
+
+fn push_typed_column_tables_row(
+    left_lines: &mut Vec<Line>,
+    scope: SettingsConfigScope,
+    cur: usize,
+    local_ctx: Option<&(Option<UblxOverlay>, UblxOverlay)>,
+    overlay: Option<&UblxOverlay>,
+) {
+    let row_idx = settings::typed_column_tables_row_index(scope);
+    let (value, dimmed) = if let Some((local_o, merged)) = local_ctx {
+        (
+            settings::overlay_typed_column_tables(merged),
+            !settings::local_typed_column_tables_is_explicit(local_o.as_ref()),
+        )
+    } else {
+        (
+            overlay
+                .map(settings::overlay_typed_column_tables)
+                .unwrap_or_default(),
+            false,
+        )
+    };
+    let row_active = cur == row_idx;
+    let label_st = label_style(row_active, dimmed);
+    let note_mark = settings_typed_column_tables_note_mark();
+    let mut spans = vec![Span::styled(
+        format!(
+            "{}{}{}",
+            row_prefix(row_active),
+            note_mark,
+            UI_STRINGS.settings_pane.typed_column_tables_label
+        ),
+        label_st,
+    )];
+    for variant in settings::TYPED_COLUMN_TABLES_VARIANTS {
+        spans.push(typed_column_tables_cell(variant, value, dimmed));
+    }
+    left_lines.push(Line::from(spans));
+}
+
+fn push_typed_column_tables_footnote(left_lines: &mut Vec<Line>, hint_wrap: usize) {
+    push_wrapped_hint_footnote(
+        left_lines,
+        hint_wrap,
+        UI_STRINGS.settings_pane.typed_column_tables_footnote,
+        UI_GLYPHS.settings_note_square,
+    );
+}
+
 fn push_opacity_format_row(left_lines: &mut Vec<Line>, cur: usize, overlay: Option<&UblxOverlay>) {
-    let row_idx = settings::bool_row_count(SettingsConfigScope::Global);
+    let row_idx = settings::opacity_format_row_index(SettingsConfigScope::Global)
+        .expect("opacity_format row exists on Global scope");
     let value_is_rgba =
         overlay.is_none_or(|o| o.opacity_format.unwrap_or_default() == Osc11BackgroundFormat::Rgba);
     let dimmed = false;
     let row_active = cur == row_idx;
     let label_st = label_style(row_active, dimmed);
-    let note_mark = settings_opacity_note_mark_if_inactive(row_active);
+    let note_mark = settings_opacity_note_mark();
     let mut spans = vec![Span::styled(
         format!(
             "{}{note_mark}{}",
@@ -319,13 +391,17 @@ fn push_opacity_edit_section(left_lines: &mut Vec<Line>, state: &UblxState, opac
     }
 }
 
-fn push_wrapped_hint_footnote(left_lines: &mut Vec<Line>, hint_wrap: usize, message: &str) {
-    let first = UI_GLYPHS.settings_note_asterisk;
+fn push_wrapped_hint_footnote(
+    left_lines: &mut Vec<Line>,
+    hint_wrap: usize,
+    message: &str,
+    first_glyph: &str,
+) {
     let cont = UI_GLYPHS.indent_two_spaces;
-    let w = hint_wrap.saturating_sub(first.chars().count()).max(1);
+    let w = hint_wrap.saturating_sub(first_glyph.chars().count()).max(1);
     let wrapped = utils::wrap_text_to_width(message, w);
     for (i, line) in wrapped.lines().enumerate() {
-        let p = if i == 0 { first } else { cont };
+        let p = if i == 0 { first_glyph } else { cont };
         left_lines.push(Line::from(Span::styled(
             format!("{p}{line}"),
             style::hint_text(),
@@ -390,8 +466,14 @@ fn push_external_apps_section(
         s.snapshot_applied_footnote,
         style::hint_text(),
     )));
+    push_typed_column_tables_footnote(left_lines, hint_wrap);
     if matches!(scope, SettingsConfigScope::Global) {
-        push_wrapped_hint_footnote(left_lines, hint_wrap, s.opacity_format_footnote);
+        push_wrapped_hint_footnote(
+            left_lines,
+            hint_wrap,
+            s.opacity_format_footnote,
+            UI_GLYPHS.settings_note_arrow,
+        );
     }
 }
 
@@ -516,6 +598,13 @@ pub fn draw_settings_pane(f: &mut Frame, area: Rect, state: &mut UblxState, dir_
         &mut left_lines,
         scope,
         n_bool,
+        state.settings.left_cursor,
+        local_ctx.as_ref(),
+        overlay.as_ref(),
+    );
+    push_typed_column_tables_row(
+        &mut left_lines,
+        scope,
         state.settings.left_cursor,
         local_ctx.as_ref(),
         overlay.as_ref(),

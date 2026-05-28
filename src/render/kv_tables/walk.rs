@@ -179,7 +179,7 @@ fn push_root_parts_inner(
                     &map,
                     ctx.max_array_inline,
                     None,
-                    ctx.column_stats,
+                    ctx.typed_column_tables,
                 );
             }
             RootCsvMetadata::Legacy { display_title } => {
@@ -442,7 +442,7 @@ fn push_tables_sections(
                 v,
                 walk_ctx.max_array_inline,
                 title_override,
-                walk_ctx.column_stats,
+                walk_ctx.typed_column_tables,
             );
             continue;
         }
@@ -471,7 +471,7 @@ fn push_tables_sections(
                 sections_mut_ref.extend(column_metadata::typed_sections_from_compact_columns(
                     col_arr,
                     Some(table_name.as_str()),
-                    walk_ctx.column_stats,
+                    walk_ctx.typed_column_tables,
                 ));
             } else if let Some((column_keys, columns, entries)) =
                 object_array_to_contents_data(col_arr)
@@ -488,7 +488,7 @@ fn push_tables_sections(
                     &table_name,
                     &entries,
                     walk_ctx.max_array_inline,
-                    walk_ctx.column_stats,
+                    walk_ctx.typed_column_tables,
                 );
             }
         }
@@ -522,8 +522,12 @@ fn push_column_stats_sections(
                 continue;
             }
             if let Some(stats_obj) = stats_val.as_object() {
-                let rows =
-                    column_metadata::nested_stats_kv_rows(stats_key, stats_obj, max_array_inline, mode);
+                let rows = column_metadata::nested_stats_kv_rows(
+                    stats_key,
+                    stats_obj,
+                    max_array_inline,
+                    mode,
+                );
                 if !rows.is_empty() {
                     let stats_label = format::format_key(stats_key);
                     sections_mut_ref.push(Section::KeyValue(KvSection {
@@ -560,7 +564,7 @@ pub fn process_nested_map(
             map_ref,
             ctx_ref.max_array_inline,
             Some(own_title.as_str()),
-            ctx_ref.column_stats,
+            ctx_ref.typed_column_tables,
         );
         return;
     }

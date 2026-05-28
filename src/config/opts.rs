@@ -109,14 +109,14 @@ pub struct UblxOpts {
     pub enhance_policy: Vec<profile::EnhancePolicyEntry>,
     /// When true (default), TUI startup spawns a background snapshot unless first-run defers it. Merged from global + local overlay ([`profile::UblxOverlay::merge`]).
     pub run_snapshot_on_startup: bool,
-    /// Typed column-stat tables in Metadata / Writing tabs ([`profile::ColumnStatsDisplay`]).
-    pub column_stats: profile::ColumnStatsDisplay,
+    /// Typed column tables in Metadata / Writing tabs ([`profile::ColumnStatsDisplay`]).
+    pub typed_column_tables: profile::ColumnStatsDisplay,
 }
 
 impl UblxOpts {
     /// Copy hot-reloadable right-pane display fields into [`crate::layout::setup::PanelState`].
     pub fn sync_panels_display(&self, panels: &mut crate::layout::setup::PanelState) {
-        panels.column_stats = self.column_stats;
+        panels.typed_column_tables = self.typed_column_tables;
     }
 
     /// Load the last applied overlay from cache (`cache_dir()/configs/[path_hex].toml`). Fallback when hot reload gets invalid config.
@@ -194,8 +194,8 @@ impl UblxOpts {
         }
         self.enhance_policy = overlay.enhance_policy.clone().unwrap_or_default();
         self.run_snapshot_on_startup = overlay.run_snapshot_on_startup.unwrap_or(true);
-        if let Some(v) = overlay.column_stats {
-            self.column_stats = v;
+        if let Some(v) = overlay.typed_column_tables {
+            self.typed_column_tables = v;
         }
     }
 
@@ -288,7 +288,7 @@ impl UblxOpts {
             with_hash_cache_before_apply,
             enhance_policy: Vec::new(),
             run_snapshot_on_startup: true,
-            column_stats: profile::ColumnStatsDisplay::default(),
+            typed_column_tables: profile::ColumnStatsDisplay::default(),
         };
         let global =
             profile::load_ublx_toml(ublx_paths.global_config(), Some(config.valid_theme_names));
@@ -355,7 +355,7 @@ impl UblxOpts {
             with_hash_cache_before_apply: None,
             enhance_policy: Vec::new(),
             run_snapshot_on_startup: true,
-            column_stats: profile::ColumnStatsDisplay::default(),
+            typed_column_tables: profile::ColumnStatsDisplay::default(),
         }
     }
 

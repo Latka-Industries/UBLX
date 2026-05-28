@@ -8,34 +8,34 @@ use super::format;
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct KvParseCtx {
     pub max_array_inline: usize,
-    pub column_stats: ColumnStatsDisplay,
+    pub typed_column_tables: ColumnStatsDisplay,
 }
 
 impl KvParseCtx {
     #[must_use]
-    pub fn new(max_array_inline: usize, column_stats: ColumnStatsDisplay) -> Self {
+    pub fn new(max_array_inline: usize, typed_column_tables: ColumnStatsDisplay) -> Self {
         Self {
             max_array_inline: max_array_inline.max(1),
-            column_stats,
+            typed_column_tables,
         }
     }
 
     /// Match [`super::draw::draw_tables`] array inline cap from a padded table width.
     #[must_use]
-    pub fn from_table_width(table_width: u16, column_stats: ColumnStatsDisplay) -> Self {
+    pub fn from_table_width(table_width: u16, typed_column_tables: ColumnStatsDisplay) -> Self {
         let value_w = format::value_width_from_table_width(table_width);
         Self::new(
             format::max_array_inline_for_value_width(value_w),
-            column_stats,
+            typed_column_tables,
         )
     }
 
     /// Match metadata-tab find / haystack formatting from content text width.
     #[must_use]
-    pub fn from_content_width(content_width: u16, column_stats: ColumnStatsDisplay) -> Self {
+    pub fn from_content_width(content_width: u16, typed_column_tables: ColumnStatsDisplay) -> Self {
         Self::new(
             format::max_array_inline_for_value_width(content_width),
-            column_stats,
+            typed_column_tables,
         )
     }
 }
