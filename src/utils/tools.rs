@@ -7,7 +7,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::config::UBLX_NAMES;
 use crate::integrations::ZahirFT;
-use crate::utils::exit_error;
+use crate::utils::{exit_error, path_is_tet_file, tet_info_text_for_viewer};
 
 /// Binary prefixes (1024-based), shared with [`format_bytes`].
 pub struct ByteUnits;
@@ -165,6 +165,9 @@ pub fn file_content_for_viewer(path: &Path, zahir_type: Option<ZahirFT>) -> Opti
         )
     {
         return Some(String::new());
+    }
+    if meta.is_file() && (zahir_type == Some(ZahirFT::Tetration) || path_is_tet_file(path)) {
+        return Some(tet_info_text_for_viewer(path));
     }
     if meta.is_file() && is_likely_binary(path) {
         return Some(binary_file_label(path));

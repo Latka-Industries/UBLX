@@ -6369,6 +6369,7 @@ dependencies = [
  "serde_json",
  "sublime-syntaxes",
  "syntect",
+ "tetration",
  "tokio",
  "toml",
  "tui-logger",
