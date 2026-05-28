@@ -40,7 +40,7 @@ pub enum EnhancePolicy {
 pub enum ColumnStatsDisplay {
     /// Hide typed column-stat tables; other metadata KV rows still render.
     None,
-    /// Default: cap long typed column tables (over 15 rows → show 10); all stat columns still render.
+    /// Default: cap long typed column tables (over 20 rows → show 20); all stat columns still render.
     #[default]
     Abbrev,
     /// Every column row and stat field from the Zahir JSON.
