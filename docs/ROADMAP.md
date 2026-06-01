@@ -4,7 +4,17 @@ Living backlog for **UBLX** (TUI catalog browser). Not a release promise — pri
 
 **Status (v0.1.x):** Index → SQLite → Snapshot / Delta / Lenses / Duplicates / Settings; ZahirScan enrichment; strong Viewer (markdown, tables, images, PDF/video via optional tools, syntect code, Zarr, `.tet`). Config is TOML with hot reload. No plugin system, Lua, in-TUI runner, or user-authored themes yet.
 
-Track work in GitHub Issues (parent issues by category; sub-issues for concrete tasks).
+Track work in GitHub Issues — **parent** issues by category, **sub-issues** for concrete tasks:
+
+| Category | Parent |
+|----------|--------|
+| Platform & extensions | [#5](https://github.com/Latka-Industries/UBLX/issues/5) |
+| Config & scripting | [#6](https://github.com/Latka-Industries/UBLX/issues/6) |
+| Themes | [#7](https://github.com/Latka-Industries/UBLX/issues/7) |
+| Viewer & code | [#8](https://github.com/Latka-Industries/UBLX/issues/8) |
+| Lenses | [#9](https://github.com/Latka-Industries/UBLX/issues/9) |
+| Performance & scale | [#10](https://github.com/Latka-Industries/UBLX/issues/10) |
+| Maintenance & docs | [#11](https://github.com/Latka-Industries/UBLX/issues/11) |
 
 ---
 
@@ -108,4 +118,3 @@ Engineering notes also live in local `TODO.md` (gitignored); items below are the
 ## Out of scope (for this repo)
 
 - General-purpose file manager (see [yazi](https://github.com/sxyazi/yazi) in README).
-- Replacing nefaxer / zahirscan indexing pipelines (consume via existing integrations).
