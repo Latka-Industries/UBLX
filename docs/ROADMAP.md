@@ -6,15 +6,15 @@ Living backlog for **UBLX** (TUI catalog browser). Not a release promise — pri
 
 Track work in GitHub Issues — **parent** issues by category, **sub-issues** for concrete tasks:
 
-| Category | Parent |
-|----------|--------|
-| Platform & extensions | [#5](https://github.com/Latka-Industries/UBLX/issues/5) |
-| Config & scripting | [#6](https://github.com/Latka-Industries/UBLX/issues/6) |
-| Themes | [#7](https://github.com/Latka-Industries/UBLX/issues/7) |
-| Viewer & code | [#8](https://github.com/Latka-Industries/UBLX/issues/8) |
-| Lenses | [#9](https://github.com/Latka-Industries/UBLX/issues/9) |
-| Performance & scale | [#10](https://github.com/Latka-Industries/UBLX/issues/10) |
-| Maintenance & docs | [#11](https://github.com/Latka-Industries/UBLX/issues/11) |
+| Category              | Parent                                                    |
+| --------------------- | --------------------------------------------------------- |
+| Platform & extensions | [#5](https://github.com/Latka-Industries/UBLX/issues/5)   |
+| Config & scripting    | [#6](https://github.com/Latka-Industries/UBLX/issues/6)   |
+| Themes                | [#7](https://github.com/Latka-Industries/UBLX/issues/7)   |
+| Viewer & code         | [#8](https://github.com/Latka-Industries/UBLX/issues/8)   |
+| Lenses                | [#9](https://github.com/Latka-Industries/UBLX/issues/9)   |
+| Performance & scale   | [#10](https://github.com/Latka-Industries/UBLX/issues/10) |
+| Maintenance & docs    | [#11](https://github.com/Latka-Industries/UBLX/issues/11) |
 
 ---
 
@@ -22,10 +22,10 @@ Track work in GitHub Issues — **parent** issues by category, **sub-issues** fo
 
 **Goal:** Decide how third-party behavior enters UBLX without forking the binary.
 
-| Item | Notes |
-|------|--------|
-| Plugin system — design spike | Scope: viewer extensions, index hooks, lens exporters, or CLI-only? Options: Rust dylibs, WASM, external CLI contract (like `tree` / `ffmpeg` today). |
-| Extension contract for optional binaries | Document discovery, Settings surfacing, graceful fallback; extend the existing PATH-probe pattern. |
+| Item                                     | Notes                                                                                                                                                 |
+| ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Plugin system — design spike             | Scope: viewer extensions, index hooks, lens exporters, or CLI-only? Options: Rust dylibs, WASM, external CLI contract (like `tree` / `ffmpeg` today). |
+| Extension contract for optional binaries | Document discovery, Settings surfacing, graceful fallback; extend the existing PATH-probe pattern.                                                    |
 
 **Depends on:** ADR before large bets (Lua hooks, theme files, custom exporters).
 
@@ -35,11 +35,11 @@ Track work in GitHub Issues — **parent** issues by category, **sub-issues** fo
 
 **Goal:** Clearer power-user control without breaking TOML validation and hot reload.
 
-| Item | Notes |
-|------|--------|
+| Item                             | Notes                                                                                                                      |
+| -------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
 | Lua (or scripting) — feasibility | Today: global + local `ublx.toml` only. Clarify: generate config, replace config, or runtime hooks (snapshot / open file). |
-| Config-driven viewer thresholds | Expose or tune caps currently in `VIEWER_TEXT_CACHE` (CSV/markdown/syntect min bytes, truncation). |
-| Snippets / “insert” in Viewer | Separate from config if the goal is templates in preview, not `ublx.toml`. |
+| Config-driven viewer thresholds  | Expose or tune caps currently in `VIEWER_TEXT_CACHE` (CSV/markdown/syntect min bytes, truncation).                         |
+| Snippets / “insert” in Viewer    | Separate from config if the goal is templates in preview, not `ublx.toml`.                                                 |
 
 ---
 
@@ -47,9 +47,9 @@ Track work in GitHub Issues — **parent** issues by category, **sub-issues** fo
 
 **Goal:** Beyond the fixed palette list in `src/themes/palettes.rs`.
 
-| Item | Notes |
-|------|--------|
-| Theme maker (MVP) | Export or duplicate a palette; write `theme = "..."` to local config (selector already persists choice). |
+| Item                       | Notes                                                                                                                |
+| -------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| Theme maker (MVP)          | Export or duplicate a palette; write `theme = "..."` to local config (selector already persists choice).             |
 | User-defined themes (full) | Persist custom `Palette` fields (file or config); may require moving palettes out of compile-time-only `ALL_THEMES`. |
 
 ---
@@ -58,11 +58,11 @@ Track work in GitHub Issues — **parent** issues by category, **sub-issues** fo
 
 **Goal:** Preview quality and optional execution without turning UBLX into an IDE.
 
-| Item | Notes |
-|------|--------|
-| Syntax highlighting — ADR | **Current:** syntect + `sublime_syntaxes`, theme-linked, async for large buffers. **Alternative:** tree-sitter (structure-aware, heavier deps). |
-| In-TUI code runner | **Current:** Open (Terminal) / Open (GUI) via `editor_path` / `$EDITOR`. Runner needs sandbox, cwd, output surface. |
-| Grammar / highlight polish | More grammars or better path→grammar mapping under syntect if ADR keeps current stack. |
+| Item                       | Notes                                                                                                                                           |
+| -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| Syntax highlighting — ADR  | **Current:** syntect + `sublime_syntaxes`, theme-linked, async for large buffers. **Alternative:** tree-sitter (structure-aware, heavier deps). |
+| In-TUI code runner         | **Current:** Open (Terminal) / Open (GUI) via `editor_path` / `$EDITOR`. Runner needs sandbox, cwd, output surface.                             |
+| Grammar / highlight polish | More grammars or better path→grammar mapping under syntect if ADR keeps current stack.                                                          |
 
 ---
 
@@ -70,11 +70,11 @@ Track work in GitHub Issues — **parent** issues by category, **sub-issues** fo
 
 **Goal:** Lenses as durable “focused lists” with richer context, not only path playlists.
 
-| Item | Notes |
-|------|--------|
-| Lens notes / description | Schema today: `lens(id, name)` + `lens_path`; no per-lens or per-path notes. |
+| Item                        | Notes                                                                                              |
+| --------------------------- | -------------------------------------------------------------------------------------------------- |
+| Lens notes / description    | Schema today: `lens(id, name)` + `lens_path`; no per-lens or per-path notes.                       |
 | Richer lens Markdown export | Export today: `# title` + links; extend with category, size, Zahir snippets, writing stats, notes. |
-| Lens workflows | Reorder paths, sort/filter within lens, duplicate lens, import from markdown list. |
+| Lens workflows              | Reorder paths, sort/filter within lens, duplicate lens, import from markdown list.                 |
 
 Module CRUD and export (`Ctrl+A` `l`) already exist; see `src/modules/lenses.rs` and `src/engine/db_ops/lens_export.rs`.
 
@@ -86,22 +86,20 @@ Module CRUD and export (`Ctrl+A` `l`) already exist; see `src/modules/lenses.rs`
 
 Engineering notes also live in local `TODO.md` (gitignored); items below are the tracked issue set.
 
-| Item | Notes |
-|------|--------|
-| Evict viewer caches on selection change | `viewer_text_cache`, async viewer state, stale `Arc<str>`. |
-| Large files — streaming / windowing | Head+tail or chunked read with explicit “truncated” label vs full buffer in memory. |
-| Image / PDF cache eviction | Avoid retaining multiple large rasters when only one pane is visible. |
-| Regression checks | Profile row-switch between max-sized previews; RSS should not grow linearly per switch. |
+| Item                                    | Notes                                                                                   |
+| --------------------------------------- | --------------------------------------------------------------------------------------- |
+| Evict viewer caches on selection change | `viewer_text_cache`, async viewer state, stale `Arc<str>`.                              |
+| Large files — streaming / windowing     | Head+tail or chunked read with explicit “truncated” label vs full buffer in memory.     |
+| Image / PDF cache eviction              | Avoid retaining multiple large rasters when only one pane is visible.                   |
+| Regression checks                       | Profile row-switch between max-sized previews; RSS should not grow linearly per switch. |
 
 ---
 
 ## 7. Maintenance & docs
 
-| Item | Notes |
-|------|--------|
+| Item                                  | Notes                                          |
+| ------------------------------------- | ---------------------------------------------- |
 | Keep this roadmap in sync with issues | Update when closing or reprioritizing parents. |
-| Stale `lenses.rs` module doc | Comment still says “key handling to be wired” — behavior is implemented. |
-| GitHub issue templates | bug / feature / design (optional). |
 
 ---
 

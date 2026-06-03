@@ -1,7 +1,7 @@
 # Documentation: https://docs.brew.sh/Formula-Cookbook
 class Ublx < Formula
   desc "TUI that turns a directory into a flat, navigable catalog with previews and metadata"
-  homepage "https://github.com/Latka-Industries/UBLX"
+  homepage "https://ublx.dev/"
   url "https://github.com/Latka-Industries/UBLX/archive/refs/tags/v0.1.7.tar.gz"
   sha256 "25d1b934fe9879dfedb717523be70e807519d9fd433f88e367a38ff6a074cbdd"
   license any_of: ["MIT", "Apache-2.0"]

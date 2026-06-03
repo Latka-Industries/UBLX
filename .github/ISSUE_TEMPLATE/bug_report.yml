@@ -1,0 +1,58 @@
+name: Bug Report
+description: Report unexpected behavior in the TUI, CLI, or indexing pipeline
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. Include enough detail that someone can reproduce the issue locally.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: Describe the unexpected behavior.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect?
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Run `ublx /path/to/dir`
+        2. ...
+        3. See error / wrong UI state
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: UBLX version
+      placeholder: e.g. 0.1.7 — run `ublx --version`
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: OS
+      options:
+        - macOS
+        - Linux
+        - Windows
+        - Other
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Extra context
+      description: Logs, `--dev` output, config snippets, terminal emulator, or screenshots.
+      render: shell
