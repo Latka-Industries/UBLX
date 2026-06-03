@@ -1,13 +1,13 @@
 [package]
 name = "ublx"
-version = "0.1.7"
+version = "0.1.8"
 edition = "2024"
 rust-version = "1.95"
 authors = ["AHurowitz <latkaindustries@gmail.com>"]
 description = "TUI to index once, enrich with metadata, and browse a flat snapshot in a 3-pane layout with multiple modes."
 license = "MIT or Apache-2.0"
 repository = "https://github.com/Latka-Industries/UBLX"
-homepage = "https://github.com/Latka-Industries/UBLX"
+homepage = "https://ublx.dev/"
 documentation = "https://docs.rs/ublx"
 readme = "README.md"
 keywords = ["tui", "cli", "file-manager", "file-browser"]
@@ -40,12 +40,12 @@ env_logger = "0.11.9"
 fuzzy-matcher = "0.3.7"
 image = "0.25"
 lofty = "0.24.0"
-log = "0.4.29"
-nefaxer = "0.1.9"
+log = "0.4.31"
+nefaxer = "0.1.11"
 notify = "8.2.0"
 pulldown-cmark = "0.13.3"
 ratatui = "0.30"
-ratatui-image = { version = "11.0.2", default-features = false, features = [
+ratatui-image = { version = "11.0.3", default-features = false, features = [
   "crossterm",
   "image-defaults",
 ] }
@@ -57,11 +57,11 @@ serde_json = { version = "1.0", features = ["preserve_order"] }
 sublime-syntaxes = "0.2.0"
 syntect = "5.3.0"
 tokio = { version = "1.52.2", features = ["rt-multi-thread", "sync"] }
-tetration = { version = "0.1.5", default-features = false }
+tetration = { version = "0.1.9", default-features = false }
 toml = "1.1.2"
 tui-logger = { version = "0.18.2", features = ["crossterm"] }
 unicode-width = "0.2"
-zahirscan = { version = "0.3.3", default-features = false }
+zahirscan = { version = "0.3.4", default-features = false }
 zip = { version = "8.6.0", default-features = false, features = ["deflate"] }
 
 [patch.crates-io]

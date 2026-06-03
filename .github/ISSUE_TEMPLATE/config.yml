@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: FAQ & guides
+    url: https://ublx.dev/guides/faq
+    about: Config, CLI flags, TUI keys, and common workflows
+  - name: Roadmap
+    url: https://github.com/Latka-Industries/UBLX/blob/main/docs/ROADMAP.md
+    about: Planned work and parent tracking issues

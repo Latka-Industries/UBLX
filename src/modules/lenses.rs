@@ -1,4 +1,5 @@
-//! Lens applet: create/select lenses, add current file to a lens. Popup and key handling to be wired.
+//! Lens DB helpers: create/select lenses, add or remove paths. Popup and key handling live in
+//! [`crate::ui::menus::lens_handler`].
 
 use std::path::Path;
 

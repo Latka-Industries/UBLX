@@ -1,0 +1,45 @@
+name: Design spike / ADR
+description: Explore an architectural decision before implementation
+title: "[Design]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this for ADRs, plugin contracts, feasibility studies, and other design work that should land before code.
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: What problem or constraint triggered this spike?
+    validations:
+      required: true
+
+  - type: textarea
+    id: goals
+    attributes:
+      label: Goals and non-goals
+      description: What must the design achieve? What is explicitly out of scope?
+    validations:
+      required: true
+
+  - type: textarea
+    id: options
+    attributes:
+      label: Options considered
+      description: List approaches with trade-offs (API shape, deps, UX, maintenance).
+    validations:
+      required: true
+
+  - type: textarea
+    id: recommendation
+    attributes:
+      label: Recommendation (if any)
+      description: Preferred direction, open questions, or follow-up issues to file.
+
+  - type: input
+    id: parent
+    attributes:
+      label: Parent roadmap issue (optional)
+      placeholder: e.g. #5 Platform & extensions
