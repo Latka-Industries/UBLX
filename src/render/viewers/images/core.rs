@@ -81,6 +81,18 @@ pub fn label_body_error(raw: &str) -> String {
     )
 }
 
+/// PDF page keys are `path#pN`; return the path prefix for same-document checks.
+#[inline]
+fn raster_pdf_document_key(key: &str) -> &str {
+    key.split_once("#p").map_or(key, |(base, _)| base)
+}
+
+/// True when both keys refer to different pages of the same PDF file.
+#[inline]
+fn same_pdf_document(a: &str, b: &str) -> bool {
+    a.contains("#p") && b.contains("#p") && raster_pdf_document_key(a) == raster_pdf_document_key(b)
+}
+
 fn finish_protocol_from_image(state: &mut UblxState, dyn_img: image::DynamicImage) {
     let picker = state.viewer_image.picker.get_or_insert_with(|| {
         ratatui_image::picker::Picker::from_query_stdio()
@@ -118,12 +130,12 @@ pub fn sync_pdf_selection_state(state: &mut UblxState, right_content: &RightPane
         return;
     };
     if state.viewer_image.pdf.for_path.as_ref() != Some(abs) {
+        state.viewer_image.evict_rasters();
         state
             .viewer_image
             .pdf
             .prefetch_cancel
             .fetch_add(1, Ordering::SeqCst);
-        state.viewer_image.pdf.prefetch_rx = None;
         state.viewer_image.pdf.prefetch_earliest =
             Some(std::time::Instant::now() + pdf_preview::PDFPrefetch::DEBOUNCE);
         state.viewer_image.pdf.for_path = Some(abs.clone());
@@ -385,6 +397,7 @@ pub fn ensure_viewer_image(
     }
 
     if state.right_pane_mode != RightPaneMode::Viewer {
+        state.viewer_image.evict_rasters();
         return;
     }
     if !is_raster_preview_category(right_content) {
@@ -423,8 +436,10 @@ pub fn ensure_viewer_image(
     if let Some(pk) = state.viewer_image.key.clone()
         && pk != selection_key
         && let Some(p) = state.viewer_image.protocol.take()
+        && is_pdf
+        && same_pdf_document(&pk, &selection_key)
     {
-        state.viewer_image.push_lru(pk, p);
+        state.viewer_image.stash_page_for_pdf_navigation(pk, p);
     }
 
     if let Some(p) = state.viewer_image.take_from_lru(&selection_key) {

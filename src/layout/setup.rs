@@ -455,24 +455,35 @@ impl ViewerImageState {
         }
     }
 
-    /// Clear loaded image, error, and async decode channel; **retains** [`Self::picker`] so the
-    /// terminal is not re-queried on every selection (matches previous flat-field behavior).
-    /// Finished previews are moved into [`Self::image_lru`] so returning to an image can be instant.
+    /// Clear loaded image, error, and async decode channel; **retains** [`Self::picker`].
+    /// Drops all rasters (no LRU retention) — use [`Self::stash_page_for_pdf_navigation`] for PDF page hops.
     pub fn clear(&mut self) {
+        self.evict_rasters();
+    }
+
+    /// Drop current and cached rasters; cancel in-flight decode and PDF prefetch. Keeps [`Self::picker`].
+    pub fn evict_rasters(&mut self) {
         self.pdf.prefetch_cancel.fetch_add(1, Ordering::SeqCst);
         self.pdf.prefetch_rx = None;
         self.pdf.prefetch_earliest = None;
         self.decode_rx = None;
         self.pdf.page_count_rx = None;
         self.err = None;
-        let k = self.key.take();
-        let p = self.protocol.take();
-        if let (Some(k), Some(p)) = (k, p) {
-            self.push_lru(k, p);
-        }
+        self.key = None;
+        self.protocol = None;
+        self.image_lru.clear();
         self.pdf.for_path = None;
         self.pdf.page = 1;
         self.pdf.page_count = None;
+    }
+
+    /// Stash the current PDF page preview for back-navigation within the same file.
+    pub fn stash_page_for_pdf_navigation(
+        &mut self,
+        page_key: String,
+        proto: ratatui_image::protocol::StatefulProtocol,
+    ) {
+        self.push_lru(page_key, proto);
     }
 }
 

@@ -16,6 +16,7 @@ use crate::utils;
 
 use super::core::{self, NonDirectoryRightPaneBuild};
 use super::{ZarrStoreRightPaneBuild, build_zarr_store_right_pane};
+use crate::render::viewer_cache;
 
 struct RightPaneAsyncSpawnJob {
     generation: u64,
@@ -148,7 +149,7 @@ pub fn drive_right_pane_async(
     let Some(row) = selected else {
         state.right_pane_async.generation = state.right_pane_async.generation.saturating_add(1);
         state.right_pane_async.last_spawn_path = String::new();
-        state.viewer_disk_cache = None;
+        viewer_cache::evict_viewer_caches_on_selection_change(state);
         state.cached_tree = None;
         drain_async_channel(state);
         state.right_pane_async.displayed = RightPaneContent::empty();
@@ -181,6 +182,7 @@ pub fn drive_right_pane_async(
     let need_spawn = state.right_pane_async.last_spawn_path != path_str;
 
     if need_spawn {
+        viewer_cache::evict_viewer_caches_on_selection_change(state);
         state.right_pane_async.generation = state.right_pane_async.generation.saturating_add(1);
         let generation = state.right_pane_async.generation;
         state.right_pane_async.last_spawn_path = path_str.to_string();

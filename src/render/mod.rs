@@ -8,6 +8,7 @@ pub mod overlays;
 pub mod panes;
 pub mod path_lines;
 pub mod scrollable_content;
+pub mod viewer_cache;
 pub mod viewers;
 
 pub use core::*;
