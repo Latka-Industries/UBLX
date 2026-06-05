@@ -2,8 +2,8 @@
 class Ublx < Formula
   desc "TUI that turns a directory into a flat, navigable catalog with previews and metadata"
   homepage "https://ublx.dev/"
-  url "https://github.com/Latka-Industries/UBLX/archive/refs/tags/v0.1.8.tar.gz"
-  sha256 "749ddec63f80f904715bb101105a9a2bd5c533091f253251c0e3ca8cde96aff3"
+  url "https://github.com/Latka-Industries/UBLX/archive/refs/tags/v0.1.9.tar.gz"
+  sha256 "b090a16e04a31af47075eeb6baf6ece9a160af7b3703ae24ffcca40121957a7c"
   license any_of: ["MIT", "Apache-2.0"]
 
   depends_on "pkgconf" => :build
