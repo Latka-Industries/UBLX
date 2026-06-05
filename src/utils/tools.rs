@@ -25,8 +25,8 @@ impl ViewerReadPolicy {
     pub const HALF_MIB_BYTES: u64 = ByteUnits::MIB / 2;
     /// [`HALF_MIB_BYTES`] as [`usize`] for allocation caps (`HALF_MIB_BYTES` always fits in `usize`).
     pub const HALF_MIB_BYTES_USIZE: usize = Self::HALF_MIB_BYTES as usize;
-    /// Per-chunk size for log preview head + tail: two chunks sum to [`HALF_MIB_BYTES`].
-    pub const LOG_HEAD_TAIL_CHUNK_BYTES: u64 = Self::HALF_MIB_BYTES / 2;
+    /// Per-chunk size for large-text head + tail previews: two chunks sum to [`HALF_MIB_BYTES`].
+    pub const TEXT_HEAD_TAIL_CHUNK_BYTES: u64 = Self::HALF_MIB_BYTES / 2;
     /// Delimited viewer preview keeps many rows while bounding disk read work.
     pub const CSV_VIEWER_MAX_BYTES: u64 = 4 * ByteUnits::MIB;
     /// Hard cap for preview rows loaded from large delimited files.
@@ -71,10 +71,10 @@ pub fn binary_file_label(path: &Path) -> String {
     )
 }
 
-/// Read first + last chunks for large log files; same total byte budget as [`HALF_MIB_BYTES`].
-fn read_log_head_tail(path: &Path, total: u64) -> Option<String> {
+/// Read first + last chunks for large text files; same total byte budget as [`HALF_MIB_BYTES`].
+fn read_text_head_tail(path: &Path, total: u64) -> Option<String> {
     let mut f = fs::File::open(path).ok()?;
-    let chunk = ViewerReadPolicy::LOG_HEAD_TAIL_CHUNK_BYTES;
+    let chunk = ViewerReadPolicy::TEXT_HEAD_TAIL_CHUNK_BYTES;
     let mut head = Vec::new();
     let n_head = Read::by_ref(&mut f)
         .take(chunk)
@@ -149,7 +149,7 @@ fn read_delimited_preview_lines(path: &Path) -> Option<String> {
 
 /// Read text for a viewer pane: not found, empty for image/PDF (raster preview elsewhere), binary short label, or capped UTF-8 with truncation notice.
 ///
-/// Cap is [`HALF_MIB_BYTES_USIZE`]. For [`ZahirFT::Log`] files larger than that, reads **head + tail** (half cap each) instead of head only. When `zahir_type` is [`FileType::Image`], [`FileType::Pdf`], or [`FileType::Video`], returns empty string for a normal file so the render layer loads the preview.
+/// Cap is [`HALF_MIB_BYTES_USIZE`]. Files larger than that read **head + tail** (half cap each) with an explicit omitted-bytes marker instead of loading the full buffer. When `zahir_type` is [`FileType::Image`], [`FileType::Pdf`], or [`FileType::Video`], returns empty string for a normal file so the render layer loads the preview.
 #[must_use]
 pub fn file_content_for_viewer(path: &Path, zahir_type: Option<ZahirFT>) -> Option<String> {
     let Ok(meta) = fs::metadata(path) else {
@@ -173,29 +173,18 @@ pub fn file_content_for_viewer(path: &Path, zahir_type: Option<ZahirFT>) -> Opti
         return Some(binary_file_label(path));
     }
     let len = meta.len();
-    if len > ViewerReadPolicy::HALF_MIB_BYTES && zahir_type == Some(ZahirFT::Log) {
-        return read_log_head_tail(path, len);
-    }
     if zahir_type == Some(ZahirFT::Csv) {
         return read_delimited_preview_lines(path);
+    }
+    if len > ViewerReadPolicy::HALF_MIB_BYTES {
+        return read_text_head_tail(path, len);
     }
 
     let f = fs::File::open(path).ok()?;
     let cap = ViewerReadPolicy::HALF_MIB_BYTES_USIZE.min(u64_to_usize_saturating(len));
     let mut buf = Vec::with_capacity(cap);
-    let n = f
-        .take(ViewerReadPolicy::HALF_MIB_BYTES)
-        .read_to_end(&mut buf)
-        .ok()?;
-    let s = String::from_utf8_lossy(&buf[..n]).into_owned();
-    // `take(HALF_MIB_BYTES)` bounds `n` to at most [`HALF_MIB_BYTES`], which fits in `u64`.
-    let n_u64 = n as u64;
-    let out = if n_u64 >= len {
-        s
-    } else {
-        format!("{s}\n\n… (truncated, {len} bytes total)")
-    };
-    Some(out)
+    let n = f.take(len).read_to_end(&mut buf).ok()?;
+    Some(String::from_utf8_lossy(&buf[..n]).into_owned())
 }
 
 /// Expand a leading `~/` using `HOME` so `cargo run -- ~/src/proj` works (the shell often does not expand `~` in argv).
