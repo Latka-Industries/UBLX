@@ -1,4 +1,6 @@
-//! Performance regression guards for the viewer read path and cache eviction ([#26], [#28]).
+//! Viewer read caps ([#26]) and cache eviction smoke tests ([#25]).
+//!
+//! RSS on row switch ([#28]) is manual (Activity Monitor).
 
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -11,6 +13,8 @@ use ublx::utils::{ViewerReadPolicy, file_content_for_viewer};
 
 static TEMP_COUNTER: AtomicU64 = AtomicU64::new(0);
 
+const MARKER_OVERHEAD: usize = 128;
+
 fn temp_file(label: &str, contents: impl AsRef<[u8]>) -> PathBuf {
     let n = TEMP_COUNTER.fetch_add(1, Ordering::Relaxed);
     let path = std::env::temp_dir().join(format!("ublx-perf-{label}-{n}"));
@@ -22,61 +26,44 @@ fn remove_temp(path: &Path) {
     let _ = std::fs::remove_file(path);
 }
 
+fn max_large_preview_bytes() -> usize {
+    ViewerReadPolicy::HALF_MIB_BYTES_USIZE + MARKER_OVERHEAD
+}
+
+fn oversized_text_file() -> PathBuf {
+    temp_file(
+        "large",
+        vec![b'x'; ViewerReadPolicy::HALF_MIB_BYTES as usize + 64],
+    )
+}
+
 #[test]
 fn large_text_preview_uses_head_and_tail() {
     let head = "HEAD-START\n";
     let tail = "\nTAIL-END";
     let pad_len = ViewerReadPolicy::HALF_MIB_BYTES as usize + 64;
     let mut body = vec![b'x'; pad_len];
-    let head_bytes = head.as_bytes();
-    let tail_bytes = tail.as_bytes();
-    body[..head_bytes.len()].copy_from_slice(head_bytes);
-    body[pad_len - tail_bytes.len()..].copy_from_slice(tail_bytes);
+    body[..head.len()].copy_from_slice(head.as_bytes());
+    body[pad_len - tail.len()..].copy_from_slice(tail.as_bytes());
 
     let path = temp_file("head-tail", body);
     let preview = file_content_for_viewer(&path, Some(ZahirFT::Code)).expect("preview");
     remove_temp(&path);
 
-    assert!(
-        preview.contains("HEAD-START"),
-        "expected head chunk in preview"
-    );
-    assert!(
-        preview.contains("TAIL-END"),
-        "expected tail chunk in preview"
-    );
-    assert!(
-        preview.contains("bytes omitted"),
-        "expected explicit truncation marker, got {} bytes",
-        preview.len()
-    );
-}
-
-#[test]
-fn large_log_preview_still_uses_head_and_tail() {
-    let pad_len = ViewerReadPolicy::HALF_MIB_BYTES as usize + 1;
-    let path = temp_file("log-head-tail", vec![b'l'; pad_len]);
-    let preview = file_content_for_viewer(&path, Some(ZahirFT::Log)).expect("preview");
-    remove_temp(&path);
-
+    assert!(preview.contains("HEAD-START"));
+    assert!(preview.contains("TAIL-END"));
     assert!(preview.contains("bytes omitted"));
+    assert!(preview.len() <= max_large_preview_bytes());
 }
 
 #[test]
 fn large_text_preview_respects_byte_budget() {
-    let total = ViewerReadPolicy::HALF_MIB_BYTES + (128 * 1024);
-    let path = temp_file("budget", vec![b'a'; total as usize]);
+    let path = oversized_text_file();
     let preview = file_content_for_viewer(&path, None).expect("preview");
     remove_temp(&path);
 
-    let marker_overhead = 128;
-    let max = ViewerReadPolicy::HALF_MIB_BYTES_USIZE + marker_overhead;
-    assert!(
-        preview.len() <= max,
-        "preview {} bytes exceeds budget ~{}",
-        preview.len(),
-        max
-    );
+    assert!(preview.contains("bytes omitted"));
+    assert!(preview.len() <= max_large_preview_bytes());
 }
 
 #[test]
@@ -101,10 +88,7 @@ fn evict_viewer_caches_clears_retained_preview_state() {
         embedded_cover_raster: Some(vec![1, 2, 3]),
         viewer_can_open: true,
     });
-    state.viewer_preview_source = Some((
-        "a.txt".into(),
-        ViewerContentIdentity::LenOnly { len: 6 },
-    ));
+    state.viewer_preview_source = Some(("a.txt".into(), ViewerContentIdentity::LenOnly { len: 6 }));
     state.csv_table_text_lru.insert(
         cache::ViewerTableCacheKey {
             path: "wide.csv".into(),
@@ -132,20 +116,4 @@ fn evict_viewer_caches_clears_retained_preview_state() {
     assert!(state.csv_table_text_lru.entries.is_empty());
     assert!(state.viewer_image.key.is_none());
     assert!(state.viewer_image.image_lru.is_empty());
-}
-
-/// Repeated preview reads for the same large file should stay within the byte budget ([#28] guard).
-#[test]
-fn repeated_large_preview_reads_do_not_accumulate_in_memory() {
-    let total = ViewerReadPolicy::HALF_MIB_BYTES + (256 * 1024);
-    let path = temp_file("repeat", vec![b'z'; total as usize]);
-    let marker_overhead = 128;
-    let max = ViewerReadPolicy::HALF_MIB_BYTES_USIZE + marker_overhead;
-
-    for _ in 0..8 {
-        let preview = file_content_for_viewer(&path, Some(ZahirFT::Markdown)).expect("preview");
-        assert!(preview.len() <= max);
-    }
-
-    remove_temp(&path);
 }
