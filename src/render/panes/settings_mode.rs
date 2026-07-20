@@ -14,6 +14,7 @@ use crate::config::{
 use crate::layout::setup::{SettingsConfigScope, UblxState};
 use crate::layout::style;
 use crate::modules::settings;
+use crate::render::viewers::images;
 use crate::render::{path_lines, scrollable_content};
 use crate::ui::{UI_CONSTANTS, UI_GLYPHS, UI_STRINGS};
 use crate::utils;
@@ -414,6 +415,7 @@ fn push_external_apps_section(
     left_lines: &mut Vec<Line>,
     hint_wrap: usize,
     scope: SettingsConfigScope,
+    state: &mut UblxState,
 ) {
     let s = &UI_STRINGS.settings_pane;
     left_lines.push(Line::from(""));
@@ -478,6 +480,22 @@ fn push_external_apps_section(
             style::text_style(),
         ),
         Span::styled(pdf_detail, pdf_st),
+    ]));
+    let proto_label = images::viewer_image_protocol_label(state);
+    let proto_ok = images::viewer_image_protocol_is_graphics(state);
+    left_lines.push(Line::from(vec![
+        Span::styled(
+            format!("{}{}", UI_GLYPHS.indent_two_spaces, s.image_protocol_label),
+            style::text_style(),
+        ),
+        Span::styled(
+            proto_label,
+            if proto_ok {
+                style::tab_active()
+            } else {
+                style::hint_text()
+            },
+        ),
     ]));
     left_lines.push(Line::from(""));
     left_lines.push(Line::from(""));
@@ -638,7 +656,7 @@ pub fn draw_settings_pane(f: &mut Frame, area: Rect, state: &mut UblxState, dir_
     left_lines.push(Line::from(""));
     push_layout_edit_section(&mut left_lines, state, layout_dimmed);
     push_opacity_edit_section(&mut left_lines, state, opacity_dimmed);
-    push_external_apps_section(&mut left_lines, path_wrap, scope);
+    push_external_apps_section(&mut left_lines, path_wrap, scope, state);
 
     f.render_widget(
         Paragraph::new(left_lines).style(style::text_style()),
