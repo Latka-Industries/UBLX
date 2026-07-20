@@ -1,4 +1,4 @@
-//! Cached PATH probes for optional preview binaries (`FFmpeg`, Poppler `pdftoppm`, `MuPDF` `mutool`, ImageMagick `magick`).
+//! Cached PATH probes for optional preview binaries (`FFmpeg`, Poppler `pdftoppm`, `MuPDF` `mutool`, `resvg`).
 //! Probed once per process via [`std::sync::OnceLock`] so the Settings UI does not spawn every frame.
 
 use std::process::Command;
@@ -8,7 +8,7 @@ struct Cached {
     ffmpeg: bool,
     poppler_pdftoppm: bool,
     mutool: bool,
-    imagemagick: bool,
+    resvg: bool,
 }
 
 static PROBE: OnceLock<Cached> = OnceLock::new();
@@ -18,7 +18,7 @@ fn cached() -> &'static Cached {
         ffmpeg: probe_ffmpeg(),
         poppler_pdftoppm: probe_pdftoppm(),
         mutool: probe_mutool(),
-        imagemagick: probe_imagemagick(),
+        resvg: probe_resvg(),
     })
 }
 
@@ -40,10 +40,10 @@ pub fn mutool_available() -> bool {
     cached().mutool
 }
 
-/// ImageMagick [`magick`] or legacy [`convert`] on `PATH` (SVG raster preview).
+/// [`resvg`] on `PATH` (SVG raster preview).
 #[must_use]
-pub fn imagemagick_available() -> bool {
-    cached().imagemagick
+pub fn resvg_available() -> bool {
+    cached().resvg
 }
 
 fn probe_ffmpeg() -> bool {
@@ -61,13 +61,9 @@ fn probe_mutool() -> bool {
     Command::new("mutool").arg("-v").output().is_ok()
 }
 
-fn probe_imagemagick() -> bool {
-    Command::new("magick")
-        .arg("-version")
+fn probe_resvg() -> bool {
+    Command::new("resvg")
+        .arg("--version")
         .output()
         .is_ok_and(|o| o.status.success())
-        || Command::new("convert")
-            .arg("-version")
-            .output()
-            .is_ok_and(|o| o.status.success())
 }

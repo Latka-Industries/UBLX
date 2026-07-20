@@ -410,7 +410,7 @@ fn push_wrapped_hint_footnote(
     }
 }
 
-/// `FFmpeg` + PDF raster backends (same binaries as video / PDF preview).
+/// `FFmpeg` + `resvg` + PDF raster backends (same binaries as video / SVG / PDF preview).
 fn push_external_apps_section(
     left_lines: &mut Vec<Line>,
     hint_wrap: usize,
@@ -442,19 +442,19 @@ fn push_external_apps_section(
             },
         ),
     ]));
-    let magick_ok = crate::utils::imagemagick_available();
+    let resvg_ok = crate::utils::resvg_available();
     left_lines.push(Line::from(vec![
         Span::styled(
-            format!("{}{}", UI_GLYPHS.indent_two_spaces, s.imagemagick_label),
+            format!("{}{}", UI_GLYPHS.indent_two_spaces, s.resvg_label),
             style::text_style(),
         ),
         Span::styled(
-            if magick_ok {
+            if resvg_ok {
                 s.tool_available
             } else {
                 s.tool_not_found
             },
-            if magick_ok {
+            if resvg_ok {
                 style::tab_active()
             } else {
                 style::hint_text()
