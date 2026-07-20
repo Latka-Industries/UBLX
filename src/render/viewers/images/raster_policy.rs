@@ -2,7 +2,8 @@
 
 use crate::utils::MIB;
 
-/// Cell→pixel estimates for longest-edge raster budgets (half-block rendering; conservative).
+/// Cell→pixel estimates for longest-edge raster budgets.
+/// Sized for Kitty/iTerm graphics protocols (not half-block floor); still capped by file-size tiers.
 #[derive(Clone, Copy, Debug)]
 pub struct ViewportCellRasterBudget {
     pub px_per_cell_w: u32,
@@ -22,16 +23,16 @@ impl ViewportCellRasterBudget {
 }
 
 pub const VIEWPORT_RASTER_IMAGE: ViewportCellRasterBudget = ViewportCellRasterBudget {
-    px_per_cell_w: 8,
-    px_per_cell_h: 16,
-    min_longest_edge: 320,
+    px_per_cell_w: 20,
+    px_per_cell_h: 40,
+    min_longest_edge: 800,
 };
 
 /// Slightly **taller** cell→px vertical term so PDF pages (often portrait) get a bit more longest-edge budget.
 pub const VIEWPORT_RASTER_PDF: ViewportCellRasterBudget = ViewportCellRasterBudget {
-    px_per_cell_w: 8,
-    px_per_cell_h: 20,
-    min_longest_edge: 400,
+    px_per_cell_w: 20,
+    px_per_cell_h: 48,
+    min_longest_edge: 960,
 };
 
 /// Upper bound on longest edge (px) from the preview **area in terminal cells** so we don’t decode

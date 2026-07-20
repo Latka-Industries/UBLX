@@ -440,6 +440,25 @@ fn push_external_apps_section(
             },
         ),
     ]));
+    let magick_ok = crate::utils::imagemagick_available();
+    left_lines.push(Line::from(vec![
+        Span::styled(
+            format!("{}{}", UI_GLYPHS.indent_two_spaces, s.imagemagick_label),
+            style::text_style(),
+        ),
+        Span::styled(
+            if magick_ok {
+                s.tool_available
+            } else {
+                s.tool_not_found
+            },
+            if magick_ok {
+                style::tab_active()
+            } else {
+                style::hint_text()
+            },
+        ),
+    ]));
     let pop = utils::poppler_pdftoppm_available();
     let mu = utils::mutool_available();
     let pdf_detail: &'static str = match (pop, mu) {

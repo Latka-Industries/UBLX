@@ -1,5 +1,5 @@
-//! Image / PDF page / video preview-frame viewer: decode, tiered downscale by file size, optional background thread
-//! for large files, PDF rasterization, or ffmpeg mid-timeline frame grab, and `ratatui-image` terminal preview.
+//! Image / PDF page / video / SVG preview-frame viewer: decode, tiered downscale by file size, optional background thread
+//! for large files, PDF / SVG rasterization, or ffmpeg mid-timeline frame grab, and `ratatui-image` terminal preview.
 
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
@@ -10,7 +10,7 @@ use ratatui_image::{Resize, StatefulImage, protocol::StatefulProtocol};
 
 use crate::integrations::ZahirFT;
 use crate::layout::setup::{RightPaneContent, RightPaneMode, UblxState, ViewerImageState};
-use crate::render::viewers::{pdf_preview, video_preview};
+use crate::render::viewers::{pdf_preview, svg_preview, video_preview};
 use crate::ui::{UI_GLYPHS, UI_STRINGS};
 use crate::utils::ViewerReadPolicy;
 
@@ -355,6 +355,15 @@ fn spawn_or_decode_raster_preview(
         let path = abs.to_path_buf();
         std::thread::spawn(move || {
             let res = video_preview::decode_preview_frame(&path)
+                .map(|img| raster_policy::downscale_with_max(img, max_dim));
+            let _ = tx.send(res);
+        });
+    } else if svg_preview::is_svg_path(abs) {
+        let (tx, rx) = mpsc::channel();
+        state.viewer_image.decode_rx = Some(rx);
+        let path = abs.to_path_buf();
+        std::thread::spawn(move || {
+            let res = svg_preview::rasterize(&path, max_dim)
                 .map(|img| raster_policy::downscale_with_max(img, max_dim));
             let _ = tx.send(res);
         });
