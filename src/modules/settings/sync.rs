@@ -55,6 +55,9 @@ pub fn sync_run_params_from_opts(
 }
 
 /// If config watcher fired: optionally clear theme override (if external save), then apply reload and optional toast.
+///
+/// Self-caused writes (Settings / theme selector) suppress the "Config reloaded" toast via
+/// [`UblxState::config_written_by_us_at`]; only external disk changes toast.
 pub fn on_config_reload(
     state_mut: &mut UblxState,
     params_mut: &mut RunUblxParams<'_>,
@@ -67,12 +70,8 @@ pub fn on_config_reload(
     if from_external_save {
         state_mut.theme.override_name = None;
     }
-    apply_config_reload(
-        params_mut,
-        ublx_opts_mut,
-        state_mut,
-        Some(UI_STRINGS.toasts.config_reloaded),
-    );
+    let toast = from_external_save.then_some(UI_STRINGS.toasts.config_reloaded);
+    apply_config_reload(params_mut, ublx_opts_mut, state_mut, toast);
 }
 
 /// Reloads hot-reloadable config from paths and syncs theme/layout into params. Validates before applying; on validation failure shows a toast with variable-specific errors. If applied and `message` is `Some`, shows success toast (use `None` when the change was caused by us, e.g. theme selector write).

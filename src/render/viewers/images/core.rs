@@ -107,14 +107,16 @@ pub fn ensure_viewer_image_picker(state: &mut UblxState) -> &mut ratatui_image::
     })
 }
 
-/// Human-readable graphics protocol currently selected for Viewer rasters.
-///
-/// Probes the terminal on first call (same as first image preview). Halfblocks means
-/// cell-based fallback — typical over Cursor SSH / broken capability passthrough.
+/// Human-readable graphics protocol for Viewer rasters, if the picker was already created
+/// (e.g. after an image preview). Does **not** run a stdio capability query — that must only
+/// happen outside the Settings draw path (see [`ensure_viewer_image_picker`]).
 #[must_use]
-pub fn viewer_image_protocol_label(state: &mut UblxState) -> &'static str {
+pub fn viewer_image_protocol_label(state: &UblxState) -> &'static str {
     use ratatui_image::picker::ProtocolType;
-    match ensure_viewer_image_picker(state).protocol_type() {
+    let Some(picker) = state.viewer_image.picker.as_ref() else {
+        return "not probed yet";
+    };
+    match picker.protocol_type() {
         ProtocolType::Halfblocks => "halfblocks (fallback)",
         ProtocolType::Sixel => "Sixel",
         ProtocolType::Kitty => "Kitty",
@@ -122,13 +124,15 @@ pub fn viewer_image_protocol_label(state: &mut UblxState) -> &'static str {
     }
 }
 
-/// True when the active protocol is a real graphics path (not Unicode halfblocks).
+/// True when a real graphics protocol is active (not Unicode halfblocks / not yet probed).
 #[must_use]
-pub fn viewer_image_protocol_is_graphics(state: &mut UblxState) -> bool {
-    !matches!(
-        ensure_viewer_image_picker(state).protocol_type(),
-        ratatui_image::picker::ProtocolType::Halfblocks
-    )
+pub fn viewer_image_protocol_is_graphics(state: &UblxState) -> bool {
+    state.viewer_image.picker.as_ref().is_some_and(|p| {
+        !matches!(
+            p.protocol_type(),
+            ratatui_image::picker::ProtocolType::Halfblocks
+        )
+    })
 }
 
 /// [`StatefulImage`] with fast nearest-neighbor fitting.
