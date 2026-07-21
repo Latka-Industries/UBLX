@@ -180,7 +180,11 @@ fn main() {
     }
 
     if let Some(ref command) = args.command {
-        utils::build_logger_cli_subcommand();
+        let log_level = match command {
+            cli_parser::Commands::Serve(_) => log::LevelFilter::Info,
+            _ => log::LevelFilter::Warn,
+        };
+        utils::build_logger_cli_subcommand(log_level);
         utils::fatal_error_handler(cli::run(command), "{}");
         return;
     }

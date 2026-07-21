@@ -283,9 +283,11 @@ pub fn build_logger_snapshot_only_no_tui() {
     debug!("UBLX snapshot-only logger enabled");
 }
 
-/// Logger for headless catalog subcommands (`query`, `doctor`): warn+ only, no startup noise on stdout.
-pub fn build_logger_cli_subcommand() {
-    init_cli_env_logger(log::LevelFilter::Warn);
+/// Logger for headless catalog subcommands.
+///
+/// `query` / `doctor` stay at warn (quiet stdout). `serve` uses info so panza’s listen URL shows.
+pub fn build_logger_cli_subcommand(level: log::LevelFilter) {
+    init_cli_env_logger(level);
 }
 
 fn init_cli_env_logger(level: log::LevelFilter) {

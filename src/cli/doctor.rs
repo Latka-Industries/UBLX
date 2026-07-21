@@ -26,7 +26,7 @@ const EXPECTED_TABLES: &[&str] = &[
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "lowercase")]
-enum Status {
+pub enum Status {
     Pass,
     Warn,
     Fail,
@@ -52,50 +52,50 @@ impl Status {
 }
 
 #[derive(Debug, Serialize)]
-struct Check {
-    name: String,
-    status: Status,
-    detail: String,
+pub struct Check {
+    pub name: String,
+    pub status: Status,
+    pub detail: String,
 }
 
 #[derive(Debug, Serialize)]
-struct ArtifactInfo {
-    kind: String,
-    path: String,
-    exists: bool,
+pub struct ArtifactInfo {
+    pub kind: String,
+    pub path: String,
+    pub exists: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
-    size_bytes: Option<u64>,
+    pub size_bytes: Option<u64>,
 }
 
 #[derive(Clone, Debug, Default, Serialize)]
-struct CatalogStats {
-    snapshot_rows: i64,
-    distinct_categories: i64,
-    delta_rows: i64,
-    lenses: i64,
-    lens_paths: i64,
-    path_rows: i64,
-    null_hashes: i64,
-    empty_categories: i64,
-    settings_row: bool,
+pub struct CatalogStats {
+    pub snapshot_rows: i64,
+    pub distinct_categories: i64,
+    pub delta_rows: i64,
+    pub lenses: i64,
+    pub lens_paths: i64,
+    pub path_rows: i64,
+    pub null_hashes: i64,
+    pub empty_categories: i64,
+    pub settings_row: bool,
 }
 
 #[derive(Debug, Serialize)]
-struct DoctorReport {
-    dir: String,
-    db_path: String,
+pub struct DoctorReport {
+    pub dir: String,
+    pub db_path: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    read_path: Option<String>,
-    artifacts: Vec<ArtifactInfo>,
+    pub read_path: Option<String>,
+    pub artifacts: Vec<ArtifactInfo>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    journal_mode: Option<String>,
+    pub journal_mode: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    stats: Option<CatalogStats>,
+    pub stats: Option<CatalogStats>,
     /// Aux paths removed by `--fix` (kinds: tmp, wal, shm, …).
     #[serde(skip_serializing_if = "Option::is_none")]
-    removed: Option<Vec<String>>,
-    checks: Vec<Check>,
-    summary: Status,
+    pub removed: Option<Vec<String>>,
+    pub checks: Vec<Check>,
+    pub summary: Status,
 }
 
 impl DoctorReport {
@@ -123,6 +123,22 @@ impl DoctorReport {
     }
 }
 
+/// Diagnose a catalog directory (no `--fix`, no process exit).
+///
+/// When a snapshot appears in progress, returns a report with `summary: fail` and a
+/// `snapshot_lock` check (same as CLI without `--force`) instead of exiting.
+///
+/// # Errors
+///
+/// Returns `Err` when the directory is invalid / cannot be resolved.
+pub fn diagnose(dir: &Path) -> Result<DoctorReport, anyhow::Error> {
+    let catalog_paths = resolve_catalog_paths(dir)?;
+    if snapshot_likely_in_progress(&catalog_paths) {
+        return Ok(report_blocked_by_snapshot(&catalog_paths));
+    }
+    Ok(diagnose_with_paths(&catalog_paths))
+}
+
 /// Run `ublx doctor`. Prints a PASS/WARN/FAIL report; exits non-zero on FAIL.
 ///
 /// With `--fix`, removes leftover tmp/wal/shm aux files after the diagnosis pass
@@ -137,7 +153,7 @@ pub fn run(args: &DoctorCli) -> Result<(), anyhow::Error> {
     let catalog_paths = resolve_catalog_paths(&args.dir)?;
     let forced_through_lock = snapshot_likely_in_progress(&catalog_paths);
     if forced_through_lock && !args.force {
-        return refuse_while_snapshot_running(args, &catalog_paths);
+        return refuse_while_snapshot_running(args);
     }
 
     let mut report = diagnose_with_paths(&catalog_paths);
@@ -158,16 +174,18 @@ pub fn run(args: &DoctorCli) -> Result<(), anyhow::Error> {
     Ok(())
 }
 
-fn refuse_while_snapshot_running(
-    args: &DoctorCli,
-    catalog_paths: &CatalogPaths,
-) -> Result<(), anyhow::Error> {
+fn report_blocked_by_snapshot(catalog_paths: &CatalogPaths) -> DoctorReport {
     let detail = format!(
         "snapshot appears in progress ({} + wal/shm); wait for it to finish, or pass --force",
         catalog_paths.paths.tmp().display()
     );
     let mut report = DoctorReport::new(catalog_paths);
     report.push("snapshot_lock", Status::Fail, detail);
+    report
+}
+
+fn refuse_while_snapshot_running(args: &DoctorCli) -> Result<(), anyhow::Error> {
+    let report = diagnose(&args.dir)?;
     emit_report(&report, args.json)?;
     if !args.json {
         eprintln!();
