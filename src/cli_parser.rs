@@ -28,17 +28,30 @@ pub struct Args {
     pub themes: bool,
 }
 
-/// Headless catalog subcommands (`query`, `doctor`). `serve` is deferred.
+/// Headless catalog subcommands (`query`, `doctor`, `serve`).
 #[derive(Subcommand, Debug)]
 pub enum Commands {
     /// Query the `.ublx` catalog (list / detail / delta / lenses)
     Query(QueryCli),
     /// Diagnose `.ublx` DB / path / schema
     Doctor(DoctorCli),
+    /// Serve a local read-only HTTP API over the `.ublx` catalog
+    Serve(ServeCli),
+}
+
+/// `ublx serve [DIR]` — JSON API via panza (`--host` / `--port` / `--open`).
+#[derive(Parser, Debug)]
+pub struct ServeCli {
+    /// Indexed directory whose catalog to serve
+    #[arg(value_name = "DIR", default_value = ".")]
+    pub dir: PathBuf,
+    #[command(flatten)]
+    pub serve: panza::ServeArgs,
 }
 
 /// `ublx query [DIR]`
 #[derive(Parser, Debug)]
+#[allow(clippy::struct_excessive_bools)]
 pub struct QueryCli {
     /// Indexed directory whose catalog to query
     #[arg(value_name = "DIR", default_value = ".")]
