@@ -147,8 +147,10 @@ pub fn refresh_editing_metadata(state_mut: &mut UblxState, params_ref: &RunUblxP
     let scope = state_mut.settings.scope;
     if scope == SettingsConfigScope::Global
         && let Some(g) = paths.global_config()
+        && ensure_global_config_file_with_defaults(&g, default_theme_for_new_config_file())
     {
-        ensure_global_config_file_with_defaults(&g, default_theme_for_new_config_file());
+        // Watcher will see this write; suppress the "Config reloaded" toast.
+        state_mut.config_written_by_us_at = Some(std::time::Instant::now());
     }
     state_mut.settings.editing_path = resolve_config_path(&paths, scope);
     sync_layout_buffers_for_scope(&mut state_mut.settings, &paths, scope);

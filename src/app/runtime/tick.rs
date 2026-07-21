@@ -232,10 +232,15 @@ fn tick_applets_and_io(
     modules::exporter::zahir_poll_and_finish(state, params);
     modules::exporter::lens_poll_and_finish(state, params);
 
-    if let Some(rx) = params.config_reload_rx.as_ref()
-        && rx.try_recv().is_ok()
-    {
-        modules::settings::on_config_reload(state, params, ublx_opts);
+    if let Some(rx) = params.config_reload_rx.as_ref() {
+        // Drain bursts (remote FS / multi-event notify) so one save → one reload.
+        let mut fired = false;
+        while rx.try_recv().is_ok() {
+            fired = true;
+        }
+        if fired {
+            modules::settings::on_config_reload(state, params, ublx_opts);
+        }
     }
 
     modules::dupe_finder::spawn_if_requested(state, params, ublx_opts);

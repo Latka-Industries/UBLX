@@ -6,5 +6,6 @@ pub mod images;
 pub mod markdown;
 pub mod pdf_preview;
 pub mod pretty_tables;
+pub mod svg_preview;
 pub mod syntect_text;
 pub mod video_preview;

@@ -13,6 +13,7 @@ class Ublx < Formula
   depends_on "hdf5"
   depends_on "netcdf"
   depends_on "poppler"
+  depends_on "resvg"
   depends_on "tree"
 
   def install

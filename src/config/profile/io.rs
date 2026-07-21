@@ -45,19 +45,21 @@ pub fn default_overlay_for_new_file(default_theme_display_name: &str) -> UblxOve
 
 /// Create `~/.config/ublx/ublx.toml` with [`default_overlay_for_new_file`] when missing, or backfill
 /// newly introduced template keys into an existing file (additive only; never overwrites user values).
+///
+/// Returns `true` if the file was created or rewritten (callers can suppress watcher toasts).
 pub fn ensure_global_config_file_with_defaults(
     global_path: &Path,
     default_theme_display_name: &str,
-) {
+) -> bool {
     if !ensure_parent_dir(global_path, "global config parent") {
-        return;
+        return false;
     }
     let template = default_overlay_for_new_file(default_theme_display_name);
     if global_path.exists() {
-        backfill_config_file_if_needed(global_path, &template, false);
-        return;
+        return backfill_config_file_if_needed(global_path, &template, false);
     }
     write_ublx_overlay_at(global_path, &template);
+    true
 }
 
 /// Ensure the local config file used for the indexed dir exists (visible `ublx.toml` preferred when creating).
@@ -84,12 +86,16 @@ pub fn ensure_local_config_file_with_defaults(paths: &UblxPaths, default_theme_d
 }
 
 /// When `local_scope` is true, global-only keys ([`super::strip_global_only_keys_from_local_overlay`]) are not backfilled.
-fn backfill_config_file_if_needed(path: &Path, template: &UblxOverlay, local_scope: bool) {
+/// Returns `true` if the file was rewritten.
+fn backfill_config_file_if_needed(path: &Path, template: &UblxOverlay, local_scope: bool) -> bool {
     let Some(mut overlay) = load_ublx_toml(Some(path.to_path_buf()), None) else {
-        return;
+        return false;
     };
     if overlay.backfill_missing_from_template(template, local_scope) {
         write_ublx_overlay_at(path, &overlay);
+        true
+    } else {
+        false
     }
 }
 

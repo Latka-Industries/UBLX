@@ -413,6 +413,27 @@ pub fn resolve_right_pane_content(
     }
 }
 
+/// Drop zahirscan placeholder image dimensions (`width`/`height` both `0`).
+///
+/// SVG (and other formats `image` cannot header-probe) currently land as `0×0` in
+/// `image_metadata`. Preview sizing ignores these fields; showing them in Metadata is noise.
+/// Permanent fix belongs in zahirscan (parse SVG attrs or omit unknowns).
+fn scrub_placeholder_image_dimensions(meta: &mut serde_json::Map<String, Value>) {
+    let both_zero = matches!(
+        (meta.get("width"), meta.get("height")),
+        (Some(Value::Number(w)), Some(Value::Number(h)))
+            if w.as_u64() == Some(0) && h.as_u64() == Some(0)
+    );
+    if !both_zero {
+        return;
+    }
+    meta.remove("width");
+    meta.remove("height");
+    if meta.get("aspect_ratio").is_some_and(Value::is_null) {
+        meta.remove("aspect_ratio");
+    }
+}
+
 /// Build `SectionedPreview` (templates, metadata, writing) from zahir JSON value.
 #[must_use]
 pub fn sectioned_preview_from_zahir(value_ref: &serde_json::Value) -> SectionedPreview {
@@ -431,8 +452,14 @@ pub fn sectioned_preview_from_zahir(value_ref: &serde_json::Value) -> SectionedP
                 let merged = match (root_file_type, v.as_object()) {
                     (Some(ft), Some(meta)) => {
                         let mut m = meta.clone();
+                        scrub_placeholder_image_dimensions(&mut m);
                         m.entry(WalkKeyVars::FILE_TYPE.to_string())
                             .or_insert_with(|| ft.clone());
+                        Value::Object(m)
+                    }
+                    (_, Some(meta)) => {
+                        let mut m = meta.clone();
+                        scrub_placeholder_image_dimensions(&mut m);
                         Value::Object(m)
                     }
                     _ => v.clone(),

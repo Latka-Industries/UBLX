@@ -1,5 +1,5 @@
-//! Image / PDF page / video preview-frame viewer: decode, tiered downscale by file size, optional background thread
-//! for large files, PDF rasterization, or ffmpeg mid-timeline frame grab, and `ratatui-image` terminal preview.
+//! Image / PDF page / video / SVG preview-frame viewer: decode, tiered downscale by file size, optional background thread
+//! for large files, PDF / SVG rasterization, or ffmpeg mid-timeline frame grab, and `ratatui-image` terminal preview.
 
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
@@ -10,7 +10,7 @@ use ratatui_image::{Resize, StatefulImage, protocol::StatefulProtocol};
 
 use crate::integrations::ZahirFT;
 use crate::layout::setup::{RightPaneContent, RightPaneMode, UblxState, ViewerImageState};
-use crate::render::viewers::{pdf_preview, video_preview};
+use crate::render::viewers::{pdf_preview, svg_preview, video_preview};
 use crate::ui::{UI_GLYPHS, UI_STRINGS};
 use crate::utils::ViewerReadPolicy;
 
@@ -94,12 +94,45 @@ fn same_pdf_document(a: &str, b: &str) -> bool {
 }
 
 fn finish_protocol_from_image(state: &mut UblxState, dyn_img: image::DynamicImage) {
-    let picker = state.viewer_image.picker.get_or_insert_with(|| {
-        ratatui_image::picker::Picker::from_query_stdio()
-            .unwrap_or_else(|_| ratatui_image::picker::Picker::halfblocks())
-    });
+    let picker = ensure_viewer_image_picker(state);
     let proto = picker.new_resize_protocol(dyn_img);
     state.viewer_image.protocol = Some(proto);
+}
+
+/// Create or reuse the terminal image [`Picker`] (stdio capability query once per process).
+pub fn ensure_viewer_image_picker(state: &mut UblxState) -> &mut ratatui_image::picker::Picker {
+    state.viewer_image.picker.get_or_insert_with(|| {
+        ratatui_image::picker::Picker::from_query_stdio()
+            .unwrap_or_else(|_| ratatui_image::picker::Picker::halfblocks())
+    })
+}
+
+/// Human-readable graphics protocol for Viewer rasters, if the picker was already created
+/// (e.g. after an image preview). Does **not** run a stdio capability query — that must only
+/// happen outside the Settings draw path (see [`ensure_viewer_image_picker`]).
+#[must_use]
+pub fn viewer_image_protocol_label(state: &UblxState) -> &'static str {
+    use ratatui_image::picker::ProtocolType;
+    let Some(picker) = state.viewer_image.picker.as_ref() else {
+        return "not probed yet";
+    };
+    match picker.protocol_type() {
+        ProtocolType::Halfblocks => "halfblocks (fallback)",
+        ProtocolType::Sixel => "Sixel",
+        ProtocolType::Kitty => "Kitty",
+        ProtocolType::Iterm2 => "iTerm2",
+    }
+}
+
+/// True when a real graphics protocol is active (not Unicode halfblocks / not yet probed).
+#[must_use]
+pub fn viewer_image_protocol_is_graphics(state: &UblxState) -> bool {
+    state.viewer_image.picker.as_ref().is_some_and(|p| {
+        !matches!(
+            p.protocol_type(),
+            ratatui_image::picker::ProtocolType::Halfblocks
+        )
+    })
 }
 
 /// [`StatefulImage`] with fast nearest-neighbor fitting.
@@ -190,10 +223,7 @@ fn drain_pdf_prefetch_results(state: &mut UblxState, expected_path: &std::path::
             Ok((key, res)) => {
                 if let Ok(img) = res {
                     state.viewer_image.remove_lru_key(&key);
-                    let picker = state.viewer_image.picker.get_or_insert_with(|| {
-                        ratatui_image::picker::Picker::from_query_stdio()
-                            .unwrap_or_else(|_| ratatui_image::picker::Picker::halfblocks())
-                    });
+                    let picker = ensure_viewer_image_picker(state);
                     let proto = picker.new_resize_protocol(img);
                     state.viewer_image.push_lru(key, proto);
                 }
@@ -355,6 +385,15 @@ fn spawn_or_decode_raster_preview(
         let path = abs.to_path_buf();
         std::thread::spawn(move || {
             let res = video_preview::decode_preview_frame(&path)
+                .map(|img| raster_policy::downscale_with_max(img, max_dim));
+            let _ = tx.send(res);
+        });
+    } else if svg_preview::is_svg_path(abs) {
+        let (tx, rx) = mpsc::channel();
+        state.viewer_image.decode_rx = Some(rx);
+        let path = abs.to_path_buf();
+        std::thread::spawn(move || {
+            let res = svg_preview::rasterize(&path, max_dim)
                 .map(|img| raster_policy::downscale_with_max(img, max_dim));
             let _ = tx.send(res);
         });
