@@ -61,7 +61,7 @@ syntect = "5.3.0"
 tokio = { version = "1.52.2", features = ["rt-multi-thread", "sync"] }
 tetration = { version = "0.1.9", default-features = false }
 toml = "1.1.2"
-ureq = { version = "3.3.0", default-features = false, features = ["json"] }
+ureq = { version = "3.3.0", features = ["json"] }
 tui-logger = { version = "0.18.2", features = ["crossterm"] }
 unicode-width = "0.2"
 zahirscan = { version = "0.3.6", default-features = false }
