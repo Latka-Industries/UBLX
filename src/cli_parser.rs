@@ -49,13 +49,23 @@ pub struct ServeCli {
     pub serve: panza::ServeArgs,
 }
 
+/// Shared `--url` / `UBLX_URL` for headless commands that can talk to `ublx serve`.
+#[derive(Parser, Debug, Default)]
+pub struct RemoteCli {
+    /// Base URL of a running `ublx serve` (env: `UBLX_URL`). When set, local `DIR` is ignored.
+    #[arg(long, env = "UBLX_URL")]
+    pub url: Option<String>,
+}
+
 /// `ublx query [DIR]`
 #[derive(Parser, Debug)]
 #[allow(clippy::struct_excessive_bools)]
 pub struct QueryCli {
-    /// Indexed directory whose catalog to query
+    /// Indexed directory whose catalog to query (ignored when `--url` / `UBLX_URL` is set)
     #[arg(value_name = "DIR", default_value = ".")]
     pub dir: PathBuf,
+    #[command(flatten)]
+    pub remote: RemoteCli,
     /// Emit JSON instead of a human table
     #[arg(long)]
     pub json: bool,
@@ -97,9 +107,11 @@ pub struct QueryCli {
 /// `ublx doctor [DIR]`
 #[derive(Parser, Debug)]
 pub struct DoctorCli {
-    /// Indexed directory whose catalog to diagnose
+    /// Indexed directory whose catalog to diagnose (ignored when `--url` / `UBLX_URL` is set)
     #[arg(value_name = "DIR", default_value = ".")]
     pub dir: PathBuf,
+    #[command(flatten)]
+    pub remote: RemoteCli,
     /// Emit machine-readable JSON instead of human text
     #[arg(long)]
     pub json: bool,

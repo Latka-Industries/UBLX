@@ -7,13 +7,27 @@ Headless catalog subcommands — no ratatui / TUI deps.
 | **catalog**      | Resolve DIR → `.ublx` path; open read connection; snapshot-in-progress heuristic |
 | **catalog_read** | Shared list/detail/delta/lens queries (query + serve)                            |
 | **output**       | Shared JSON / string-list emit                                                   |
+| **remote**       | HTTP client for `--url` / `UBLX_URL` (query + doctor → serve)                    |
 | **query**        | `ublx query` — list / filter / detail / delta / lenses (THI-153)                 |
 | **doctor**       | `ublx doctor` — PASS/WARN/FAIL report, `--fix`, snapshot lock (THI-154)          |
 | **serve**        | `ublx serve` — local HTTP API via panza (THI-156)                                |
 
 Clap definitions live in `src/cli_parser.rs` (`Commands`, `QueryCli`, `DoctorCli`, `ServeCli`). `main` dispatches via `cli::run` when a subcommand is present; otherwise the existing TUI / `-s`/`-f`/`-x` path runs.
 
-## `ublx serve` (v0.1.13)
+## Remote client (v0.1.14)
+
+`ublx query` and `ublx doctor` accept `--url <base>` (or env `UBLX_URL`). When set, `DIR` is ignored and the CLI talks to a running `ublx serve` over HTTP (same flags / table+JSON output).
+
+```bash
+export UBLX_URL=http://127.0.0.1:8787
+ublx query --contains src --json
+ublx query --path README.md --zahir
+ublx query --delta --delta-type mod
+ublx doctor --json
+# --fix / --force are local-only with doctor
+```
+
+## `ublx serve` (v0.1.13+)
 
 ```bash
 ublx serve . --port 8787

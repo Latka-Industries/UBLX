@@ -3,22 +3,22 @@
 use std::fmt;
 
 use rusqlite::{Connection, Row};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::engine::db_ops::UblxDbStatements;
 
 /// One snapshot (or lens) row for JSON / tables.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EntryRow {
     pub path: String,
     pub category: String,
     pub size: u64,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub zahir: Option<serde_json::Value>,
 }
 
 /// One `delta_log` row.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DeltaRow {
     pub created_ns: i64,
     pub path: String,
