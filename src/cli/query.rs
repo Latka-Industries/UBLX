@@ -1,4 +1,4 @@
-//! `ublx query` — headless catalog query (THI-153).
+//! `ublx query` — headless catalog query (THI-153); optional remote via `--url` / `UBLX_URL` (THI-167).
 
 use crate::cli::catalog::open_catalog_for_read;
 use crate::cli::catalog_read::{
@@ -6,15 +6,23 @@ use crate::cli::catalog_read::{
     list_lens_entries, list_lens_names,
 };
 use crate::cli::output::{emit_json, emit_string_list};
+use crate::cli::remote::{encode_entry_path, get_json, path_with_query, resolve_base};
 use crate::cli_parser::QueryCli;
 use crate::utils::format_bytes;
 
-/// Run `ublx query` against the catalog for `DIR`.
+/// Run `ublx query` against the local catalog for `DIR`, or a remote `ublx serve` when `--url` is set.
 ///
 /// # Errors
 ///
-/// Returns `Err` when the directory/catalog cannot be opened or a query fails.
+/// Returns `Err` when the directory/catalog cannot be opened, the remote request fails, or a query fails.
 pub fn run(args: &QueryCli) -> Result<(), anyhow::Error> {
+    if let Some(base) = resolve_base(args.remote.url.as_deref()) {
+        return run_remote(&base, args);
+    }
+    run_local(args)
+}
+
+fn run_local(args: &QueryCli) -> Result<(), anyhow::Error> {
     let handle = open_catalog_for_read(&args.dir)?;
     let conn = &handle.conn;
 
@@ -39,6 +47,57 @@ pub fn run(args: &QueryCli) -> Result<(), anyhow::Error> {
     }
 
     emit_entries(&list_entries(conn, &entry_filter(args))?, args.json)
+}
+
+fn run_remote(base: &str, args: &QueryCli) -> Result<(), anyhow::Error> {
+    if args.categories {
+        let rows: Vec<String> = get_json(base, "/categories")?;
+        return emit_string_list(&rows, "categories", args.json);
+    }
+    if args.lenses {
+        let rows: Vec<String> = get_json(base, "/lenses")?;
+        return emit_string_list(&rows, "lenses", args.json);
+    }
+    if let Some(ref name) = args.lens {
+        let path = format!("/lenses/{}", encode_entry_path(name));
+        let rows: Vec<EntryRow> = get_json(base, &path)?;
+        return emit_entries(&rows, args.json);
+    }
+    if args.delta {
+        let path = match args.delta_type.as_deref() {
+            Some(t) => path_with_query("/delta", &[("type", t)]),
+            None => "/delta".to_owned(),
+        };
+        let rows: Vec<DeltaRow> = get_json(base, &path)?;
+        return emit_delta(&rows, args.json);
+    }
+    if let Some(ref path) = args.path {
+        let entry_path = format!("/entries/{}", encode_entry_path(path));
+        let pq = if args.zahir {
+            path_with_query(&entry_path, &[("zahir", "1")])
+        } else {
+            entry_path
+        };
+        let row: EntryRow = get_json(base, &pq)?;
+        return emit_entry_detail(&row, args.zahir, args.json);
+    }
+
+    let mut pairs: Vec<(&str, String)> = Vec::new();
+    if let Some(ref c) = args.category {
+        pairs.push(("category", c.clone()));
+    }
+    if let Some(n) = args.min_size {
+        pairs.push(("min_size", n.to_string()));
+    }
+    if let Some(n) = args.max_size {
+        pairs.push(("max_size", n.to_string()));
+    }
+    if let Some(ref c) = args.contains {
+        pairs.push(("contains", c.clone()));
+    }
+    let refs: Vec<(&str, &str)> = pairs.iter().map(|(k, v)| (*k, v.as_str())).collect();
+    let rows: Vec<EntryRow> = get_json(base, &path_with_query("/entries", &refs))?;
+    emit_entries(&rows, args.json)
 }
 
 fn entry_filter(args: &QueryCli) -> EntryListFilter<'_> {

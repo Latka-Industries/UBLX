@@ -3,7 +3,7 @@
 use std::path::Path;
 
 use rusqlite::Connection;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::cli::catalog::{
     CatalogHandle, CatalogPaths, open_catalog_for_read, resolve_catalog_paths,
@@ -24,7 +24,7 @@ const EXPECTED_TABLES: &[&str] = &[
     "lens_path",
 ];
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Status {
     Pass,
@@ -51,23 +51,23 @@ impl Status {
     }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Check {
     pub name: String,
     pub status: Status,
     pub detail: String,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct ArtifactInfo {
     pub kind: String,
     pub path: String,
     pub exists: bool,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub size_bytes: Option<u64>,
 }
 
-#[derive(Clone, Debug, Default, Serialize)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct CatalogStats {
     pub snapshot_rows: i64,
     pub distinct_categories: i64,
@@ -80,19 +80,19 @@ pub struct CatalogStats {
     pub settings_row: bool,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct DoctorReport {
     pub dir: String,
     pub db_path: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub read_path: Option<String>,
     pub artifacts: Vec<ArtifactInfo>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub journal_mode: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub stats: Option<CatalogStats>,
     /// Aux paths removed by `--fix` (kinds: tmp, wal, shm, …).
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub removed: Option<Vec<String>>,
     pub checks: Vec<Check>,
     pub summary: Status,
@@ -146,10 +146,22 @@ pub fn diagnose(dir: &Path) -> Result<DoctorReport, anyhow::Error> {
 ///
 /// Blocked when a snapshot appears in progress (`.ublx_tmp` + tmp wal/shm) unless `--force`.
 ///
+/// With `--url` / `UBLX_URL`, calls remote `GET /doctor` (`--fix` / `--force` are local-only).
+///
 /// # Errors
 ///
-/// Returns `Err` when the directory is invalid, aux cleanup fails, or JSON serialization fails.
+/// Returns `Err` when the directory is invalid, aux cleanup fails, the remote request fails, or JSON serialization fails.
 pub fn run(args: &DoctorCli) -> Result<(), anyhow::Error> {
+    if let Some(base) = crate::cli::remote::resolve_base(args.remote.url.as_deref()) {
+        if args.fix || args.force {
+            anyhow::bail!(
+                "--fix and --force are local-only; omit them when using --url / UBLX_URL"
+            );
+        }
+        let report: DoctorReport = crate::cli::remote::get_json(&base, "/doctor")?;
+        return finish_report(&report, args.json);
+    }
+
     let catalog_paths = resolve_catalog_paths(&args.dir)?;
     let forced_through_lock = snapshot_likely_in_progress(&catalog_paths);
     if forced_through_lock && !args.force {
@@ -167,11 +179,7 @@ pub fn run(args: &DoctorCli) -> Result<(), anyhow::Error> {
     if args.fix {
         apply_fix(&mut report, &catalog_paths)?;
     }
-    emit_report(&report, args.json)?;
-    if report.summary == Status::Fail {
-        std::process::exit(EXIT_ERROR);
-    }
-    Ok(())
+    finish_report(&report, args.json)
 }
 
 fn report_blocked_by_snapshot(catalog_paths: &CatalogPaths) -> DoctorReport {
@@ -497,6 +505,14 @@ fn emit_report(report: &DoctorReport, json: bool) -> Result<(), anyhow::Error> {
         print_human(report);
         Ok(())
     }
+}
+
+fn finish_report(report: &DoctorReport, json: bool) -> Result<(), anyhow::Error> {
+    emit_report(report, json)?;
+    if report.summary == Status::Fail {
+        std::process::exit(EXIT_ERROR);
+    }
+    Ok(())
 }
 
 fn print_human(report: &DoctorReport) {

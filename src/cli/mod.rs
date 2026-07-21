@@ -7,6 +7,7 @@ mod catalog_read;
 mod doctor;
 mod output;
 mod query;
+mod remote;
 mod serve;
 
 pub use catalog::{
