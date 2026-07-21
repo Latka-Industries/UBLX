@@ -42,6 +42,8 @@ pub struct RunUblxParams<'a> {
     pub bg_opacity: f32,
     /// OSC 11 payload style. From [`crate::config::UblxOpts::opacity_format`].
     pub opacity_format: Osc11BackgroundFormat,
+    /// Command Mode leader letter. From [`crate::config::UblxOpts::command_mode_leader`].
+    pub command_mode_leader: char,
     /// Duplicate groups (lazy-loaded when user switches to Duplicates tab). Empty until load completes.
     pub duplicate_groups: Vec<DuplicateGroup>,
     /// Grouping mode backing `duplicate_groups` (Hash vs Name+Size fallback label).

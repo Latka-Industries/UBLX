@@ -168,7 +168,13 @@ fn handle_post_modal_chrome_keys(
 ) -> bool {
     if state_mut.main_mode == MainMode::Settings
         && (modules::settings::handle_layout_text_key(state_mut, e)
-            || modules::settings::handle_opacity_text_key(state_mut, e))
+            || modules::settings::handle_opacity_text_key(state_mut, e)
+            || modules::settings::handle_command_mode_leader_key(
+                state_mut,
+                params_mut,
+                ublx_opts_mut,
+                e,
+            ))
     {
         return true;
     }
@@ -398,7 +404,7 @@ fn handle_ublx_keyboard(
         return false;
     }
 
-    if matches!(e.code, KeyCode::Char('a' | 'A'))
+    if matches!(e.code, KeyCode::Char(c) if c.eq_ignore_ascii_case(&ublx_opts_mut.command_mode_leader))
         && e.modifiers.contains(KeyModifiers::CONTROL)
         && e.kind == KeyEventKind::Press
         && ctrl_chord::try_begin_chord(state_mut)
@@ -491,6 +497,7 @@ pub fn handle_ublx_input(
                 layout,
                 tabs,
                 main_mode: state_mut.main_mode,
+                command_mode_leader: ublx_opts_mut.command_mode_leader,
             },
         );
         return Ok(false);

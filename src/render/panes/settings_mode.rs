@@ -274,6 +274,38 @@ fn push_typed_column_tables_footnote(left_lines: &mut Vec<Line>, hint_wrap: usiz
     );
 }
 
+fn push_command_mode_leader_row(
+    left_lines: &mut Vec<Line>,
+    cur: usize,
+    overlay: Option<&UblxOverlay>,
+) {
+    let row_idx = settings::command_mode_leader_row_index(SettingsConfigScope::Global)
+        .expect("command_mode.leader row exists on Global scope");
+    let leader = settings::display_leader(overlay);
+    let dimmed = false;
+    let row_active = cur == row_idx;
+    let label_st = label_style(row_active, dimmed);
+    let note_mark = UI_GLYPHS.settings_note_arrow;
+    let mut spans = vec![Span::styled(
+        format!(
+            "{}{note_mark}{}",
+            row_prefix(row_active),
+            settings::command_mode_leader_row_label()
+        ),
+        label_st,
+    )];
+    let btn = settings::leader_button_label(leader);
+    spans.push(Span::styled(
+        btn,
+        if row_active {
+            style::tab_active()
+        } else {
+            style::hint_text()
+        },
+    ));
+    left_lines.push(Line::from(spans));
+}
+
 fn push_opacity_format_row(left_lines: &mut Vec<Line>, cur: usize, overlay: Option<&UblxOverlay>) {
     let row_idx = settings::opacity_format_row_index(SettingsConfigScope::Global)
         .expect("opacity_format row exists on Global scope");
@@ -508,6 +540,12 @@ fn push_external_apps_section(
         push_wrapped_hint_footnote(
             left_lines,
             hint_wrap,
+            s.command_mode_leader_footnote,
+            UI_GLYPHS.settings_note_arrow,
+        );
+        push_wrapped_hint_footnote(
+            left_lines,
+            hint_wrap,
             s.opacity_format_footnote,
             UI_GLYPHS.settings_note_arrow,
         );
@@ -647,6 +685,11 @@ pub fn draw_settings_pane(f: &mut Frame, area: Rect, state: &mut UblxState, dir_
         overlay.as_ref(),
     );
     if matches!(scope, SettingsConfigScope::Global) {
+        push_command_mode_leader_row(
+            &mut left_lines,
+            state.settings.left_cursor,
+            overlay.as_ref(),
+        );
         push_opacity_format_row(
             &mut left_lines,
             state.settings.left_cursor,

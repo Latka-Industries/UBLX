@@ -69,6 +69,7 @@ fn build_draw_args<'a>(
         } else {
             Some(params.lens_names.as_slice())
         },
+        command_mode_leader: params.command_mode_leader,
     }
 }
 

@@ -1,7 +1,7 @@
-//! **Command Mode** (after **Ctrl+A**): the next letter runs the matching shortcut (d, t, s, r, x, l, p),
+//! **Command Mode** (after **Ctrl+{leader}**, default **Ctrl+A**): the next letter runs the matching shortcut (d, t, s, r, x, l, p),
 //! or after a short timeout a centered menu lists them. Viewer search is **Shift+S**, not Command Mode.
 //! Jump-by-10 stays **Ctrl+j** / **Ctrl+k** (or arrows), not Command Mode.
-//! **Ctrl+Space** toggles middle-pane multi-select when contents are focused; Command Mode uses **Ctrl+A**.
+//! **Ctrl+Space** toggles middle-pane multi-select when contents are focused; Command Mode uses the configured leader letter.
 
 use std::time::{Duration, Instant};
 
@@ -19,7 +19,9 @@ use crate::ui::{COMMAND_MODE_DESCRIPTIONS, MainTabFlags, keymap::UblxAction};
 pub const CHORD_MENU_DELAY: Duration = Duration::from_millis(480);
 
 fn chord_blocked(state: &UblxState) -> bool {
-    state.chrome.help_visible
+    // Settings edits the leader letter with plain keys — do not start a chord there.
+    state.main_mode == MainMode::Settings
+        || state.chrome.help_visible
         || state.theme.selector_visible
         || state.qa_menu.visible
         || state.open_menu.visible
@@ -33,7 +35,7 @@ fn chord_blocked(state: &UblxState) -> bool {
         || state.lens_confirm.rename_input.is_some()
 }
 
-/// Start chord wait (highlight chrome); caller must ensure key was Ctrl+A.
+/// Start chord wait (highlight chrome); caller must ensure key was the configured Ctrl+leader.
 pub fn try_begin_chord(state: &mut UblxState) -> bool {
     if chord_blocked(state) || state.search.active {
         return false;

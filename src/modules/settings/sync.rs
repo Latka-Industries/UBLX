@@ -46,6 +46,7 @@ pub fn sync_run_params_from_opts(
     params_mut.layout.clone_from(&ublx_opts_ref.layout);
     params_mut.bg_opacity = ublx_opts_ref.bg_opacity.unwrap_or(1.0);
     params_mut.opacity_format = ublx_opts_ref.opacity_format;
+    params_mut.command_mode_leader = ublx_opts_ref.command_mode_leader;
     ublx_opts_ref.sync_panels_display(&mut state_mut.panels);
     let _ = sync_osc11_page_background(
         params_mut.theme.as_deref(),

@@ -2,7 +2,7 @@
 
 use std::path::Path;
 use std::process::Command;
-use ublx::config::{UblxPaths, last_applied_config_path};
+use ublx::config::{DEFAULT_COMMAND_MODE_LEADER, UblxPaths, last_applied_config_path};
 use ublx::engine::db_ops::DuplicateGroupingMode;
 
 fn ublx_bin() -> Command {
@@ -122,6 +122,7 @@ fn draw_one_snapshot_frame_renders_main_chrome() {
         duplicate_groups: None,
         duplicate_mode: DuplicateGroupingMode::Hash,
         lens_names: None,
+        command_mode_leader: DEFAULT_COMMAND_MODE_LEADER,
     };
 
     terminal

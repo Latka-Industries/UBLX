@@ -1,6 +1,6 @@
 //! `ublx doctor` — diagnose `.ublx` DB / path / schema (THI-154).
 
-use std::path::PathBuf;
+use std::path::Path;
 
 use rusqlite::Connection;
 use serde::Serialize;
@@ -241,14 +241,14 @@ fn collect_artifacts(catalog_paths: &CatalogPaths) -> Vec<ArtifactInfo> {
         ("tmp_shm", p.tmp_shm()),
     ]
     .into_iter()
-    .map(|(kind, path)| artifact_info(kind, path))
+    .map(|(kind, path)| artifact_info(kind, &path))
     .collect()
 }
 
-fn artifact_info(kind: &str, path: PathBuf) -> ArtifactInfo {
+fn artifact_info(kind: &str, path: &Path) -> ArtifactInfo {
     let exists = path.exists();
     let size_bytes = if exists {
-        std::fs::metadata(&path).ok().map(|m| m.len())
+        std::fs::metadata(path).ok().map(|m| m.len())
     } else {
         None
     };

@@ -8,7 +8,10 @@ use log::warn;
 use crate::config::paths::{UblxPaths, normalize_rel_path_for_policy};
 use crate::config::theme::auto_correct_theme_name;
 
-use super::{ColumnStatsDisplay, EnhancePolicy, EnhancePolicyEntry, LayoutOverlay, UblxOverlay};
+use super::{
+    ColumnStatsDisplay, CommandModeOverlay, EnhancePolicy, EnhancePolicyEntry, LayoutOverlay,
+    UblxOverlay,
+};
 
 /// When true, [`ensure_local_config_file_with_defaults`] backfills missing template keys into an
 /// existing project `.ublx.toml` / `ublx.toml`. Off by default — global backfill only for now.
@@ -39,6 +42,9 @@ pub fn default_overlay_for_new_file(default_theme_display_name: &str) -> UblxOve
         ask_enhance_on_new_root: Some(true),
         run_snapshot_on_startup: Some(true),
         typed_column_tables: Some(ColumnStatsDisplay::default()),
+        command_mode: Some(CommandModeOverlay {
+            leader: Some(crate::config::DEFAULT_COMMAND_MODE_LEADER.to_string()),
+        }),
         ..Default::default()
     }
 }
