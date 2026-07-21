@@ -32,7 +32,19 @@ cargo install ublx
 ublx /path/to/your/project
 ```
 
-Headless index: `ublx --snapshot-only /path/to/project` · Full metadata: `ublx --full-snapshot` · See `ublx --help`.
+Headless index: `ublx --snapshot-only /path/to/project` · Full metadata: `ublx --full-snapshot`
+
+Catalog CLI (after an index exists):
+
+```bash
+ublx query . --categories
+ublx query . --category Code --json
+ublx query . --path src/main.rs --zahir
+ublx doctor .
+ublx doctor --fix .    # remove leftover tmp/wal/shm (blocked while a snapshot is writing)
+```
+
+See `ublx --help`, `ublx query --help`, `ublx doctor --help`.
 
 ## Documentation
 
@@ -41,7 +53,7 @@ Full guides, config tables, TUI keys, and workflows live on the docs site (READM
 |                               |                                               |
 | ----------------------------- | --------------------------------------------- |
 | **[Install][ublx-gs]**        | Homebrew, Cargo, prerequisites, first run     |
-| [CLI][ublx-cli]               | `ublx --help`, headless flags                 |
+| [CLI][ublx-cli]               | `ublx --help`, headless flags, `query` / `doctor` |
 | [Configuration][ublx-config]  | `ublx.toml`, enhance policies, themes         |
 | [TUI & modes][ublx-tui]       | Snapshot, Delta, Lenses, panes, keybindings   |
 | [Guides][ublx-guides]         | Path-only vs enhance, headless export, lenses |

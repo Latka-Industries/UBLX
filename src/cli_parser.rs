@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use clap::Parser;
+use clap::{Parser, Subcommand};
 use log::debug;
 
 use crate::themes;
@@ -13,7 +13,9 @@ use crate::utils;
     about = "UBLX is a TUI to index once, enrich with metadata, and browse a flat snapshot in a 3-pane layout with multiple modes."
 )]
 pub struct Args {
-    /// Directory to index
+    #[command(subcommand)]
+    pub command: Option<Commands>,
+    /// Directory to index (when no subcommand)
     #[arg(value_name = "DIR", default_value = ".")]
     pub dir_to_ublx: PathBuf,
     #[command(flatten)]
@@ -24,6 +26,76 @@ pub struct Args {
     /// Print available themes grouped by appearance
     #[arg(long = "themes")]
     pub themes: bool,
+}
+
+/// Headless catalog subcommands (`query`, `doctor`). `serve` is deferred.
+#[derive(Subcommand, Debug)]
+pub enum Commands {
+    /// Query the `.ublx` catalog (list / detail / delta / lenses)
+    Query(QueryCli),
+    /// Diagnose `.ublx` DB / path / schema
+    Doctor(DoctorCli),
+}
+
+/// `ublx query [DIR]`
+#[derive(Parser, Debug)]
+pub struct QueryCli {
+    /// Indexed directory whose catalog to query
+    #[arg(value_name = "DIR", default_value = ".")]
+    pub dir: PathBuf,
+    /// Emit JSON instead of a human table
+    #[arg(long)]
+    pub json: bool,
+    /// Filter snapshot rows by exact category name
+    #[arg(long)]
+    pub category: Option<String>,
+    /// Keep rows with size >= N bytes
+    #[arg(long = "min-size")]
+    pub min_size: Option<u64>,
+    /// Keep rows with size <= N bytes
+    #[arg(long = "max-size")]
+    pub max_size: Option<u64>,
+    /// Keep rows whose path contains this substring
+    #[arg(long)]
+    pub contains: Option<String>,
+    /// Show one snapshot row by exact relative path
+    #[arg(long)]
+    pub path: Option<String>,
+    /// With `--path`, include `zahir_json`
+    #[arg(long)]
+    pub zahir: bool,
+    /// List distinct snapshot categories
+    #[arg(long)]
+    pub categories: bool,
+    /// List lens names
+    #[arg(long)]
+    pub lenses: bool,
+    /// List paths in a named lens
+    #[arg(long)]
+    pub lens: Option<String>,
+    /// List `delta_log` rows (newest first)
+    #[arg(long)]
+    pub delta: bool,
+    /// With `--delta`, filter by type: `added`, `mod`, or `removed`
+    #[arg(long = "delta-type")]
+    pub delta_type: Option<String>,
+}
+
+/// `ublx doctor [DIR]`
+#[derive(Parser, Debug)]
+pub struct DoctorCli {
+    /// Indexed directory whose catalog to diagnose
+    #[arg(value_name = "DIR", default_value = ".")]
+    pub dir: PathBuf,
+    /// Emit machine-readable JSON instead of human text
+    #[arg(long)]
+    pub json: bool,
+    /// Remove leftover tmp / wal / shm aux files (not the main `.ublx` DB)
+    #[arg(long)]
+    pub fix: bool,
+    /// Run even if a snapshot appears in progress (tmp + wal/shm present)
+    #[arg(long)]
+    pub force: bool,
 }
 
 /// Headless indexing flag

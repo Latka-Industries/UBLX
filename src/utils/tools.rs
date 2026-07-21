@@ -279,8 +279,18 @@ fn path_colored(target: &str) -> String {
 
 /// Build a logger for `--snapshot-only` without the TUI.
 pub fn build_logger_snapshot_only_no_tui() {
+    init_cli_env_logger(log::LevelFilter::Debug);
+    debug!("UBLX snapshot-only logger enabled");
+}
+
+/// Logger for headless catalog subcommands (`query`, `doctor`): warn+ only, no startup noise on stdout.
+pub fn build_logger_cli_subcommand() {
+    init_cli_env_logger(log::LevelFilter::Warn);
+}
+
+fn init_cli_env_logger(level: log::LevelFilter) {
     env_logger::Builder::from_default_env()
-        .filter_level(log::LevelFilter::Debug)
+        .filter_level(level)
         .format(|buf, record| {
             let ublx = UBLX_NAMES
                 .pkg_name
@@ -293,7 +303,6 @@ pub fn build_logger_snapshot_only_no_tui() {
             writeln!(buf, "[{} {} {}] {}", ublx, level, path, record.args())
         })
         .init();
-    debug!("UBLX snapshot-only logger enabled");
 }
 
 /// Format byte count as "B", "KB", "MB", "GB" etc. (uses [`KIB`], [`MIB`], [`GIB`]).

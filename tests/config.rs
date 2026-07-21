@@ -260,7 +260,7 @@ fn ensure_global_config_backfills_existing_file_on_disk() {
     ));
     let _cleanup = TempConfigCleanup(path.clone());
     fs::write(&path, "theme = \"custom\"\n").unwrap();
-    ensure_global_config_file_with_defaults(&path, "default");
+    assert!(ensure_global_config_file_with_defaults(&path, "default"));
     let overlay = load_ublx_toml(Some(path), None).unwrap();
     assert_eq!(overlay.theme.as_deref(), Some("custom"));
     assert_eq!(

@@ -6,7 +6,7 @@ use std::sync::mpsc;
 use crate::app::{RunUblxParams, RunUblxStartupFlow};
 use crate::config::{
     UblxOpts, UblxOptsForDirExtras, UblxPaths, all_indexed_roots_alphabetical,
-    ensure_global_config_file_with_defaults, record_prior_root_selected, record_ublx_session_open,
+    ensure_global_config_quiet, record_prior_root_selected, record_ublx_session_open,
 };
 use crate::engine::{db_ops, orchestrator};
 use crate::handlers;
@@ -174,15 +174,11 @@ pub fn perform_session_switch<'a>(
 
     *state = setup::UblxState::new();
     state.right_pane_async.rx = Some(right_pane_rx);
-    {
-        let paths = UblxPaths::new(params.dir_to_ublx.as_path());
-        if let Some(g) = paths.global_config() {
-            ensure_global_config_file_with_defaults(
-                &g,
-                themes::default_theme_for_new_config_file(),
-            );
-        }
-    }
+    ensure_global_config_quiet(
+        &UblxPaths::new(params.dir_to_ublx.as_path()),
+        themes::default_theme_for_new_config_file(),
+        &mut state.config_written_by_us_at,
+    );
     state.snapshot_bg.done_received =
         !categories.is_empty() || !all_rows.is_empty() || !ublx_opts.run_snapshot_on_startup;
 
