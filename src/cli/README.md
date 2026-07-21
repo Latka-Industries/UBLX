@@ -2,18 +2,18 @@
 
 Headless catalog subcommands — no ratatui / TUI deps.
 
-| Module           | Role                                                                 |
-| ---------------- | -------------------------------------------------------------------- |
+| Module           | Role                                                                             |
+| ---------------- | -------------------------------------------------------------------------------- |
 | **catalog**      | Resolve DIR → `.ublx` path; open read connection; snapshot-in-progress heuristic |
-| **catalog_read** | Shared list/detail/delta/lens queries (query + serve)                |
-| **output**       | Shared JSON / string-list emit                                       |
-| **query**        | `ublx query` — list / filter / detail / delta / lenses (THI-153)     |
-| **doctor**       | `ublx doctor` — PASS/WARN/FAIL report, `--fix`, snapshot lock (THI-154) |
-| **serve**        | `ublx serve` — local HTTP API via panza (THI-156)                    |
+| **catalog_read** | Shared list/detail/delta/lens queries (query + serve)                            |
+| **output**       | Shared JSON / string-list emit                                                   |
+| **query**        | `ublx query` — list / filter / detail / delta / lenses (THI-153)                 |
+| **doctor**       | `ublx doctor` — PASS/WARN/FAIL report, `--fix`, snapshot lock (THI-154)          |
+| **serve**        | `ublx serve` — local HTTP API via panza (THI-156)                                |
 
 Clap definitions live in `src/cli_parser.rs` (`Commands`, `QueryCli`, `DoctorCli`, `ServeCli`). `main` dispatches via `cli::run` when a subcommand is present; otherwise the existing TUI / `-s`/`-f`/`-x` path runs.
 
-### `ublx serve` (v0.1.13)
+## `ublx serve` (v0.1.13)
 
 ```bash
 ublx serve . --port 8787

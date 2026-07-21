@@ -265,7 +265,7 @@ async fn put_current_root(
             info!("serve root unchanged: {}", inner.catalog.dir.display());
         } else {
             let prev = inner.catalog.dir.display().to_string();
-            inner.catalog.dir = new_dir.clone();
+            inner.catalog.dir.clone_from(&new_dir);
             inner.catalog.conn = new_conn;
             let _ = record_prior_root_selected(&new_dir);
             info!("serve root switched: {prev} -> {}", new_dir.display());
@@ -295,7 +295,7 @@ async fn post_snapshot(
     State(state): State<AppState>,
     body: Option<Json<SnapshotBody>>,
 ) -> Result<impl IntoResponse, ApiError> {
-    let enhance_all = body.map(|j| j.0.enhance_all).unwrap_or(false);
+    let enhance_all = body.is_some_and(|j| j.0.enhance_all);
     let dir = with_inner(&state, |inner| {
         if inner.snapshot.is_running() {
             return Err(ApiError::conflict("snapshot already running"));
@@ -312,18 +312,18 @@ async fn post_snapshot(
     );
     let state_bg = Arc::clone(&state);
     std::thread::spawn(move || {
-        run_serve_snapshot_job(state_bg, dir, enhance_all);
+        run_serve_snapshot_job(&state_bg, &dir, enhance_all);
     });
 
     let status = with_inner(&state, |inner| Ok(inner.snapshot.status()))?;
     Ok((StatusCode::ACCEPTED, Json(status)))
 }
 
-fn run_serve_snapshot_job(state: AppState, dir: PathBuf, enhance_all: bool) {
-    let db_path = UblxPaths::new(&dir).db();
+fn run_serve_snapshot_job(state: &AppState, dir: &Path, enhance_all: bool) {
+    let db_path = UblxPaths::new(dir).db();
     let (tx, rx) = mpsc::channel();
     let preserve_enhance = enhance_all.then_some(Some(true));
-    run_snap_pipeline_from_dir_db(&dir, &db_path, Some(tx), None, preserve_enhance, None);
+    run_snap_pipeline_from_dir_db(dir, &db_path, Some(tx), None, preserve_enhance, None);
     let (added, modified, removed) = rx.recv().unwrap_or((0, 0, 0));
     let last = SnapshotLast {
         added,
@@ -332,14 +332,14 @@ fn run_serve_snapshot_job(state: AppState, dir: PathBuf, enhance_all: bool) {
         error: None,
     };
 
-    match open_catalog_for_read(&dir) {
+    match open_catalog_for_read(dir) {
         Ok(handle) => {
             let Ok(mut inner) = state.lock() else {
                 warn!("serve snapshot finished but catalog lock poisoned");
                 return;
             };
             // Only refresh conn if we are still on the same root (switch was blocked while running).
-            if same_dir(&inner.catalog.dir, &dir) {
+            if same_dir(&inner.catalog.dir, dir) {
                 inner.catalog.conn = handle.conn;
             }
             inner.snapshot.mark_finished(SnapshotState::Done, last);

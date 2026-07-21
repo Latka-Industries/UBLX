@@ -51,6 +51,7 @@ pub struct ServeCli {
 
 /// `ublx query [DIR]`
 #[derive(Parser, Debug)]
+#[allow(clippy::struct_excessive_bools)]
 pub struct QueryCli {
     /// Indexed directory whose catalog to query
     #[arg(value_name = "DIR", default_value = ".")]

@@ -4,6 +4,7 @@
 use std::process::Command;
 use std::sync::OnceLock;
 
+#[allow(clippy::struct_excessive_bools)]
 struct Cached {
     ffmpeg: bool,
     poppler_pdftoppm: bool,
