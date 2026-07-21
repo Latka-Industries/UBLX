@@ -4,6 +4,7 @@ use std::time::Instant;
 use clap::Parser;
 use log::debug;
 
+use ublx::cli;
 use ublx::cli_parser;
 use ublx::config;
 use ublx::engine::db_ops;
@@ -175,6 +176,12 @@ fn main() {
     let args = cli_parser::Args::parse();
     if args.themes {
         cli_parser::print_available_themes();
+        return;
+    }
+
+    if let Some(ref command) = args.command {
+        utils::build_logger_cli_subcommand();
+        utils::fatal_error_handler(cli::run(command), "{}");
         return;
     }
 

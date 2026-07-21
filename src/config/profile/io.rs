@@ -47,6 +47,7 @@ pub fn default_overlay_for_new_file(default_theme_display_name: &str) -> UblxOve
 /// newly introduced template keys into an existing file (additive only; never overwrites user values).
 ///
 /// Returns `true` if the file was created or rewritten (callers can suppress watcher toasts).
+#[must_use]
 pub fn ensure_global_config_file_with_defaults(
     global_path: &Path,
     default_theme_display_name: &str,
@@ -60,6 +61,21 @@ pub fn ensure_global_config_file_with_defaults(
     }
     write_ublx_overlay_at(global_path, &template);
     true
+}
+
+/// Ensure global config exists/backfills, and stamp `config_written_by_us_at` when a write happens
+/// so the config watcher does not toast "Config reloaded".
+pub fn ensure_global_config_quiet(
+    paths: &UblxPaths,
+    default_theme_display_name: &str,
+    config_written_by_us_at: &mut Option<std::time::Instant>,
+) {
+    let Some(g) = paths.global_config() else {
+        return;
+    };
+    if ensure_global_config_file_with_defaults(&g, default_theme_display_name) {
+        *config_written_by_us_at = Some(std::time::Instant::now());
+    }
 }
 
 /// Ensure the local config file used for the indexed dir exists (visible `ublx.toml` preferred when creating).

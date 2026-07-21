@@ -1,9 +1,7 @@
 //! Path resolution, global/local overlay merge, and syncing layout edit buffers from disk.
 
 use crate::app::RunUblxParams;
-use crate::config::{
-    UblxOverlay, UblxPaths, ensure_global_config_file_with_defaults, load_ublx_toml,
-};
+use crate::config::{UblxOverlay, UblxPaths, ensure_global_config_quiet, load_ublx_toml};
 use crate::layout::setup::{SettingsConfigScope, SettingsPaneState, UblxState};
 use crate::themes::default_theme_for_new_config_file;
 use crate::utils::opacity_is_solid;
@@ -141,16 +139,16 @@ fn sync_layout_buffers_for_scope(
 /// Refresh `editing_path` and layout buffers from disk.
 ///
 /// When scope is Global and the global path is known, writes the default global TOML there if missing
-/// or backfills new template keys ([`ensure_global_config_file_with_defaults`]) — same behavior as TUI startup.
+/// or backfills new template keys ([`ensure_global_config_quiet`]) — same behavior as TUI startup.
 pub fn refresh_editing_metadata(state_mut: &mut UblxState, params_ref: &RunUblxParams<'_>) {
     let paths = UblxPaths::new(&params_ref.dir_to_ublx);
     let scope = state_mut.settings.scope;
-    if scope == SettingsConfigScope::Global
-        && let Some(g) = paths.global_config()
-        && ensure_global_config_file_with_defaults(&g, default_theme_for_new_config_file())
-    {
-        // Watcher will see this write; suppress the "Config reloaded" toast.
-        state_mut.config_written_by_us_at = Some(std::time::Instant::now());
+    if scope == SettingsConfigScope::Global {
+        ensure_global_config_quiet(
+            &paths,
+            default_theme_for_new_config_file(),
+            &mut state_mut.config_written_by_us_at,
+        );
     }
     state_mut.settings.editing_path = resolve_config_path(&paths, scope);
     sync_layout_buffers_for_scope(&mut state_mut.settings, &paths, scope);

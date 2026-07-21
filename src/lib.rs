@@ -1,4 +1,5 @@
 pub mod app;
+pub mod cli;
 pub mod cli_parser;
 pub mod config;
 pub mod engine;

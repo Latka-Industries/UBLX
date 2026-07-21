@@ -299,15 +299,11 @@ pub fn run_tui_session(
     let mut state = setup::UblxState::new();
     ublx_opts.sync_panels_display(&mut state.panels);
     state.right_pane_async.rx = right_pane_async_rx;
-    {
-        let paths = config::UblxPaths::new(params.dir_to_ublx.as_path());
-        if let Some(g) = paths.global_config() {
-            config::ensure_global_config_file_with_defaults(
-                &g,
-                default_theme_for_new_config_file(),
-            );
-        }
-    }
+    config::ensure_global_config_quiet(
+        &config::UblxPaths::new(params.dir_to_ublx.as_path()),
+        default_theme_for_new_config_file(),
+        &mut state.config_written_by_us_at,
+    );
     if params.startup.defer_first_snapshot {
         first_run::init_prompt_state(&mut state, params.dir_to_ublx.as_path());
     }

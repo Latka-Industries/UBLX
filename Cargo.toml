@@ -1,6 +1,6 @@
 [package]
 name = "ublx"
-version = "0.1.10"
+version = "0.1.11"
 edition = "2024"
 rust-version = "1.95"
 authors = ["AHurowitz <latkaindustries@gmail.com>"]
@@ -28,7 +28,7 @@ default = ["zahir-netcdf"]
 zahir-netcdf = ["zahirscan/netcdf"]
 
 [dependencies]
-anyhow = "1.0.102"
+anyhow = "1.0.104"
 blake3 = "1.8.5"
 chrono = "0.4"
 clap = { version = "4.6.1", features = ["derive"] }
@@ -41,7 +41,7 @@ fuzzy-matcher = "0.3.7"
 image = "0.25"
 lofty = "0.24.0"
 log = "0.4.31"
-nefaxer = "0.1.11"
+nefaxer = "0.1.12"
 notify = "8.2.0"
 pulldown-cmark = "0.13.3"
 ratatui = "0.30"
@@ -61,7 +61,7 @@ tetration = { version = "0.1.9", default-features = false }
 toml = "1.1.2"
 tui-logger = { version = "0.18.2", features = ["crossterm"] }
 unicode-width = "0.2"
-zahirscan = { version = "0.3.5", default-features = false }
+zahirscan = { version = "0.3.6", default-features = false }
 zip = { version = "8.6.0", default-features = false, features = ["deflate"] }
 
 [patch.crates-io]
@@ -69,7 +69,7 @@ zip = { version = "8.6.0", default-features = false, features = ["deflate"] }
 # nefaxer = { path = "../nefaxer" }
 
 [dev-dependencies]
-anyhow = "1.0.102"
+anyhow = "1.0.104"
 log = "0.4.29"
 
 [profile.release]
