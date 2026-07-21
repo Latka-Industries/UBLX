@@ -54,19 +54,31 @@ fn ublx_overlay_merge_global_run_snapshot_when_no_local() {
 
 #[test]
 fn ublx_overlay_merge_local_does_not_override_global_only_keys() {
+    use ublx::config::CommandModeOverlay;
+
     let global = UblxOverlay {
         opacity_format: Some(Osc11BackgroundFormat::Rgba),
         ask_enhance_on_new_root: Some(true),
+        command_mode: Some(CommandModeOverlay {
+            leader: Some("a".into()),
+        }),
         ..Default::default()
     };
     let local = UblxOverlay {
         opacity_format: Some(Osc11BackgroundFormat::Hex8),
         ask_enhance_on_new_root: Some(false),
+        command_mode: Some(CommandModeOverlay {
+            leader: Some("b".into()),
+        }),
         ..Default::default()
     };
     let m = UblxOverlay::merge(Some(global), Some(local));
     assert_eq!(m.opacity_format, Some(Osc11BackgroundFormat::Rgba));
     assert_eq!(m.ask_enhance_on_new_root, Some(true));
+    assert_eq!(
+        m.command_mode.as_ref().and_then(|c| c.leader.as_deref()),
+        Some("a")
+    );
 }
 
 #[test]
@@ -110,6 +122,7 @@ fn opts_with(enable_enhance_all: bool, entries: Vec<EnhancePolicyEntry>) -> Ublx
         enhance_policy: entries,
         run_snapshot_on_startup: true,
         typed_column_tables: ublx::config::ColumnStatsDisplay::default(),
+        command_mode_leader: ublx::config::DEFAULT_COMMAND_MODE_LEADER,
     }
 }
 
@@ -273,8 +286,8 @@ fn ensure_global_config_backfills_existing_file_on_disk() {
 fn settings_typed_column_tables_row_layout_indices() {
     use ublx::layout::setup::SettingsConfigScope;
     use ublx::modules::settings::{
-        bool_row_count, layout_button_index, opacity_format_row_index,
-        typed_column_tables_row_index,
+        bool_row_count, command_mode_leader_row_index, layout_button_index,
+        opacity_format_row_index, typed_column_tables_row_index,
     };
 
     assert_eq!(
@@ -283,11 +296,19 @@ fn settings_typed_column_tables_row_layout_indices() {
     );
     assert_eq!(typed_column_tables_row_index(SettingsConfigScope::Local), 4);
     assert_eq!(
-        opacity_format_row_index(SettingsConfigScope::Global),
+        command_mode_leader_row_index(SettingsConfigScope::Global),
         Some(6)
     );
+    assert_eq!(
+        command_mode_leader_row_index(SettingsConfigScope::Local),
+        None
+    );
+    assert_eq!(
+        opacity_format_row_index(SettingsConfigScope::Global),
+        Some(7)
+    );
     assert_eq!(opacity_format_row_index(SettingsConfigScope::Local), None);
-    assert_eq!(layout_button_index(SettingsConfigScope::Global), 7);
+    assert_eq!(layout_button_index(SettingsConfigScope::Global), 8);
     assert_eq!(layout_button_index(SettingsConfigScope::Local), 5);
     assert_eq!(bool_row_count(SettingsConfigScope::Global), 5);
     assert_eq!(bool_row_count(SettingsConfigScope::Local), 4);
@@ -309,6 +330,47 @@ fn typed_column_tables_cycle_order() {
     assert_eq!(
         cycle_typed_column_tables(ColumnStatsDisplay::Full),
         ColumnStatsDisplay::None
+    );
+}
+
+#[test]
+fn command_mode_leader_parse_and_cycle() {
+    use ublx::config::{
+        CommandModeOverlay, UblxOverlay, cycle_command_mode_leader, parse_command_mode_leader,
+        validate_hot_reload_overlay,
+    };
+
+    assert_eq!(parse_command_mode_leader("A").unwrap(), 'a');
+    assert!(parse_command_mode_leader("j").is_err());
+    assert!(parse_command_mode_leader("k").is_err());
+    assert!(parse_command_mode_leader("ab").is_err());
+    assert_eq!(cycle_command_mode_leader('a'), 'b');
+    assert_eq!(cycle_command_mode_leader('i'), 'l'); // skips j/k
+    assert_eq!(cycle_command_mode_leader('z'), 'a');
+
+    let bad = UblxOverlay {
+        command_mode: Some(CommandModeOverlay {
+            leader: Some("j".into()),
+        }),
+        ..Default::default()
+    };
+    let err = validate_hot_reload_overlay(&bad, &[]).unwrap_err();
+    assert!(err.iter().any(|e| e.field == "command_mode.leader"));
+}
+
+#[test]
+fn command_mode_overlay_parse_toml() {
+    let toml = r#"
+[command_mode]
+leader = "b"
+"#;
+    let overlay: UblxOverlay = toml::from_str(toml).unwrap();
+    assert_eq!(
+        overlay
+            .command_mode
+            .as_ref()
+            .and_then(|c| c.leader.as_deref()),
+        Some("b")
     );
 }
 

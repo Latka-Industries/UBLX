@@ -75,13 +75,22 @@ pub struct EnhancePolicyEntry {
     pub policy: EnhancePolicy,
 }
 
+/// `[command_mode]` section: Command Mode leader letter (`Ctrl+{leader}`).
+#[derive(Clone, Debug, Default, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(default)]
+pub struct CommandModeOverlay {
+    /// Single ASCII letter a–z except `j`/`k` (reserved for jump). Default when omitted: `a`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub leader: Option<String>,
+}
+
 /// Config overlay read from config files. Only present keys override; used for global + local overlay.
 /// Apply in order: defaults → global `~/.config/ublx/ublx.toml` → local `.ublx.toml` or `ublx.toml` in indexed dir.
 ///
 /// **Global-only keys** (see [`strip_global_only_keys_from_local_overlay`]): [`Self::opacity_format`],
-/// [`Self::ask_enhance_on_new_root`]. Project-local files must not override these; they are stripped before merge and when saving local TOML.
+/// [`Self::ask_enhance_on_new_root`], [`Self::command_mode`]. Project-local files must not override these; they are stripped before merge and when saving local TOML.
 ///
-/// [theme], [layout], [hash], [`show_hidden_files`], [`Self::typed_column_tables`], [`Self::run_snapshot_on_startup`], and [`UblxOverlay::bg_opacity`] are hot-reloadable; [exclude] is applied only at startup.
+/// [theme], [layout], [hash], [`show_hidden_files`], [`Self::typed_column_tables`], [`Self::run_snapshot_on_startup`], [`Self::command_mode`], and [`UblxOverlay::bg_opacity`] are hot-reloadable; [exclude] is applied only at startup.
 #[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
 #[serde(default)]
 pub struct UblxOverlay {
@@ -127,6 +136,9 @@ pub struct UblxOverlay {
     /// Default when omitted: [`ColumnStatsDisplay::Abbrev`].
     #[serde(alias = "column_stats", skip_serializing_if = "Option::is_none")]
     pub typed_column_tables: Option<ColumnStatsDisplay>,
+    /// Command Mode leader (`Ctrl+letter`). **Global config only**.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub command_mode: Option<CommandModeOverlay>,
 }
 
 /// Remove keys that apply only from global `ublx.toml`, so project-local merge and local file writes cannot set them.
@@ -134,6 +146,7 @@ pub struct UblxOverlay {
 pub fn strip_global_only_keys_from_local_overlay(overlay: &mut UblxOverlay) {
     overlay.opacity_format = None;
     overlay.ask_enhance_on_new_root = None;
+    overlay.command_mode = None;
 }
 
 impl UblxOverlay {
@@ -178,6 +191,9 @@ impl UblxOverlay {
         if other.typed_column_tables.is_some() {
             self.typed_column_tables = other.typed_column_tables;
         }
+        if other.command_mode.is_some() {
+            self.command_mode.clone_from(&other.command_mode);
+        }
     }
 
     /// Fill unset (`None`) fields from `template`. Used when upgrading on-disk config after new keys ship.
@@ -207,6 +223,7 @@ impl UblxOverlay {
                 template.ask_enhance_on_new_root,
             );
             changed |= backfill_option(&mut self.opacity_format, template.opacity_format);
+            changed |= backfill_option(&mut self.command_mode, template.command_mode.clone());
         }
         changed
     }

@@ -41,6 +41,8 @@ pub struct DrawFrameArgs<'a> {
     pub duplicate_mode: DuplicateGroupingMode,
     /// When non-empty, Lenses tab is shown.
     pub lens_names: Option<&'a [String]>,
+    /// Command Mode leader letter (`Ctrl+{letter}`).
+    pub command_mode_leader: char,
 }
 
 /// Main entry: layout and render main tabs, then Snapshot or Delta 3-pane content, search, help.
@@ -74,6 +76,7 @@ pub fn draw_ublx_frame(
             has_lenses,
             has_duplicates,
             &mut state.chrome.help_tab,
+            args.command_mode_leader,
         );
     }
     if state.theme.selector_visible {
@@ -84,7 +87,7 @@ pub fn draw_ublx_frame(
     }
     draw_popups(f, state, &body, args);
     if state.chrome.ctrl_chord.menu_visible {
-        overlays::popup::render_ctrl_chord_menu(f, area);
+        overlays::popup::render_ctrl_chord_menu(f, area, args.command_mode_leader);
     }
     if let Some(ref sp) = state.startup_prompt {
         match &sp.phase {

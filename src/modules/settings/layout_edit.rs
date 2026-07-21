@@ -7,21 +7,22 @@ use crate::utils::clamp_selection;
 
 use super::typed_column_tables_row::typed_column_tables_row_index;
 
-/// Row index for OSC 11 opacity payload format (`rgba` | `hex8`), after bool rows + `typed_column_tables`.
+/// Row index for OSC 11 opacity payload format (`rgba` | `hex8`), after bool rows + `typed_column_tables`
+/// (+ Command Mode leader on Global).
 /// [`None`] on Local — that row exists only on the Global settings tab.
 #[must_use]
 pub fn opacity_format_row_index(scope: SettingsConfigScope) -> Option<usize> {
     match scope {
-        SettingsConfigScope::Global => Some(typed_column_tables_row_index(scope) + 1),
+        SettingsConfigScope::Global => Some(typed_column_tables_row_index(scope) + 2),
         SettingsConfigScope::Local => None,
     }
 }
 
-/// "Edit layout" button row (after bool rows + `typed_column_tables` on Local; + opacity format on Global).
+/// "Edit layout" button row (after bool rows + `typed_column_tables` on Local; + command mode + opacity format on Global).
 #[must_use]
 pub fn layout_button_index(scope: SettingsConfigScope) -> usize {
     match scope {
-        SettingsConfigScope::Global => typed_column_tables_row_index(scope) + 2,
+        SettingsConfigScope::Global => typed_column_tables_row_index(scope) + 3,
         SettingsConfigScope::Local => typed_column_tables_row_index(scope) + 1,
     }
 }

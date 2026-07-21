@@ -101,6 +101,16 @@ pub fn validate_hot_reload_overlay(
         });
     }
 
+    if let Some(ref cm) = overlay.command_mode
+        && let Some(ref leader) = cm.leader
+        && let Err(message) = super::parse_command_mode_leader(leader)
+    {
+        errors.push(HotReloadError {
+            field: "command_mode.leader",
+            message,
+        });
+    }
+
     if errors.is_empty() {
         Ok(())
     } else {

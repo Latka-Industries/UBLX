@@ -11,7 +11,7 @@
 use std::path::Path;
 use std::path::PathBuf;
 
-use crate::config::profile;
+use crate::config::{DEFAULT_COMMAND_MODE_LEADER, overlay_command_mode_leader, profile};
 use crate::integrations::{
     NefaxDriveType, NefaxOpts, ZahirOutputMode, ZahirRC, pre_opts_for_nefaxer,
 };
@@ -111,6 +111,8 @@ pub struct UblxOpts {
     pub run_snapshot_on_startup: bool,
     /// Typed column tables in Metadata / Writing tabs ([`profile::ColumnStatsDisplay`]).
     pub typed_column_tables: profile::ColumnStatsDisplay,
+    /// Command Mode leader letter (`Ctrl+{letter}`). Global-only. Default `a`.
+    pub command_mode_leader: char,
 }
 
 impl UblxOpts {
@@ -197,6 +199,7 @@ impl UblxOpts {
         if let Some(v) = overlay.typed_column_tables {
             self.typed_column_tables = v;
         }
+        self.command_mode_leader = overlay_command_mode_leader(overlay);
     }
 
     /// Reload hot-reloadable config from disk (global + local merge). When disk yields no config, falls back to cached overlay from last successful load.
@@ -289,6 +292,7 @@ impl UblxOpts {
             enhance_policy: Vec::new(),
             run_snapshot_on_startup: true,
             typed_column_tables: profile::ColumnStatsDisplay::default(),
+            command_mode_leader: DEFAULT_COMMAND_MODE_LEADER,
         };
         let global =
             profile::load_ublx_toml(ublx_paths.global_config(), Some(config.valid_theme_names));
@@ -356,6 +360,7 @@ impl UblxOpts {
             enhance_policy: Vec::new(),
             run_snapshot_on_startup: true,
             typed_column_tables: profile::ColumnStatsDisplay::default(),
+            command_mode_leader: DEFAULT_COMMAND_MODE_LEADER,
         }
     }
 

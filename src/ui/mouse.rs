@@ -20,6 +20,7 @@ pub struct MouseContext<'a> {
     pub layout: &'a LayoutOverlay,
     pub tabs: MainTabFlags,
     pub main_mode: MainMode,
+    pub command_mode_leader: char,
 }
 
 fn contains(area: Rect, x: u16, y: u16) -> bool {
@@ -436,6 +437,7 @@ pub fn handle_mouse_event(
         layout,
         tabs,
         main_mode,
+        command_mode_leader,
     } = ctx;
 
     if state_mut.chrome.help_visible {
@@ -446,6 +448,7 @@ pub fn handle_mouse_event(
                 tabs.has_lenses,
                 tabs.has_duplicates,
                 state_mut.chrome.help_tab,
+                command_mode_leader,
             );
             if contains(footer, event.column, event.row) {
                 let url = env!("CARGO_PKG_REPOSITORY");

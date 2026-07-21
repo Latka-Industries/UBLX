@@ -10,7 +10,7 @@ use ratatui::widgets::{Block, Borders, Cell, Clear, Paragraph, Row, Table, Wrap}
 use crate::layout::{setup::MainMode, style};
 use crate::themes;
 use crate::ui::{
-    COMMAND_MODE_DESCRIPTIONS, UI_CONSTANTS, UI_GLYPHS, UI_STRINGS, main_tab_keys_help_keys_line,
+    CTRL_MENU_ROWS, UI_CONSTANTS, UI_GLYPHS, UI_STRINGS, main_tab_keys_help_keys_line,
 };
 
 macro_rules! help_entries {
@@ -87,17 +87,6 @@ const HELP_BROWSER_QA_DUPLICATES: &[(&str, &str)] = help_entries![
     ),
 ];
 
-/// Command Mode (Ctrl+A) and single-letter follow-ups.
-const HELP_COMMAND_MODE: &[(&str, &str)] = help_entries![
-    ("d", COMMAND_MODE_DESCRIPTIONS.duplicates),
-    ("t", COMMAND_MODE_DESCRIPTIONS.theme),
-    ("s", COMMAND_MODE_DESCRIPTIONS.snapshot),
-    ("r", COMMAND_MODE_DESCRIPTIONS.reload),
-    ("x", COMMAND_MODE_DESCRIPTIONS.export_zahir),
-    ("l", COMMAND_MODE_DESCRIPTIONS.export_lenses),
-    ("p", COMMAND_MODE_DESCRIPTIONS.project),
-];
-
 /// quick actions menu (spacebar): matches [`crate::ui::qa_menu_item_labels`] / `UI_STRINGS.space`.
 const HELP_BROWSER_QA: &[(&str, &str)] = help_entries![
     ("o", "Open — Terminal and/or GUI"),
@@ -168,7 +157,7 @@ const HELP_SECTION_MULTISELECT: HelpSectionSpec = HelpSectionSpec {
 
 const HELP_SECTION_COMMAND: HelpSectionSpec = HelpSectionSpec {
     title: UI_STRINGS.dialogs.command_mode_popup,
-    rows: HELP_COMMAND_MODE,
+    rows: CTRL_MENU_ROWS,
     include_digit_row: false,
 };
 
@@ -341,6 +330,7 @@ fn help_tab_node_line(
     sections: &[HelpSectionSpec],
     active: usize,
     popup_bg: Color,
+    command_mode_leader: char,
 ) -> Line<'static> {
     let gap_style = Style::default().bg(popup_bg);
     let gap_n = usize::from(UI_CONSTANTS.main_tab_node_gap_cells);
@@ -351,9 +341,18 @@ fn help_tab_node_line(
                 segments.push(Span::styled(" ", gap_style));
             }
         }
-        segments.extend(style::tab_node_segment(s.title, i == active, false));
+        let title = section_display_title(s, command_mode_leader);
+        segments.extend(style::tab_node_segment(&title, i == active, false));
     }
     Line::from(segments)
+}
+
+fn section_display_title(s: &HelpSectionSpec, command_mode_leader: char) -> String {
+    if s.title == UI_STRINGS.dialogs.command_mode_popup {
+        crate::config::command_mode_popup_title(command_mode_leader)
+    } else {
+        s.title.to_string()
+    }
 }
 
 fn build_help_table(
@@ -413,6 +412,7 @@ struct HelpPopupLayout {
     text_style: Style,
     max_table_block_h: u16,
     popup_bg: Color,
+    command_mode_leader: char,
 }
 
 fn compute_help_popup_layout(
@@ -421,6 +421,7 @@ fn compute_help_popup_layout(
     has_lenses: bool,
     has_duplicates: bool,
     help_tab: &mut u8,
+    command_mode_leader: char,
 ) -> HelpPopupLayout {
     let sections = help_sections(main_mode);
     let n = sections.len().max(1);
@@ -505,6 +506,7 @@ fn compute_help_popup_layout(
         text_style,
         max_table_block_h,
         popup_bg,
+        command_mode_leader,
     }
 }
 
@@ -516,10 +518,17 @@ pub fn help_github_footer_rect(
     has_lenses: bool,
     has_duplicates: bool,
     help_tab: u8,
+    command_mode_leader: char,
 ) -> Rect {
     let mut t = help_tab;
-    let layout =
-        compute_help_popup_layout(frame_area, main_mode, has_lenses, has_duplicates, &mut t);
+    let layout = compute_help_popup_layout(
+        frame_area,
+        main_mode,
+        has_lenses,
+        has_duplicates,
+        &mut t,
+        command_mode_leader,
+    );
     layout.chunks.last().copied().unwrap_or(Rect::default())
 }
 
@@ -529,9 +538,16 @@ pub fn render_help_box(
     has_lenses: bool,
     has_duplicates: bool,
     help_tab: &mut u8,
+    command_mode_leader: char,
 ) {
-    let layout =
-        compute_help_popup_layout(f.area(), main_mode, has_lenses, has_duplicates, help_tab);
+    let layout = compute_help_popup_layout(
+        f.area(),
+        main_mode,
+        has_lenses,
+        has_duplicates,
+        help_tab,
+        command_mode_leader,
+    );
     let chunks = &layout.chunks;
     debug_assert_eq!(chunks.len(), 9);
 
@@ -548,7 +564,12 @@ pub fn render_help_box(
     f.render_widget(blurb_para, chunks[0]);
     f.render_widget(gap.clone(), chunks[1]);
 
-    let tab_line = help_tab_node_line(layout.sections, layout.active_tab, layout.popup_bg);
+    let tab_line = help_tab_node_line(
+        layout.sections,
+        layout.active_tab,
+        layout.popup_bg,
+        layout.command_mode_leader,
+    );
     f.render_widget(
         Paragraph::new(tab_line)
             .alignment(Alignment::Center)
@@ -559,6 +580,7 @@ pub fn render_help_box(
 
     let body = chunks[4];
     let s = &layout.sections[layout.active_tab];
+    let section_title = section_display_title(s, layout.command_mode_leader);
     let inner_body = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
@@ -567,7 +589,7 @@ pub fn render_help_box(
         ])
         .split(body);
     let title_para = Paragraph::new(Line::from(vec![Span::styled(
-        s.title,
+        section_title,
         style::table_section_title_style().add_modifier(Modifier::UNDERLINED),
     )]))
     .alignment(Alignment::Center)

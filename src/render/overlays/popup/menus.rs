@@ -241,7 +241,7 @@ const CMD_MODE_WIDTH_LIMIT: usize = 24;
 const CMD_MODE_DESC_MIN_WIDTH: usize = CMD_MODE_WIDTH_LIMIT - 4;
 
 /// Centered Command Mode table (after Ctrl+A, timeout with no second key). Same header/row styling as help.
-pub fn render_ctrl_chord_menu(f: &mut Frame, full_area: Rect) {
+pub fn render_ctrl_chord_menu(f: &mut Frame, full_area: Rect, command_mode_leader: char) {
     let rows = CTRL_MENU_ROWS;
     let n = rows.len();
     if n == 0 {
@@ -285,7 +285,9 @@ pub fn render_ctrl_chord_menu(f: &mut Frame, full_area: Rect) {
     );
     f.render_widget(Clear, rect);
 
-    let title = UI_STRINGS.pad(UI_STRINGS.dialogs.command_mode_popup);
+    let title = UI_STRINGS.pad(&crate::config::command_mode_popup_title(
+        command_mode_leader,
+    ));
     let block = Block::default()
         .borders(Borders::ALL)
         .title(Line::from(title).centered())

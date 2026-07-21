@@ -183,6 +183,7 @@ fn run_tui_mode(
         layout: ublx_opts.layout.clone(),
         bg_opacity: ublx_opts.bg_opacity.unwrap_or(1.0),
         opacity_format: ublx_opts.opacity_format,
+        command_mode_leader: ublx_opts.command_mode_leader,
         duplicate_groups: Vec::new(),
         duplicate_mode: db_ops::DuplicateGroupingMode::NameSize,
         duplicate_groups_rx: None,

@@ -155,6 +155,7 @@ pub fn perform_session_switch<'a>(
     params.layout = ublx_opts.layout.clone();
     params.bg_opacity = ublx_opts.bg_opacity.unwrap_or(1.0);
     params.opacity_format = ublx_opts.opacity_format;
+    params.command_mode_leader = ublx_opts.command_mode_leader;
     params.duplicate_groups.clear();
     params.duplicate_mode = db_ops::DuplicateGroupingMode::NameSize;
     params.duplicate_groups_rx = None;
