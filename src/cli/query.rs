@@ -28,10 +28,16 @@ pub fn run(args: &QueryCli) -> Result<(), anyhow::Error> {
 }
 
 enum QueryResult {
-    Strings { items: Vec<String>, noun: &'static str },
+    Strings {
+        items: Vec<String>,
+        noun: &'static str,
+    },
     Entries(Vec<EntryRow>),
     Delta(Vec<DeltaRow>),
-    Detail { row: EntryRow, zahir: bool },
+    Detail {
+        row: EntryRow,
+        zahir: bool,
+    },
 }
 
 fn collect_local(conn: &Connection, args: &QueryCli) -> Result<QueryResult, anyhow::Error> {

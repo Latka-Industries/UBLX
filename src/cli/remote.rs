@@ -1,5 +1,7 @@
 //! HTTP client for `ublx query` / `ublx doctor` against a running `ublx serve` (`--url` / `UBLX_URL`).
 
+use std::fmt::Write as _;
+
 use serde::de::DeserializeOwned;
 
 /// Trim and normalize a serve base URL from CLI `--url` or `UBLX_URL`.
@@ -21,9 +23,7 @@ pub fn resolve_base(url: Option<&str>) -> Option<String> {
 /// Returns `Err` on transport failure, non-2xx status, or JSON decode errors.
 pub fn get_json<T: DeserializeOwned>(base: &str, path_and_query: &str) -> Result<T, anyhow::Error> {
     let url = format!("{base}{path_and_query}");
-    let mut response = ureq::get(&url)
-        .call()
-        .map_err(|e| format_ureq(&url, e))?;
+    let mut response = ureq::get(&url).call().map_err(|e| format_ureq(&url, e))?;
     response
         .body_mut()
         .read_json()
@@ -49,7 +49,10 @@ pub fn path_with_query(path: &str, pairs: &[(&str, &str)]) -> String {
 /// Encode a catalog-relative path for `/entries/{*path}` (preserve `/`, encode each segment).
 #[must_use]
 pub fn encode_entry_path(path: &str) -> String {
-    path.split('/').map(encode_component).collect::<Vec<_>>().join("/")
+    path.split('/')
+        .map(encode_component)
+        .collect::<Vec<_>>()
+        .join("/")
 }
 
 fn encode_component(seg: &str) -> String {
@@ -61,7 +64,7 @@ fn encode_component(seg: &str) -> String {
             }
             _ => {
                 out.push('%');
-                out.push_str(&format!("{b:02X}"));
+                let _ = write!(out, "{b:02X}");
             }
         }
     }
