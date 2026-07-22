@@ -452,19 +452,6 @@ button.tab-node {
   flex: 1;
 }
 
-.entry-viewer__path {
-  margin: 0 0 0.35rem;
-  color: hsl(var(--foreground));
-  word-break: break-all;
-  line-height: 1.35;
-}
-
-.entry-viewer__meta {
-  margin: 0 0 0.75rem;
-  color: hsl(var(--muted-foreground));
-  font-size: 0.9rem;
-}
-
 .entry-viewer__note {
   padding: 0;
 }
@@ -563,6 +550,24 @@ button.tab-node {
 .md-viewer img {
   max-width: 100%;
   height: auto;
+}
+
+/* —— Code / syntect Viewer (host HTML; theme bg lives in syntect markup) —— */
+.code-viewer {
+  margin-top: 0.35rem;
+  overflow-x: auto;
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
+.code-viewer pre {
+  margin: 0;
+  padding: 0;
+  white-space: pre;
+  font: inherit;
+  border: none;
+  border-radius: 0;
 }
 
 .detail-pre {
