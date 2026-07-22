@@ -467,6 +467,127 @@ button.tab-node {
   padding: 0;
 }
 
+/* —— Markdown Viewer (host HTML via /entries/.../content) —— */
+.md-viewer {
+  margin-top: 0.35rem;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  color: hsl(var(--foreground));
+}
+
+.md-viewer > *:first-child {
+  margin-top: 0;
+}
+
+.md-viewer h1,
+.md-viewer h2,
+.md-viewer h3,
+.md-viewer h4,
+.md-viewer h5,
+.md-viewer h6 {
+  margin: 1rem 0 0.4rem;
+  font-weight: 700;
+  color: hsl(var(--foreground));
+  line-height: 1.25;
+}
+
+.md-viewer h1 {
+  font-size: 1.35rem;
+}
+
+.md-viewer h2 {
+  font-size: 1.2rem;
+}
+
+.md-viewer h3 {
+  font-size: 1.05rem;
+}
+
+.md-viewer p,
+.md-viewer ul,
+.md-viewer ol,
+.md-viewer blockquote,
+.md-viewer pre {
+  margin: 0.45rem 0;
+}
+
+.md-viewer ul,
+.md-viewer ol {
+  padding-left: 1.35rem;
+}
+
+.md-viewer a {
+  color: hsl(var(--search));
+}
+
+.md-viewer code {
+  font-family: ui-monospace, "Cascadia Code", "SF Mono", Menlo, monospace;
+  font-size: 0.85em;
+  padding: 0.05rem 0.25rem;
+  background: hsl(var(--table-stripe));
+  border-radius: var(--radius);
+}
+
+.md-viewer pre {
+  padding: 0.55rem 0.65rem;
+  overflow-x: auto;
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius);
+}
+
+.md-viewer pre code {
+  padding: 0;
+  background: transparent;
+}
+
+.md-viewer blockquote {
+  margin-left: 0;
+  padding: 0.15rem 0.75rem;
+  border-left: 3px solid hsl(var(--border));
+  color: hsl(var(--muted-foreground));
+}
+
+.md-viewer table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+  margin: 0.55rem 0;
+}
+
+.md-viewer th,
+.md-viewer td {
+  padding: 0.2rem 0.55rem;
+  text-align: left;
+  vertical-align: top;
+}
+
+.md-viewer th {
+  background: hsl(var(--card));
+  font-weight: 700;
+  text-decoration: underline;
+  border-bottom: 2px solid hsl(var(--border));
+}
+
+.md-viewer tbody tr:nth-child(odd) {
+  background: hsl(var(--card));
+}
+
+.md-viewer tbody tr:nth-child(even) {
+  background: hsl(var(--table-stripe));
+}
+
+.md-viewer hr {
+  border: none;
+  border-top: 1px solid hsl(var(--border));
+  margin: 0.85rem 0;
+}
+
+.md-viewer img {
+  max-width: 100%;
+  height: auto;
+}
+
 .detail-pre {
   margin: 0;
   padding: 0;
