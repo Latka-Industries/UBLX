@@ -1,7 +1,4 @@
-exclude = [
-    "target",
-    "object",
-]
+exclude = ["target", "object", "dist"]
 show_hidden_files = true
 hash = true
 theme = "Oblivion Ink"
