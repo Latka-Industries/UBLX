@@ -6,6 +6,7 @@ use leptos::task::spawn_local;
 use crate::api::{
     SettingsLayoutPatch, SettingsPatch, SettingsScope, SettingsView, fetch_settings, patch_settings,
 };
+use crate::focus::{ListNav, UiNav, install_list_nav};
 use crate::panes::{PanelRow, ThreePane};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -126,6 +127,25 @@ pub(crate) fn SettingsMode() -> impl IntoView {
     });
 
     let view_sig = Signal::derive(move || live.get());
+
+    let nav = UiNav::expect();
+    let scopes = [SettingsScope::Global, SettingsScope::Local];
+    install_list_nav(
+        nav.left,
+        ListNav {
+            move_by: Callback::new(move |delta: i32| {
+                let idx = scopes
+                    .iter()
+                    .position(|s| *s == scope.get_untracked())
+                    .unwrap_or(0);
+                let n = scopes.len() as i32;
+                let next = ((idx as i32 + delta).clamp(0, n - 1)) as usize;
+                set_scope.set(scopes[next]);
+            }),
+            to_start: Callback::new(move |_| set_scope.set(scopes[0])),
+            to_end: Callback::new(move |_| set_scope.set(scopes[1])),
+        },
+    );
 
     view! {
         <ThreePane

@@ -3,6 +3,7 @@
 use leptos::prelude::*;
 
 use crate::api::{DeltaKind, DeltaRow, fetch_delta_catalog, format_timestamp_ns};
+use crate::focus::{ListNav, UiNav, install_list_nav};
 use crate::panes::{OverviewRightPane, PathsPane, ThreePane};
 use crate::search::{CatalogSearch, fuzzy_matches_field};
 
@@ -28,6 +29,34 @@ pub(crate) fn DeltaMode() -> impl IntoView {
         };
         display_paths(&kept)
     });
+
+    let nav = UiNav::expect();
+    install_list_nav(
+        nav.left,
+        ListNav {
+            move_by: Callback::new(move |delta: i32| {
+                let all = DeltaKind::ALL;
+                let idx = all
+                    .iter()
+                    .position(|k| *k == kind.get_untracked())
+                    .unwrap_or(0);
+                let n = all.len() as i32;
+                let next = ((idx as i32 + delta).clamp(0, n - 1)) as usize;
+                if all[next] != kind.get_untracked() {
+                    set_kind.set(all[next]);
+                    set_selected_path.set(None);
+                }
+            }),
+            to_start: Callback::new(move |_| {
+                set_kind.set(DeltaKind::ALL[0]);
+                set_selected_path.set(None);
+            }),
+            to_end: Callback::new(move |_| {
+                set_kind.set(*DeltaKind::ALL.last().unwrap());
+                set_selected_path.set(None);
+            }),
+        },
+    );
 
     view! {
         <ThreePane

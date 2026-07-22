@@ -5,6 +5,8 @@ use wasm_bindgen::JsCast;
 use web_sys::KeyboardEvent;
 
 use crate::api::{CatalogFlags, format_timestamp_ns};
+use crate::focus::{PaneFocus, RightTabBus, UiNav};
+use crate::keys::{WebAction, action_from_keydown, typing_in_form_field};
 use crate::modes::{DeltaMode, DuplicatesMode, LensesMode, SettingsMode, SnapshotMode};
 use crate::nav::{MainMode, clamp_mode_to_visible, select_mode, use_main_mode};
 use crate::search::{CatalogSearch, SEARCH_LABEL};
@@ -14,6 +16,7 @@ pub(crate) fn Shell(flags: CatalogFlags) -> impl IntoView {
     let flags = StoredValue::new(flags);
     let (mode, set_mode) = use_main_mode();
     let search = CatalogSearch::provide();
+    let (nav, tabs) = UiNav::provide();
 
     // Deep-link may name a tab that is hidden for this catalog — fall back to Snapshot.
     Effect::new(move |_| {
@@ -25,24 +28,27 @@ pub(crate) fn Shell(flags: CatalogFlags) -> impl IntoView {
         }
     });
 
-    // TUI `/` opens catalog search (ignore when already typing in an input/textarea/select).
+    // Global keybus — TUI-shaped hotkeys (ignore while search strip is active or typing in forms).
     Effect::new(move |_| {
         let Some(window) = web_sys::window() else {
             return;
         };
         let search = search;
+        let nav = nav;
+        let tabs = tabs;
+        let mode = mode;
+        let set_mode = set_mode;
+        let flags = flags;
         let closure = wasm_bindgen::closure::Closure::wrap(Box::new(move |ev: KeyboardEvent| {
-            if search.active.get_untracked() {
-                return;
-            }
-            if ev.key() != "/" || ev.ctrl_key() || ev.meta_key() || ev.alt_key() {
-                return;
-            }
             if typing_in_form_field() {
                 return;
             }
+            let search_active = search.active.get_untracked();
+            let Some(action) = action_from_keydown(&ev, search_active) else {
+                return;
+            };
             ev.prevent_default();
-            search.start();
+            dispatch_action(action, search, nav, tabs, mode, set_mode, flags);
         }) as Box<dyn FnMut(_)>);
         let _ =
             window.add_event_listener_with_callback("keydown", closure.as_ref().unchecked_ref());
@@ -90,16 +96,94 @@ pub(crate) fn Shell(flags: CatalogFlags) -> impl IntoView {
     }
 }
 
-fn typing_in_form_field() -> bool {
-    let Some(doc) = web_sys::window().and_then(|w| w.document()) else {
-        return false;
-    };
-    let Some(el) = doc.active_element() else {
-        return false;
-    };
-    let tag = el.tag_name().to_ascii_lowercase();
-    matches!(tag.as_str(), "input" | "textarea" | "select")
-        || el.get_attribute("contenteditable").is_some()
+fn dispatch_action(
+    action: WebAction,
+    search: CatalogSearch,
+    nav: UiNav,
+    tabs: RightTabBus,
+    mode: ReadSignal<MainMode>,
+    set_mode: WriteSignal<MainMode>,
+    flags: StoredValue<CatalogFlags>,
+) {
+    let f = flags.get_value();
+    match action {
+        WebAction::SearchStart => search.start(),
+        WebAction::MainMode(m) => {
+            if m.is_visible(f.has_lenses, f.has_delta, f.has_duplicates) {
+                select_mode(set_mode, m);
+            }
+        }
+        WebAction::MainModeToggle => {
+            let next = next_visible_mode(
+                mode.get_untracked(),
+                f.has_lenses,
+                f.has_delta,
+                f.has_duplicates,
+            );
+            select_mode(set_mode, next);
+        }
+        WebAction::FocusLeft => nav.set_pane.set(PaneFocus::Left),
+        WebAction::FocusMiddle => nav.set_pane.set(PaneFocus::Middle),
+        WebAction::FocusCycle => {
+            let next = nav.pane.get_untracked().cycle();
+            nav.set_pane.set(next);
+        }
+        WebAction::MoveUp => {
+            if let Some(list) = nav.active_list() {
+                list.move_by.run(-1);
+            }
+        }
+        WebAction::MoveDown => {
+            if let Some(list) = nav.active_list() {
+                list.move_by.run(1);
+            }
+        }
+        WebAction::MoveUpFast => {
+            if let Some(list) = nav.active_list() {
+                list.move_by.run(-10);
+            }
+        }
+        WebAction::MoveDownFast => {
+            if let Some(list) = nav.active_list() {
+                list.move_by.run(10);
+            }
+        }
+        WebAction::ListTop => {
+            if let Some(list) = nav.active_list() {
+                list.to_start.run(());
+            }
+        }
+        WebAction::ListBottom => {
+            if let Some(list) = nav.active_list() {
+                list.to_end.run(());
+            }
+        }
+        WebAction::RightTab(t) => {
+            tabs.set_request.set(Some(t));
+            nav.set_pane.set(PaneFocus::Right);
+        }
+        WebAction::CycleRightTab => {
+            tabs.bump_cycle.update(|n| *n = n.wrapping_add(1));
+            nav.set_pane.set(PaneFocus::Right);
+        }
+    }
+}
+
+fn next_visible_mode(
+    current: MainMode,
+    has_lenses: bool,
+    has_delta: bool,
+    has_duplicates: bool,
+) -> MainMode {
+    let visible: Vec<MainMode> = MainMode::ALL
+        .into_iter()
+        .filter(|m| m.is_visible(has_lenses, has_delta, has_duplicates))
+        .collect();
+    if visible.is_empty() {
+        return MainMode::Snapshot;
+    }
+    let idx = visible.iter().position(|m| *m == current).unwrap_or(0);
+    visible[(idx + 1) % visible.len()]
 }
 
 #[component]

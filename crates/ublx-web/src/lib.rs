@@ -7,6 +7,8 @@
 #![allow(non_snake_case)]
 
 mod api;
+mod focus;
+mod keys;
 mod modes;
 mod nav;
 mod panes;

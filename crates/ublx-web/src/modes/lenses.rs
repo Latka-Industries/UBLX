@@ -3,6 +3,7 @@
 use leptos::prelude::*;
 
 use crate::api::{fetch_entry_detail, fetch_lens_entries, fetch_lens_names};
+use crate::focus::{UiNav, install_list_nav, string_list_nav};
 use crate::panes::{EntryRightPane, PanelRow, PathsPane, ThreePane};
 use crate::search::{CatalogSearch, empty_list_message, filter_labels, filter_paths, path_rows};
 
@@ -66,6 +67,23 @@ pub(crate) fn LensesMode() -> impl IntoView {
         }
     });
     let detail_signal = Signal::derive(move || detail.get().flatten());
+
+    let nav = UiNav::expect();
+    let (lens_nav, set_lens_nav) = signal(selected_lens.get_untracked());
+    Effect::new(move |_| {
+        set_lens_nav.set(selected_lens.get());
+    });
+    Effect::new(move |_| {
+        let b = lens_nav.get();
+        if b != selected_lens.get_untracked() {
+            set_selected_lens.set(b);
+            set_selected_path.set(None);
+        }
+    });
+    install_list_nav(
+        nav.left,
+        string_list_nav(visible_lenses, lens_nav.into(), set_lens_nav),
+    );
 
     view! {
         <ThreePane

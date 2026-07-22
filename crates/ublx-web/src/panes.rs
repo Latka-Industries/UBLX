@@ -3,16 +3,11 @@
 use leptos::prelude::*;
 
 use crate::api::{EntryDetail, format_bytes, format_timestamp_ns};
+use crate::focus::{PaneFocus, UiNav, install_list_nav, string_list_nav};
 use crate::search;
 
-#[derive(Clone, Copy, PartialEq, Eq)]
-enum PaneFocus {
-    Left,
-    Middle,
-    Right,
-}
-
 /// Shared 3-pane TUI layout — bordered boxes with title nodes.
+/// Pane focus lives in [`UiNav`] (keyboard + click).
 #[component]
 pub(crate) fn ThreePane(
     left_title: &'static str,
@@ -21,7 +16,9 @@ pub(crate) fn ThreePane(
     middle: AnyView,
     right: AnyView,
 ) -> impl IntoView {
-    let (focus, set_focus) = signal(PaneFocus::Middle);
+    let nav = UiNav::expect();
+    let focus = nav.pane;
+    let set_focus = nav.set_pane;
 
     view! {
         <div class="three-pane">
@@ -114,8 +111,8 @@ pub(crate) fn PanelRow(
     }
 }
 
-#[derive(Clone, Copy, PartialEq, Eq)]
-enum RightTab {
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum RightTab {
     Viewer,
     Templates,
     Metadata,
@@ -164,6 +161,27 @@ pub(crate) fn PathsPane(
     on_select: Callback<String>,
 ) -> impl IntoView {
     let search_q = Signal::derive(move || search::CatalogSearch::expect().trimmed.get());
+    let nav = UiNav::expect();
+    let keys = Signal::derive(move || {
+        paths
+            .get()
+            .into_iter()
+            .filter_map(|(_, k)| (!k.is_empty()).then_some(k))
+            .collect::<Vec<_>>()
+    });
+    let (bridge, set_bridge) = signal(selected.get_untracked());
+    Effect::new(move |_| {
+        set_bridge.set(selected.get());
+    });
+    Effect::new(move |_| {
+        let b = bridge.get();
+        if b != selected.get_untracked()
+            && let Some(p) = b
+        {
+            on_select.run(p);
+        }
+    });
+    install_list_nav(nav.middle, string_list_nav(keys, bridge.into(), set_bridge));
 
     view! {
         <div class="paths-pane">
@@ -241,19 +259,54 @@ pub(crate) fn PathsPane(
 #[component]
 pub(crate) fn EntryRightPane(detail: Signal<Option<EntryDetail>>) -> impl IntoView {
     let (tab, set_tab) = signal(RightTab::Viewer);
+    let tabs = crate::focus::RightTabBus::expect();
+
+    let available = move |t: RightTab, d: &Option<EntryDetail>| match t {
+        RightTab::Viewer => true,
+        RightTab::Templates => d.as_ref().is_some_and(EntryDetail::has_templates),
+        RightTab::Metadata => d.as_ref().is_some_and(EntryDetail::has_metadata),
+        RightTab::Writing => d.as_ref().is_some_and(EntryDetail::has_writing),
+    };
 
     Effect::new(move |_| {
         let d = detail.get();
         let cur = tab.get_untracked();
-        let ok = match cur {
-            RightTab::Viewer => true,
-            RightTab::Templates => d.as_ref().is_some_and(EntryDetail::has_templates),
-            RightTab::Metadata => d.as_ref().is_some_and(EntryDetail::has_metadata),
-            RightTab::Writing => d.as_ref().is_some_and(EntryDetail::has_writing),
-        };
-        if !ok {
+        if !available(cur, &d) {
             set_tab.set(RightTab::Viewer);
         }
+    });
+
+    // Hotkeys: v / t / m / w
+    Effect::new(move |_| {
+        if let Some(req) = tabs.request.get() {
+            let d = detail.get_untracked();
+            if available(req, &d) {
+                set_tab.set(req);
+            }
+            tabs.set_request.set(None);
+        }
+    });
+
+    // Shift+Tab cycles visible right tabs.
+    Effect::new(move |_| {
+        let tick = tabs.cycle_tick.get();
+        if tick == 0 {
+            return;
+        }
+        let d = detail.get_untracked();
+        let order = [
+            RightTab::Viewer,
+            RightTab::Templates,
+            RightTab::Metadata,
+            RightTab::Writing,
+        ];
+        let visible: Vec<_> = order.into_iter().filter(|t| available(*t, &d)).collect();
+        if visible.is_empty() {
+            return;
+        }
+        let cur = tab.get_untracked();
+        let idx = visible.iter().position(|t| *t == cur).unwrap_or(0);
+        set_tab.set(visible[(idx + 1) % visible.len()]);
     });
 
     view! {
