@@ -79,8 +79,8 @@ fn favicon_data_url(bg_hsl_token: &str, brand_hsl_token: &str) -> String {
         concat!(
             "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 32 32\">",
             "<rect width=\"32\" height=\"32\" rx=\"4\" fill=\"hsl({bg})\"/>",
-            "<text x=\"16\" y=\"25\" text-anchor=\"middle\" ",
-            "font-family=\"ui-monospace,monospace\" font-size=\"26\" font-weight=\"700\" ",
+            "<text x=\"16\" y=\"26\" text-anchor=\"middle\" ",
+            "font-family=\"ui-monospace,monospace\" font-size=\"30\" font-weight=\"700\" ",
             "fill=\"hsl({fg})\">U</text>",
             "</svg>"
         ),
