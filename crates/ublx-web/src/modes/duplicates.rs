@@ -1,5 +1,8 @@
 //! Duplicates mode: groups · member paths · entry detail.
 
+use std::collections::HashMap;
+use std::sync::Arc;
+
 use leptos::prelude::*;
 
 use crate::api::{EntryRow, fetch_duplicates, fetch_entry_detail, get_json};
@@ -24,6 +27,17 @@ pub(crate) fn DuplicatesMode() -> impl IntoView {
     let (selected_id, set_selected_id) = signal::<Option<usize>>(None);
     let (selected_path, set_selected_path) = signal::<Option<String>>(None);
     let sort_ctx = ContentSortCtx::expect();
+
+    let entry_meta = Memo::new(move |_| {
+        Arc::new(
+            entries
+                .get()
+                .unwrap_or_default()
+                .into_iter()
+                .map(|e| (e.path, (e.size, e.mtime_ns)))
+                .collect::<HashMap<_, _>>(),
+        )
+    });
 
     let visible_groups = Signal::derive(move || {
         let cat = catalog.get().unwrap_or_default();
@@ -55,7 +69,7 @@ pub(crate) fn DuplicatesMode() -> impl IntoView {
         }
     });
 
-    let paths = Signal::derive(move || {
+    let paths = Memo::new(move |_| {
         let groups = visible_groups.get();
         let id = selected_id.get();
         let q = search.trimmed.get();
@@ -69,15 +83,11 @@ pub(crate) fn DuplicatesMode() -> impl IntoView {
         if !q.trim().is_empty() {
             return path_rows(filtered);
         }
-        let meta = entries.get().unwrap_or_default();
+        let meta = entry_meta.get();
         let mut rows: Vec<(String, u64, Option<i64>)> = filtered
             .into_iter()
             .map(|p| {
-                let (size, mtime) = meta
-                    .iter()
-                    .find(|e| e.path == p)
-                    .map(|e| (e.size, e.mtime_ns))
-                    .unwrap_or((0, None));
+                let (size, mtime) = meta.get(&p).copied().unwrap_or((0, None));
                 (p, size, mtime)
             })
             .collect();
@@ -173,7 +183,7 @@ pub(crate) fn DuplicatesMode() -> impl IntoView {
                 <Suspense fallback=move || view! { <p class="pane-empty">"…"</p> }>
                     <PathsPane
                         main_mode=MainMode::Duplicates
-                        paths=paths
+                        paths=paths.into()
                         selected=selected_path.into()
                         on_select=Callback::new(move |p| set_selected_path.set(Some(p)))
                     />

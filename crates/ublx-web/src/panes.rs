@@ -216,48 +216,57 @@ pub(crate) fn PathsPane(
     view! {
         <div class="paths-pane">
             <div class="panel-scroll">
-                {move || {
-                    let rows = paths.get();
-                    if rows.is_empty() {
-                        let empty = search::empty_list_message(
-                            &search_q.get(),
-                            "(no contents)",
-                        );
-                        return view! { <p class="pane-empty">{empty}</p> }.into_any();
-                    }
-                    view! {
-                        <ul class="panel-list">
-                            {rows
-                                .into_iter()
-                                .map(|(label, key)| {
-                                    if key.is_empty() {
-                                        view! {
-                                            <li class="panel-heading">{label}</li>
+                <Show
+                    when=move || paths.get().is_empty()
+                    fallback=move || {
+                        view! {
+                            <ul class="panel-list">
+                                <For
+                                    each=move || paths.get()
+                                    key=|(label, key)| {
+                                        if key.is_empty() {
+                                            // Delta timestamp headers share empty key — stabilize for For.
+                                            format!("\0h:{label}")
+                                        } else {
+                                            key.clone()
                                         }
-                                        .into_any()
-                                    } else {
-                                        let pick = key.clone();
-                                        let key_sel = key.clone();
-                                        view! {
-                                            <PanelRow
-                                                label=label
-                                                selected=Signal::derive(move || {
-                                                    selected.get().as_ref() == Some(&key_sel)
-                                                })
-                                                on_select=Callback::new({
-                                                    let pick = pick.clone();
-                                                    move |_| on_select.run(pick.clone())
-                                                })
-                                            />
-                                        }
-                                        .into_any()
                                     }
-                                })
-                                .collect_view()}
-                        </ul>
+                                    children=move |(label, key)| {
+                                        if key.is_empty() {
+                                            view! {
+                                                <li class="panel-heading">{label}</li>
+                                            }
+                                            .into_any()
+                                        } else {
+                                            let pick = key.clone();
+                                            let key_sel = key.clone();
+                                            view! {
+                                                <PanelRow
+                                                    label=label
+                                                    selected=Signal::derive(move || {
+                                                        selected.get().as_ref() == Some(&key_sel)
+                                                    })
+                                                    on_select=Callback::new({
+                                                        let pick = pick.clone();
+                                                        move |_| on_select.run(pick.clone())
+                                                    })
+                                                />
+                                            }
+                                            .into_any()
+                                        }
+                                    }
+                                />
+                            </ul>
+                        }
+                        .into_any()
                     }
-                    .into_any()
-                }}
+                >
+                    <p class="pane-empty">
+                        {move || {
+                            search::empty_list_message(&search_q.get(), "(no contents)").to_string()
+                        }}
+                    </p>
+                </Show>
             </div>
             <div class="pane-footer" aria-label="Sort and selection counter">
                 <Show when=move || sort_label.get().is_some()>
