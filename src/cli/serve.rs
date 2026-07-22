@@ -470,9 +470,11 @@ async fn patch_settings_route(
     Json(patch): Json<SettingsPatch>,
 ) -> Result<impl IntoResponse, ApiError> {
     let dir = current_dir(&state)?;
-    let view =
-        settings_api::patch_settings(&dir, &scope, patch).map_err(ApiError::bad_request)?;
-    info!("serve settings patched: scope={scope} dir={}", dir.display());
+    let view = settings_api::patch_settings(&dir, &scope, patch).map_err(ApiError::bad_request)?;
+    info!(
+        "serve settings patched: scope={scope} dir={}",
+        dir.display()
+    );
     Ok(Json(view))
 }
 

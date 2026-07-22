@@ -130,12 +130,7 @@ fn write_bool_by_name(
 fn controls_from_overlay(
     scope: SettingsConfigScope,
     overlay: &UblxOverlay,
-) -> (
-    Vec<SettingsBoolControl>,
-    SettingsLayoutControl,
-    String,
-    f32,
-) {
+) -> (Vec<SettingsBoolControl>, SettingsLayoutControl, String, f32) {
     let mut bools = Vec::new();
     for idx in 0..bool_row_count(scope) {
         let Some(key) = bool_key(scope, idx) else {
@@ -229,7 +224,8 @@ pub fn patch_settings(
     let names: Vec<String> = theme_names().into_iter().map(str::to_string).collect();
     let name_refs: Vec<&str> = names.iter().map(String::as_str).collect();
 
-    let mut overlay = load_ublx_toml(Some(path.clone()), Some(name_refs.as_slice())).unwrap_or_default();
+    let mut overlay =
+        load_ublx_toml(Some(path.clone()), Some(name_refs.as_slice())).unwrap_or_default();
     apply_patch(&mut overlay, scope, &patch)?;
 
     if scope == SettingsConfigScope::Local {
@@ -282,9 +278,8 @@ fn apply_patch(
         };
     }
     if let Some(ref layout) = patch.layout {
-        let sum = u32::from(layout.left_pct)
-            + u32::from(layout.middle_pct)
-            + u32::from(layout.right_pct);
+        let sum =
+            u32::from(layout.left_pct) + u32::from(layout.middle_pct) + u32::from(layout.right_pct);
         if sum != 100 {
             return Err(format!("layout percentages must sum to 100 (got {sum})"));
         }
