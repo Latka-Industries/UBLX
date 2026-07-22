@@ -22,13 +22,20 @@ pub(crate) enum WebAction {
     ListBottom,
     RightTab(RightTab),
     CycleRightTab,
+    HelpToggle,
+    HelpClose,
+    HelpSectionNext,
+    HelpSectionPrev,
+    /// Help is open — consume the key without side effects.
+    HelpAbsorb,
 }
 
 /// Map a keydown to a [`WebAction`]. Returns `None` when the event should pass through.
 ///
 /// Caller must skip invoking this while a form field (including catalog search input) is focused.
+/// When `help_open`, only help navigation / close / toggle are returned.
 #[must_use]
-pub(crate) fn action_from_keydown(ev: &KeyboardEvent) -> Option<WebAction> {
+pub(crate) fn action_from_keydown(ev: &KeyboardEvent, help_open: bool) -> Option<WebAction> {
     let key = ev.key();
     let code = ev.code();
     let ctrl = ev.ctrl_key() || ev.meta_key();
@@ -37,6 +44,32 @@ pub(crate) fn action_from_keydown(ev: &KeyboardEvent) -> Option<WebAction> {
 
     if alt {
         return None;
+    }
+
+    // `?` is Shift+/ on US layouts — `key` is "?" when shift is held.
+    if !ctrl && (key == "?" || (shift && code == "Slash")) {
+        return Some(WebAction::HelpToggle);
+    }
+
+    if help_open {
+        if !ctrl && key == "Escape" {
+            return Some(WebAction::HelpClose);
+        }
+        if !ctrl && !shift && key == "Tab" {
+            return Some(WebAction::HelpSectionNext);
+        }
+        if shift && !ctrl && key == "Tab" {
+            return Some(WebAction::HelpSectionPrev);
+        }
+        if !ctrl && !shift {
+            match key.as_str() {
+                "ArrowRight" | "l" | "L" => return Some(WebAction::HelpSectionNext),
+                "ArrowLeft" | "h" | "H" => return Some(WebAction::HelpSectionPrev),
+                _ => {}
+            }
+        }
+        // Swallow other keys while help is open (match TUI overlay).
+        return Some(WebAction::HelpAbsorb);
     }
 
     if shift && !ctrl && key == "Tab" {
@@ -64,6 +97,7 @@ pub(crate) fn action_from_keydown(ev: &KeyboardEvent) -> Option<WebAction> {
             "/" if !shift => return Some(WebAction::SearchStart),
             "~" => return Some(WebAction::MainModeToggle),
             "Tab" if !shift => return Some(WebAction::FocusCycle),
+            "Escape" => return None, // reserved; search handles its own Esc
             _ => {}
         }
     }

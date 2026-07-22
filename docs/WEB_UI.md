@@ -152,7 +152,7 @@ One concern per PR. Order is dependency-aware; titles are suggestions.
 | # | PR onto `dev` | Delivers | Notes / anchors |
 | - | ------------- | -------- | --------------- |
 | **1** | **Keyboard focus + hotkeys** | ✅ Landed (#43) | [`keys.rs`](../crates/ublx-web/src/keys.rs) + [`focus.rs`](../crates/ublx-web/src/focus.rs) |
-| **2** | **Help overlay (`?`)** | Mode-aware `?` popup matching TUI help (tabs, Esc close, scroll); web-relevant bindings only | [`render/overlays/help.rs`](../src/render/overlays/help.rs); wire into keybus |
+| **2** | **Help overlay (`?`)** | Mode-aware `?` popup matching TUI help (tabs, Esc close, scroll); web-relevant bindings only | [`help.rs`](../crates/ublx-web/src/help.rs); branch `thi-157-web-help` |
 | **3** | **Palette → CSS tokens** | Generate/apply theme CSS variables from `Palette`; Settings theme dropdown switches live look | [`themes/`](../src/themes/); WEB_UI token table above |
 | **4** | **Middle sort node** | Sort control **left of** `n/N` on Snapshot / Dupes / Delta (TUI `title_bottom` cluster) + sort `s` | [`middle.rs`](../src/render/panes/middle.rs) `sort_node_text` / `line_for` |
 | **5** | **Pretty Metadata + Writing** | Port KV / column-stat table rendering into Metadata & Writing tabs (abbrev/full rules) | [`render/kv_tables/`](../src/render/kv_tables/); Settings `typed_column_tables` |
