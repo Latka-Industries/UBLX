@@ -117,8 +117,8 @@ Reuse `themes::color_utils` (`color_to_hex6` / `rgb_to_hex6`). **MVP:** full shi
 
 | Area | Required for Done |
 | ---- | ----------------- |
-| Chrome | Tabs, path gap, 3-pane, Last Snapshot / catalog search, Settings |
-| Keyboard | Arrows + TUI hotkeys for focus, list move, mode switch, right-pane tabs, sort, search, find (where applicable) — see [`src/ui/keymap.rs`](../src/ui/keymap.rs) |
+| Chrome | Tabs, path gap, 3-pane, Last Snapshot / catalog search, Settings, mode-aware `?` help overlay |
+| Keyboard | Arrows + TUI hotkeys for focus, list move, mode switch, right-pane tabs, sort, search, find, `?` help (where applicable) — see [`src/ui/keymap.rs`](../src/ui/keymap.rs) |
 | Lists | Snapshot / Delta / Lenses / Duplicates with `n/N` **bottom-right**; middle sort node where TUI has it |
 | Right pane | Viewer body + Templates / Metadata / Writing |
 | Metadata / Writing | Pretty tables (KV + typed column stats), not raw pretty-JSON only |
@@ -141,7 +141,7 @@ Mouse click remains supported; keyboard is first-class.
 - [x] Catalog search (`/` strip + Skim fuzzy)
 - [x] Settings controls + live read-only TOML; `GET`/`PATCH /settings/{scope}`; `GET /duplicates`
 - [x] Feature `ui` + Dir / `UBLX_WEB_DIST` (Embedded still open)
-- [ ] Keyboard focus + hotkeys (branch `thi-157-web-hotkeys` → `dev`) — digits/`~`/hjkl/arrows/g`G`/Tab/`vtmw`/Shift+Tab; sort `s` waits on PR **#3**
+- [x] Keyboard focus + hotkeys (digits/`~`/hjkl/arrows/`g``G`/Tab/`vtmw`/Shift+Tab); sort `s` waits on middle-sort PR
 
 ---
 
@@ -151,18 +151,19 @@ One concern per PR. Order is dependency-aware; titles are suggestions.
 
 | # | PR onto `dev` | Delivers | Notes / anchors |
 | - | ------------- | -------- | --------------- |
-| **1** | **Keyboard focus + hotkeys** | Arrow keys, `hjkl`, Tab/pane focus (`h`/`l`), list top/bottom, mode digits + `~`, right-pane `v`/`t`/`m`/`w`, search `/` — ignore chords when typing in inputs | [`keys.rs`](../crates/ublx-web/src/keys.rs) + [`focus.rs`](../crates/ublx-web/src/focus.rs); sort `s` with PR **#3** |
-| **2** | **Palette → CSS tokens** | Generate/apply theme CSS variables from `Palette`; Settings theme dropdown switches live look | [`themes/`](../src/themes/); WEB_UI token table above |
-| **3** | **Middle sort node** | Sort control **left of** `n/N` on Snapshot / Dupes / Delta (TUI `title_bottom` cluster) | [`middle.rs`](../src/render/panes/middle.rs) `sort_node_text` / `line_for` |
-| **4** | **Pretty Metadata + Writing** | Port KV / column-stat table rendering into Metadata & Writing tabs (abbrev/full rules) | [`render/kv_tables/`](../src/render/kv_tables/); Settings `typed_column_tables` |
-| **5** | **Markdown viewer** | Viewer tab renders markdown like TUI (flow, tables, code fences) | [`render/viewers/markdown/`](../src/render/viewers/markdown/); needs file/preview API if not already |
-| **6** | **Code / syntect viewer** | Syntax-highlighted text for code categories | [`syntect_text`](../src/render/viewers/syntect_text.rs) |
-| **7** | **Tables / CSV (+ misc text)** | Tabular + plain text fallbacks in Viewer | [`csv_handler`](../src/render/viewers/csv_handler.rs), pretty tables |
-| **8** | **Images (and covers)** | Raster / SVG preview in Viewer | [`viewers/images/`](../src/render/viewers/images/), `svg_preview` |
-| **9** | **PDF / video / tool-backed** | Optional-tool previews or clear “tool missing” UI matching TUI honesty | [`async_tools`](../src/render/viewers/async_tools.rs), PDF/video modules |
-| **10** | **Viewer find** | Shift+S find strip on right `title_bottom`; `n`/`N` next/prev | TUI viewer find; catalog `/` already landed |
-| **11** | **Preview / file body API** | Serve routes to stream or page file bytes / rendered slices the viewers need (if not covered by existing entry detail) | Extend [`serve.rs`](../src/cli/serve.rs) / `catalog_read` as required by PRs 5–9 — may land **earlier** as a prerequisite PR if blocked |
-| **12** | **`StaticMount::Embedded`** | Ship `--features ui` as one binary; Dir remains for `mise run web` | panza `Embedded`; build.sh → embed |
+| **1** | **Keyboard focus + hotkeys** | ✅ Landed (#43) | [`keys.rs`](../crates/ublx-web/src/keys.rs) + [`focus.rs`](../crates/ublx-web/src/focus.rs) |
+| **2** | **Help overlay (`?`)** | Mode-aware `?` popup matching TUI help (tabs, Esc close, scroll); web-relevant bindings only | [`render/overlays/help.rs`](../src/render/overlays/help.rs); wire into keybus |
+| **3** | **Palette → CSS tokens** | Generate/apply theme CSS variables from `Palette`; Settings theme dropdown switches live look | [`themes/`](../src/themes/); WEB_UI token table above |
+| **4** | **Middle sort node** | Sort control **left of** `n/N` on Snapshot / Dupes / Delta (TUI `title_bottom` cluster) + sort `s` | [`middle.rs`](../src/render/panes/middle.rs) `sort_node_text` / `line_for` |
+| **5** | **Pretty Metadata + Writing** | Port KV / column-stat table rendering into Metadata & Writing tabs (abbrev/full rules) | [`render/kv_tables/`](../src/render/kv_tables/); Settings `typed_column_tables` |
+| **6** | **Markdown viewer** | Viewer tab renders markdown like TUI (flow, tables, code fences) | [`render/viewers/markdown/`](../src/render/viewers/markdown/); needs file/preview API if not already |
+| **7** | **Code / syntect viewer** | Syntax-highlighted text for code categories | [`syntect_text`](../src/render/viewers/syntect_text.rs) |
+| **8** | **Tables / CSV (+ misc text)** | Tabular + plain text fallbacks in Viewer | [`csv_handler`](../src/render/viewers/csv_handler.rs), pretty tables |
+| **9** | **Images (and covers)** | Raster / SVG preview in Viewer | [`viewers/images/`](../src/render/viewers/images/), `svg_preview` |
+| **10** | **PDF / video / tool-backed** | Optional-tool previews or clear “tool missing” UI matching TUI honesty | [`async_tools`](../src/render/viewers/async_tools.rs), PDF/video modules |
+| **11** | **Viewer find** | Shift+S find strip on right `title_bottom`; `n`/`N` next/prev | TUI viewer find; catalog `/` already landed |
+| **12** | **Preview / file body API** | Serve routes to stream or page file bytes / rendered slices the viewers need (if not covered by existing entry detail) | Extend [`serve.rs`](../src/cli/serve.rs) / `catalog_read` as required by PRs 6–10 — may land **earlier** as a prerequisite PR if blocked |
+| **13** | **`StaticMount::Embedded`** | Ship `--features ui` as one binary; Dir remains for `mise run web` | panza `Embedded`; build.sh → embed |
 
 **Ops / chrome follow-ups** (separate PRs after or interleaved when small):
 
@@ -171,7 +172,6 @@ One concern per PR. Order is dependency-aware; titles are suggestions.
 | Root switcher | UI for `GET`/`PUT /roots/current` |
 | Snapshot trigger | UI for `POST`/`GET /snapshot` |
 | Doctor / health surface | `GET /doctor` + panza health |
-| Help overlay | Mode-aware `?` help |
 
 Do **not** expand a mini-PR into “finish the whole Viewer stack” — keep each PR reviewable.
 
