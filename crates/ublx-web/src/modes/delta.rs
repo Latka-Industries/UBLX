@@ -4,6 +4,7 @@ use leptos::prelude::*;
 
 use crate::api::{DeltaKind, DeltaRow, fetch_delta_catalog, format_timestamp_ns};
 use crate::panes::{OverviewRightPane, PathsPane, ThreePane};
+use crate::search::{CatalogSearch, fuzzy_matches_field};
 
 #[component]
 pub(crate) fn DeltaMode() -> impl IntoView {
@@ -13,10 +14,19 @@ pub(crate) fn DeltaMode() -> impl IntoView {
 
     let overview = Signal::derive(move || catalog.get().unwrap_or_default().overview_text());
 
+    let search = CatalogSearch::expect();
     let paths = Signal::derive(move || {
         let cat = catalog.get().unwrap_or_default();
         let rows = cat.rows_for(kind.get());
-        display_paths(&rows)
+        let q = search.trimmed.get();
+        let kept: Vec<&DeltaRow> = if q.is_empty() {
+            rows
+        } else {
+            rows.into_iter()
+                .filter(|r| fuzzy_matches_field(&r.path, &q))
+                .collect()
+        };
+        display_paths(&kept)
     });
 
     view! {

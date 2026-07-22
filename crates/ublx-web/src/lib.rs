@@ -10,6 +10,7 @@ mod api;
 mod modes;
 mod nav;
 mod panes;
+mod search;
 mod shell;
 
 use leptos::prelude::*;

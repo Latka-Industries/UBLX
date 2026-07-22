@@ -1,28 +1,26 @@
-//! Snapshot mode: categories · contents · right pane.
+//! Snapshot mode: categories · contents · right pane (+ catalog search filter).
 
 use leptos::prelude::*;
 
 use crate::api::{EntryRow, fetch_entry_detail, get_json};
 use crate::panes::{EntryRightPane, PanelRow, PathsPane, ThreePane};
+use crate::search::{CatalogSearch, filter_categories, filter_snapshot_paths, path_rows};
 
 #[component]
 pub(crate) fn SnapshotMode() -> impl IntoView {
+    let search = CatalogSearch::expect();
     let categories = LocalResource::new(|| async move {
         get_json::<Vec<String>>("/categories")
             .await
             .unwrap_or_default()
     });
-    let (selected_cat, set_selected_cat) = signal::<Option<String>>(None);
-    let entries = LocalResource::new(move || {
-        let cat = selected_cat.get();
-        async move {
-            let url = match cat.as_deref() {
-                None | Some("") => "/entries".to_string(),
-                Some(c) => format!("/entries?category={}", urlencoding::encode(c)),
-            };
-            get_json::<Vec<EntryRow>>(&url).await.unwrap_or_default()
-        }
+    // Full catalog once — needed so category visibility can see matches in other categories.
+    let entries = LocalResource::new(|| async move {
+        get_json::<Vec<EntryRow>>("/entries")
+            .await
+            .unwrap_or_default()
     });
+    let (selected_cat, set_selected_cat) = signal::<Option<String>>(None);
     let (selected_path, set_selected_path) = signal::<Option<String>>(None);
     let detail = LocalResource::new(move || {
         let path = selected_path.get();
@@ -35,13 +33,49 @@ pub(crate) fn SnapshotMode() -> impl IntoView {
     });
     let detail_signal = Signal::derive(move || detail.get().flatten());
 
-    let paths = Signal::derive(move || {
+    let row_pairs = Signal::derive(move || {
         entries
             .get()
             .unwrap_or_default()
             .into_iter()
-            .map(|r| (r.path.clone(), r.path))
+            .map(|r| (r.path, r.category))
             .collect::<Vec<_>>()
+    });
+
+    let visible_cats = Signal::derive(move || {
+        let cats = categories.get().unwrap_or_default();
+        let rows = row_pairs.get();
+        let q = search.trimmed.get();
+        filter_categories(&cats, &rows, &q)
+    });
+
+    // Drop selection if filtered out.
+    Effect::new(move |_| {
+        let q = search.trimmed.get();
+        let cats = visible_cats.get();
+        if let Some(sel) = selected_cat.get_untracked()
+            && !q.is_empty()
+            && !cats.iter().any(|c| c == &sel)
+        {
+            set_selected_cat.set(None);
+            set_selected_path.set(None);
+        }
+    });
+
+    let paths = Signal::derive(move || {
+        let rows = row_pairs.get();
+        let cat = selected_cat.get();
+        let q = search.trimmed.get();
+        path_rows(filter_snapshot_paths(&rows, cat.as_deref(), &q))
+    });
+
+    Effect::new(move |_| {
+        let list = paths.get();
+        if let Some(sel) = selected_path.get_untracked()
+            && !list.iter().any(|(_, k)| k == &sel)
+        {
+            set_selected_path.set(None);
+        }
     });
 
     view! {
@@ -51,7 +85,9 @@ pub(crate) fn SnapshotMode() -> impl IntoView {
             left=view! {
                 <Suspense fallback=move || view! { <p class="pane-empty">"…"</p> }>
                     {move || {
-                        let cats = categories.get().unwrap_or_default();
+                        let cats = visible_cats.get();
+                        let _ = categories.get();
+                        let _ = entries.get();
                         view! {
                             <ul class="panel-list">
                                 <PanelRow

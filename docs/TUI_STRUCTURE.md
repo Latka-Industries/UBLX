@@ -187,7 +187,7 @@ Right pane is not a list-focus target. Focused pane: focused border + active tit
 | Status | Last Snapshot **left** | Shell footer |
 | Settings | TUI 2-pane + editable-feeling TOML buffer | Web: controls + read-only live TOML |
 | Embedded ship | — | `StaticMount::Embedded` later |
-| Catalog search | status strip | Next fill-in |
+| Catalog search | status strip | wired (`/` / Esc / Enter; Skim fuzzy) | — |
 
 ---
 

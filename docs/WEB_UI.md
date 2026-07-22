@@ -129,11 +129,11 @@ Catalog browser that **looks like the TUI**. Dense, path-first. Skip rich file v
 - [x] Duplicates: groups → member paths → detail (`GET /duplicates`)
 - [x] Settings: Global/Local + toggles/steppers/theme + live read-only TOML (`GET`/`PATCH /settings/{scope}`)
 - [x] Snapshot Contents `n/total` on middle pane **bottom-right** (TUI `title_bottom` / `PathsPane`)
+- [x] Catalog search: status strip replaces Last Snapshot; Skim fuzzy on Snapshot / Delta / Lenses / Duplicates
 - [x] Feature `ui` + `StaticMount::Dir` / `UBLX_WEB_DIST` (Embedded still TODO)
 
 **Next fill-in (see [`TUI_STRUCTURE.md`](TUI_STRUCTURE.md) checklist):**
 
-- [ ] Catalog search
 - [ ] Theme switcher from `Palette` tokens
 - [ ] `StaticMount::Embedded` for shipping builds
 
