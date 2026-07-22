@@ -130,6 +130,49 @@ fn pick_syntax<'a>(
     }
 }
 
+/// Snapshot categories that use syntect in the Viewer (same set as TUI `viewer_uses_syntect_highlight`).
+#[must_use]
+pub fn uses_syntect_ft(ft: ZahirFT) -> bool {
+    matches!(
+        ft,
+        ZahirFT::Json
+            | ZahirFT::Toml
+            | ZahirFT::Yaml
+            | ZahirFT::Xml
+            | ZahirFT::Html
+            | ZahirFT::Ini
+            | ZahirFT::Log
+            | ZahirFT::Code
+    )
+}
+
+/// Host HTML for web Viewer — same grammar/theme pick as [`highlight_viewer_with_appearance`].
+#[must_use]
+pub fn highlight_viewer_html(raw: &str, path: &str, ft: ZahirFT, appearance: Appearance) -> String {
+    let default = &*DEFAULT_SYNTAX_SET;
+    let extra = &*EXTRA_SYNTAX_SET;
+    let (ss, syntax) = pick_syntax(default, extra, ft, path, raw);
+    let theme = theme_for_appearance(appearance);
+    match syntect::html::highlighted_html_for_string(raw, ss, syntax, theme) {
+        Ok(html) => html,
+        Err(_) => format!("<pre>{}</pre>", html_escape_minimal(raw)),
+    }
+}
+
+fn html_escape_minimal(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    for c in s.chars() {
+        match c {
+            '&' => out.push_str("&amp;"),
+            '<' => out.push_str("&lt;"),
+            '>' => out.push_str("&gt;"),
+            '"' => out.push_str("&quot;"),
+            _ => out.push(c),
+        }
+    }
+    out
+}
+
 /// Syntax-highlight using DB [`UblxDbCategory`]; caller should only invoke for zahir types that use syntect.
 #[must_use]
 pub fn highlight_viewer(raw: &str, path: &str, cat: UblxDbCategory) -> Text<'static> {
