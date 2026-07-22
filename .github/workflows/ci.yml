@@ -1,16 +1,27 @@
 name: Build
 
+# Native ublx only (fmt / clippy / test / MSRV). Web WASM is `.github/workflows/ublx-web.yml`.
+# Skip docs, Formula, .ublx.toml, ublx-web-only PRs, etc. — those do not need NetCDF + 3 OS.
 on:
   push:
     branches: [main, master, dev]
-    paths-ignore:
-      - "**/*.md"
-      - "docs/**"
+    paths:
+      - "src/**"
+      - "tests/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      # Keep CI self-testing when the workflow or Windows dep scripts change.
+      - ".github/workflows/ci.yml"
+      - ".github/scripts/ci-deps-windows-*"
   pull_request:
     branches: [main, master, dev]
-    paths-ignore:
-      - "**/*.md"
-      - "docs/**"
+    paths:
+      - "src/**"
+      - "tests/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - ".github/workflows/ci.yml"
+      - ".github/scripts/ci-deps-windows-*"
 
 jobs:
   test:
