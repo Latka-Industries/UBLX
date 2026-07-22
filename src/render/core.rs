@@ -559,7 +559,8 @@ pub fn draw_status_line(
     let help_width = u16::try_from(UnicodeWidthStr::width(help_label).saturating_add(4))
         .unwrap_or(u16::MAX)
         .min(area.width);
-    let chunks = Layout::horizontal([Constraint::Min(0), Constraint::Length(help_width)]).split(area);
+    let chunks =
+        Layout::horizontal([Constraint::Min(0), Constraint::Length(help_width)]).split(area);
 
     let search_replaces_snapshot = search_active || !search_query.trim().is_empty();
     let mut spans: Vec<Span<'static>> = Vec::new();
@@ -586,10 +587,7 @@ pub fn draw_status_line(
     }
     f.render_widget(Paragraph::new(Line::from(spans)), chunks[0]);
 
-    let help_spans = layout::style::status_node_spans(
-        help_label,
-        chord_mode,
-        transparent_page_chrome,
-    );
+    let help_spans =
+        layout::style::status_node_spans(help_label, chord_mode, transparent_page_chrome);
     f.render_widget(Paragraph::new(Line::from(help_spans)), chunks[1]);
 }
