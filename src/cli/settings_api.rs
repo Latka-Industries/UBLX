@@ -39,9 +39,12 @@ pub struct SettingsView {
     pub toml: String,
     pub bools: Vec<SettingsBoolControl>,
     pub layout: SettingsLayoutControl,
+    /// Theme name for this scope's controls (dropdown value).
     pub theme: String,
     pub themes: Vec<String>,
     pub bg_opacity: f32,
+    /// Effective (global∪local) palette → live CSS / shadcn HSL tokens for the web UI.
+    pub css: themes::ThemeCss,
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -61,6 +64,15 @@ fn theme_names() -> Vec<&'static str> {
         .iter()
         .map(|p| p.name)
         .collect()
+}
+
+/// Merged global+local overlay theme → CSS tokens (what the web shell should look like).
+fn effective_theme_css(dir: &Path, name_refs: &[&str]) -> themes::ThemeCss {
+    let paths = UblxPaths::new(dir);
+    let global = load_ublx_toml(paths.global_config(), Some(name_refs));
+    let local = load_ublx_toml(Some(paths.local_config_path_for_write()), Some(name_refs));
+    let merged = UblxOverlay::merge(global, local);
+    themes::tokens_for_theme_name(merged.theme.as_deref())
 }
 
 fn parse_scope(scope: &str) -> Result<SettingsConfigScope, String> {
@@ -185,6 +197,7 @@ pub fn get_settings_view(dir: &Path, scope_str: &str) -> Result<SettingsView, St
 
     let (exists, toml) = read_toml_text(&path);
     let (bools, layout, theme, bg_opacity) = controls_from_overlay(scope, &display_overlay);
+    let css = effective_theme_css(dir, &name_refs);
 
     Ok(SettingsView {
         scope: match scope {
@@ -199,6 +212,7 @@ pub fn get_settings_view(dir: &Path, scope_str: &str) -> Result<SettingsView, St
         theme,
         themes: names,
         bg_opacity,
+        css,
     })
 }
 

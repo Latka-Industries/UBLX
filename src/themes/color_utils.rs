@@ -48,7 +48,8 @@ pub fn adjust_surface_rgb(color: Color, pct: f32, appearance: Appearance) -> Col
 }
 
 /// RGB u8 [0,255] → HSL: H in [0, 360), S and L in [0, 1].
-fn rgb_u8_to_hsl(red: u8, green: u8, blue: u8) -> (f32, f32, f32) {
+#[must_use]
+pub fn rgb_u8_to_hsl(red: u8, green: u8, blue: u8) -> (f32, f32, f32) {
     let rf = f32::from(red) / RGB_MAX;
     let gf = f32::from(green) / RGB_MAX;
     let bf = f32::from(blue) / RGB_MAX;
@@ -103,10 +104,37 @@ fn hsl_to_rgb_u8(hue: f32, sat: f32, light: f32) -> (u8, u8, u8) {
     )
 }
 
+/// Space-separated HSL for shadcn / CSS custom properties: `"H S% L%"` (no `hsl()` wrapper).
+#[must_use]
+pub fn rgb_to_hsl_token(r: u8, g: u8, b: u8) -> String {
+    let (hue, sat, lit) = rgb_u8_to_hsl(r, g, b);
+    format!(
+        "{:.0} {:.0}% {:.0}%",
+        hue,
+        (sat * 100.0).round(),
+        (lit * 100.0).round()
+    )
+}
+
+/// [`Color::Rgb`] → shadcn HSL token; other variants → [`None`].
+#[must_use]
+pub fn color_to_hsl_token(color: Color) -> Option<String> {
+    let Color::Rgb(r, g, b) = color else {
+        return None;
+    };
+    Some(rgb_to_hsl_token(r, g, b))
+}
+
 /// `#RRGGBB` (uppercase) for an sRGB triple.
 #[must_use]
 pub fn rgb_to_hex6(r: u8, g: u8, b: u8) -> String {
     format!("#{r:02X}{g:02X}{b:02X}")
+}
+
+/// Alias of [`color_rgb_to_hex6`] (docs / WEB_UI naming).
+#[must_use]
+pub fn color_to_hex6(color: Color) -> Option<String> {
+    color_rgb_to_hex6(color)
 }
 
 /// [`Color::Rgb`] → `#RRGGBB`; other variants → [`None`].

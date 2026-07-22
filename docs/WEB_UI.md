@@ -1,6 +1,10 @@
 # Embedded web UI for `ublx serve` (THI-157 / v0.2.0)
 
-Design note for the optional catalog browser. Stack and packaging are locked below. Layout / node placement truth is [`TUI_STRUCTURE.md`](TUI_STRUCTURE.md). Work lands as **mini-PRs onto long-lived `dev`**, then a fat PR `dev` → `main` at **v0.2.0**.
+Design note for the optional catalog browser. Stack and packaging are locked below.
+
+**The running TUI is the scaffold.** Placement, chrome roles, hotkeys, and **which `Palette` fields are painted together** come from the TUI — not from shadcn defaults, Tailwind habits, or inventing “pretty” pairings. Layout map: [`TUI_STRUCTURE.md`](TUI_STRUCTURE.md). Style truth: [`src/layout/style/`](../src/layout/style/) (especially [`core.rs`](../src/layout/style/core.rs) `ThemeStyles`). Palette data: [`src/themes/`](../src/themes/).
+
+Work lands as **mini-PRs onto long-lived `dev`**, then a fat PR `dev` → `main` at **v0.2.0**.
 
 **Linear:** [THI-157](https://linear.app/thicclatka/issue/THI-157/web-ui-leptos-feature-flagged-for-ublx-serve-v020)  
 **Depends on:** [THI-156](https://linear.app/thicclatka/issue/THI-156/ublx-serve-local-http-api-over-ublx) (Done — JSON API + panza)  
@@ -75,7 +79,7 @@ Rules:
 | Right pane | Viewer / Templates / Metadata / Writing — full TUI content, not JSON dumps |
 | Routing | Stay on `/`; never use API path segments as UI pages |
 
-**TUI → web:** Mirror chrome and **placement** from [`TUI_STRUCTURE.md`](TUI_STRUCTURE.md).
+**TUI → web:** Mirror chrome, **placement**, and **style pairings** from the TUI. Open the TUI style helper for the surface you are porting — do not guess from CSS variable names.
 
 | TUI | Web |
 | --- | --- |
@@ -85,29 +89,57 @@ Rules:
 | Arrow / hjkl / digit / pane hotkeys | Same actions in browser (ignore when typing in inputs) |
 | Metadata / Writing tables | Pretty KV / column-stat tables (TUI renderers’ rules) |
 | Markdown / code / image / … | Ported viewers in the Viewer tab |
-| Settings | Scope · controls · live read-only TOML (no TOML text editor) |
-| Theme | CSS tokens from `Palette` |
+| Settings | Scope · controls · live read-only TOML (no TOML text editor); default scope **Local** |
+| Theme | Same `Palette` fields the TUI paints, exposed as CSS tokens |
 
 ---
 
 ## Theming
 
-Map TUI [`Palette`](../src/themes/mod.rs) into CSS / shadcn tokens. Settings `theme=` writes must change the live token set.
+### Hard rule (agents)
 
-| Token role | `Palette` field |
-| ---------- | --------------- |
-| background / page | `background` |
-| foreground / text | `text` |
-| focus / ring / accent | `focused_border` |
-| tab active fg/bg | `tab_active_fg` / `tab_active_bg` |
-| tab inactive | `tab_inactive_bg` |
-| muted / hint | `hint` |
-| search accent | `search_text` |
-| popover / panel | `popup_bg` |
-| delta added / mod / removed | `delta_*` |
-| brand | `title_brand` |
+1. **Scaffold = TUI.** Before changing web colors or chrome CSS, read [`ThemeStyles`](../src/layout/style/core.rs) (and the render/layout call site). Palettes were authored for those pairings across every shipped theme — Oblivion Ink looking fine is not proof.
+2. **CSS vars are transport, not design.** shadcn names (`--primary`, `--secondary`, …) are only a wire format for leptos-shadcn-ui. **Never** assume shadcn’s usual pairing (e.g. “primary text on secondary bg”). That breaks contrast on Resin Record, Archival Simulacra, Silent Sheet, Parched Page, Pale Mirror, Obdurate Noon, Faded Echo, and others.
+3. **Copy TUI fg/bg pairs into CSS.** Example — active tab / active tab-node:
+   - TUI: `tab_active()` → `fg(tab_active_fg).bg(tab_active_bg)`
+   - Web: `color: hsl(var(--secondary-foreground)); background: hsl(var(--secondary));`
+   - **Wrong:** `color: hsl(var(--primary))` on `--secondary` (`focused_border` on `tab_active_bg`).
+4. **`focused_border` is for focus chrome** (panel border, ring, search underline) — not tab label ink. See TUI panel borders vs `tab_active()`.
+5. **Verify more than one theme** (at least one light + one high-contrast dark like Archival / Resin) before calling theming done.
 
-Reuse `themes::color_utils` (`color_to_hex6` / `rgb_to_hex6`). **MVP:** full shipped palette list usable from Settings (not only Oblivion Ink + one light).
+### Token export
+
+[`themes::css`](../src/themes/css.rs) maps [`Palette`](../src/themes/mod.rs) → HSL tokens (`color_to_hsl_token` / `rgb_to_hsl_token`). Settings `theme=` updates the **effective** (global∪local) set; the web client applies `css.vars` on `:root` live.
+
+| TUI style / role | `Palette` field(s) | CSS custom property |
+| ---------------- | ------------------ | ------------------- |
+| page bg / body text | `background` / `text` | `--background` / `--foreground` |
+| `tab_active()` | `tab_active_bg` / `tab_active_fg` | `--secondary` / `--secondary-foreground` |
+| `tab_inactive()` bg | `tab_inactive_bg` | `--muted` |
+| focused panel border / ring | `focused_border` | `--ring`, `--primary` (focus only) |
+| `search_text()` | `search_text` | `--search` |
+| `hint_text()` | `hint` (+ `popup_bg` in TUI) | `--hint`, `--muted-foreground` |
+| popup / help panel | `popup_bg` | `--card`, `--popover`, `--accent` |
+| `delta_*()` | `delta_added` / `delta_mod` / `delta_removed` | `--delta-*` |
+| `title_brand()` | `title_brand` | `--brand` (also favicon “U”) |
+| page bg (favicon tile) | `background` | `--background` (favicon square) |
+| footer / status pills | `node_pill_background()` | `--node`, `--border`, `--input` |
+
+Favicon (`link[rel=icon]`) is rebuilt on each theme apply: page `background` fill + `title_brand` letter — same fields the TUI uses for brand chrome.
+
+**MVP:** full shipped palette list from Settings. `styles.css` keeps Oblivion Ink only as **pre-fetch fallback**.
+
+API on `GET`/`PATCH /settings/{scope}`:
+
+```json
+"css": {
+  "name": "Oblivion Ink",
+  "appearance": "dark",
+  "vars": { "--background": "214 65% 11%", "...": "..." }
+}
+```
+
+`css` always reflects the **merged** theme (local overrides global), even when editing Global scope.
 
 ---
 
@@ -144,6 +176,7 @@ Mouse click remains supported; keyboard is first-class.
 - [x] Feature `ui` + Dir / `UBLX_WEB_DIST` (Embedded still open)
 - [x] Keyboard focus + hotkeys (digits/`~`/hjkl/arrows/`g``G`/Tab/`vtmw`/Shift+Tab); sort `s` waits on middle-sort PR
 - [x] Help overlay (`?`) + footer `? — Help` chip; 7px shell inset from browser edge
+- [x] Palette → CSS tokens (`themes::css`); Settings theme dropdown applies live
 
 ---
 
@@ -155,7 +188,7 @@ One concern per PR. Order is dependency-aware; titles are suggestions.
 | - | ------------- | -------- | --------------- |
 | **1** | **Keyboard focus + hotkeys** | ✅ Landed (#43) | [`keys.rs`](../crates/ublx-web/src/keys.rs) + [`focus.rs`](../crates/ublx-web/src/focus.rs) |
 | **2** | **Help overlay (`?`)** | ✅ Landed (#44) — mode-aware popup, footer chip, Esc/`?`/backdrop close | [`help.rs`](../crates/ublx-web/src/help.rs) |
-| **3** | **Palette → CSS tokens** | Generate/apply theme CSS variables from `Palette`; Settings theme dropdown switches live look | [`themes/`](../src/themes/); WEB_UI token table above |
+| **3** | **Palette → CSS tokens** | ✅ Landed — `Palette` → HSL vars; Settings theme switches live look | [`themes/css.rs`](../src/themes/css.rs); WEB_UI token table above |
 | **4** | **Middle sort node** | Sort control **left of** `n/N` on Snapshot / Dupes / Delta (TUI `title_bottom` cluster) + sort `s` | [`middle.rs`](../src/render/panes/middle.rs) `sort_node_text` / `line_for` |
 | **5** | **Pretty Metadata + Writing** | Port KV / column-stat table rendering into Metadata & Writing tabs (abbrev/full rules) | [`render/kv_tables/`](../src/render/kv_tables/); Settings `typed_column_tables` |
 | **6** | **Markdown viewer** | Viewer tab renders markdown like TUI (flow, tables, code fences) | [`render/viewers/markdown/`](../src/render/viewers/markdown/); needs file/preview API if not already |

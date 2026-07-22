@@ -1,4 +1,4 @@
-/* Oblivion Ink → shadcn HSL tokens + TUI chrome layout */
+/* Default fallback = Oblivion Ink; live tokens from Settings `css.vars` override on :root */
 
 :root,
 .dark {
@@ -6,21 +6,28 @@
   --foreground: 171 47% 85%;
   --card: 216 65% 16%;
   --card-foreground: 171 47% 85%;
+  --popover: 216 65% 16%;
+  --popover-foreground: 171 47% 85%;
   --primary: 166 100% 70%;
   --primary-foreground: 214 65% 11%;
   --secondary: 209 61% 22%;
   --secondary-foreground: 166 100% 70%;
   --muted: 216 65% 10%;
-  --muted-foreground: 210 20% 65%;
+  --muted-foreground: 267 94% 68%;
   --accent: 216 65% 16%;
   --accent-foreground: 171 47% 85%;
   --destructive: 0 72% 51%;
   --destructive-foreground: 0 0% 100%;
-  --border: 209 40% 22%;
-  --input: 209 40% 22%;
+  --border: 217 67% 20%;
+  --input: 217 67% 20%;
   --ring: 166 100% 70%;
   --brand: 267 94% 68%;
   --hint: 267 94% 68%;
+  --search: 166 100% 70%;
+  --delta-added: 142 47% 51%;
+  --delta-mod: 43 97% 71%;
+  --delta-removed: 0 84% 60%;
+  --node: 217 67% 20%;
   --radius: 0.25rem;
   --chrome: 0.5rem;
 }
@@ -182,7 +189,7 @@ body > * {
 
 .catalog-search__label {
   flex: 0 0 auto;
-  color: hsl(var(--ring));
+  color: hsl(var(--search));
   font-size: 0.875rem;
   white-space: nowrap;
 }
@@ -225,10 +232,11 @@ body > * {
   padding: 0.2rem 0.6rem;
 }
 
+/* TUI tab_active(): tab_active_fg on tab_active_bg — NOT focused_border (--primary/--ring). */
 .tab-node--active {
   background: hsl(var(--secondary));
-  color: hsl(var(--primary));
-  border-color: hsl(var(--primary) / 0.35);
+  color: hsl(var(--secondary-foreground));
+  border-color: hsl(var(--ring) / 0.35);
 }
 
 button.tab-node {
@@ -373,11 +381,11 @@ button.tab-node {
 /* Active cursor: full selected chrome only in the focused pane. */
 .panel--focused .panel-row--selected {
   background: hsl(var(--secondary));
-  color: hsl(var(--primary));
+  color: hsl(var(--secondary-foreground));
 }
 
 .panel--focused .panel-row--selected .panel-row__sym {
-  color: hsl(var(--primary));
+  color: hsl(var(--secondary-foreground));
   font-weight: 700;
 }
 
@@ -505,15 +513,15 @@ button.tab-node {
 }
 
 .panel-row.delta-added .panel-row__text {
-  color: hsl(142 60% 55%);
+  color: hsl(var(--delta-added));
 }
 
 .panel-row.delta-mod .panel-row__text {
-  color: hsl(45 90% 55%);
+  color: hsl(var(--delta-mod));
 }
 
 .panel-row.delta-removed .panel-row__text {
-  color: hsl(0 70% 60%);
+  color: hsl(var(--delta-removed));
 }
 
 /* Focused selection uses pane primary; unfocused keeps delta hues. */
@@ -651,7 +659,7 @@ button.tab-node {
   border: 1px solid hsl(var(--border));
   background: hsl(var(--card));
   color: hsl(var(--card-foreground));
-  box-shadow: 0 0.5rem 1.5rem hsl(214 65% 4% / 0.45);
+  box-shadow: 0 0.5rem 1.5rem hsl(var(--background) / 0.55);
 }
 
 .help-header {
