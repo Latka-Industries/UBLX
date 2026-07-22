@@ -120,6 +120,16 @@ body > * {
   flex-wrap: wrap;
   align-items: center;
   gap: 0.4rem;
+  width: 100%;
+}
+
+.footer-nodes__start {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+  flex: 1;
 }
 
 .status-node {

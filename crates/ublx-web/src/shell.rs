@@ -291,6 +291,7 @@ fn TabBtn(label: String, active: Signal<bool>, on_click: Callback<()>) -> impl I
 fn FooterNodes(flags: StoredValue<CatalogFlags>, search: CatalogSearch) -> impl IntoView {
     let strip = search.strip_visible;
     let input_ref = NodeRef::<leptos::html::Input>::new();
+    let help = HelpOverlay::expect();
 
     Effect::new(move |_| {
         if search.active.get()
@@ -302,85 +303,95 @@ fn FooterNodes(flags: StoredValue<CatalogFlags>, search: CatalogSearch) -> impl 
 
     view! {
         <div class="footer-nodes">
-            <Show
-                when=move || strip.get()
-                fallback=move || {
-                    view! {
-                        <Show
-                            when=move || flags.get_value().last_snapshot_ns.is_some()
-                            fallback=|| ().into_any()
-                        >
-                            <button
-                                type="button"
-                                class="status-node status-node--button"
-                                title="Open catalog search (/)"
-                                on:click=move |_| search.start()
+            <div class="footer-nodes__start">
+                <Show
+                    when=move || strip.get()
+                    fallback=move || {
+                        view! {
+                            <Show
+                                when=move || flags.get_value().last_snapshot_ns.is_some()
+                                fallback=|| ().into_any()
                             >
-                                {
-                                    move || {
-                                        flags
-                                            .get_value()
-                                            .last_snapshot_ns
-                                            .map(format_timestamp_ns)
-                                            .map(|t| format!("Last Snapshot: {t}"))
-                                            .unwrap_or_default()
+                                <button
+                                    type="button"
+                                    class="status-node status-node--button"
+                                    title="Open catalog search (/)"
+                                    on:click=move |_| search.start()
+                                >
+                                    {
+                                        move || {
+                                            flags
+                                                .get_value()
+                                                .last_snapshot_ns
+                                                .map(format_timestamp_ns)
+                                                .map(|t| format!("Last Snapshot: {t}"))
+                                                .unwrap_or_default()
+                                        }
+                                    }
+                                </button>
+                            </Show>
+                        }
+                        .into_any()
+                    }
+                >
+                    <div
+                        class=move || {
+                            if search.active.get() {
+                                "catalog-search catalog-search--active"
+                            } else {
+                                "catalog-search"
+                            }
+                        }
+                        on:click=move |_| search.start()
+                    >
+                        <span class="catalog-search__label">{SEARCH_LABEL}</span>
+                        <Show
+                            when=move || search.active.get()
+                            fallback=move || {
+                                view! {
+                                    <span class="catalog-search__query">
+                                        {move || search.query.get()}
+                                    </span>
+                                }
+                                .into_any()
+                            }
+                        >
+                            <input
+                                node_ref=input_ref
+                                type="text"
+                                class="catalog-search__input"
+                                prop:value=move || search.query.get()
+                                on:input=move |ev| {
+                                    search.set_query.set(event_target_value(&ev));
+                                }
+                                on:blur=move |_| {
+                                    // Leave typing mode on blur so digit/mode hotkeys work again;
+                                    // keep query (strip stays visible) like TUI after Enter.
+                                    search.set_active.set(false);
+                                }
+                                on:keydown=move |ev| {
+                                    let key = ev.key();
+                                    if key == "Escape" {
+                                        ev.prevent_default();
+                                        search.clear();
+                                    } else if key == "Enter" {
+                                        ev.prevent_default();
+                                        search.submit();
                                     }
                                 }
-                            </button>
+                            />
                         </Show>
-                    }
-                    .into_any()
-                }
+                    </div>
+                </Show>
+            </div>
+            <button
+                type="button"
+                class="status-node status-node--button status-node--end"
+                title="Keyboard help (?)"
+                on:click=move |_| help.toggle()
             >
-                <div
-                    class=move || {
-                        if search.active.get() {
-                            "catalog-search catalog-search--active"
-                        } else {
-                            "catalog-search"
-                        }
-                    }
-                    on:click=move |_| search.start()
-                >
-                    <span class="catalog-search__label">{SEARCH_LABEL}</span>
-                    <Show
-                        when=move || search.active.get()
-                        fallback=move || {
-                            view! {
-                                <span class="catalog-search__query">
-                                    {move || search.query.get()}
-                                </span>
-                            }
-                            .into_any()
-                        }
-                    >
-                        <input
-                            node_ref=input_ref
-                            type="text"
-                            class="catalog-search__input"
-                            prop:value=move || search.query.get()
-                            on:input=move |ev| {
-                                search.set_query.set(event_target_value(&ev));
-                            }
-                            on:blur=move |_| {
-                                // Leave typing mode on blur so digit/mode hotkeys work again;
-                                // keep query (strip stays visible) like TUI after Enter.
-                                search.set_active.set(false);
-                            }
-                            on:keydown=move |ev| {
-                                let key = ev.key();
-                                if key == "Escape" {
-                                    ev.prevent_default();
-                                    search.clear();
-                                } else if key == "Enter" {
-                                    ev.prevent_default();
-                                    search.submit();
-                                }
-                            }
-                        />
-                    </Show>
-                </div>
-            </Show>
+                "? — Help"
+            </button>
         </div>
     }
 }
