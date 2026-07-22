@@ -467,7 +467,7 @@ button.tab-node {
   padding: 0;
 }
 
-/* —— Markdown Viewer (host HTML via /entries/.../content) —— */
+/* —— Markdown Viewer (host HTML via /content/...) —— */
 .md-viewer {
   margin-top: 0.35rem;
   font-size: 0.9rem;

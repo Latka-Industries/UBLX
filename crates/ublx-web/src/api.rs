@@ -304,7 +304,7 @@ pub(crate) async fn fetch_entry_detail(path: &str) -> Result<EntryDetail, String
     Ok(EntryDetail::from_row(row))
 }
 
-/// Disk file body for Viewer (`GET /entries/{path}/content`).
+/// Disk file body for Viewer (`GET /content/{path}`).
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Eq)]
 pub(crate) struct EntryContent {
     #[serde(default)]
@@ -323,7 +323,7 @@ pub(crate) async fn fetch_entry_content(
     path: &str,
     format: Option<&str>,
 ) -> Result<EntryContent, String> {
-    let mut url = format!("/entries/{}/content", encode_entry_path(path));
+    let mut url = format!("/content/{}", encode_entry_path(path));
     if let Some(f) = format {
         url.push_str(&format!("?format={f}"));
     }

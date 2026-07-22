@@ -136,9 +136,8 @@ pub fn run(args: &ServeCli) -> Result<(), anyhow::Error> {
         .route("/snapshot", get(get_snapshot).post(post_snapshot))
         .route("/categories", get(get_categories))
         .route("/entries", get(get_entries))
-        // More specific than `/entries/{*path}` — register first.
-        .route("/entries/{*path}/content", get(get_entry_content))
         .route("/entries/{*path}", get(get_entry))
+        .route("/content/{*path}", get(get_entry_content))
         .route("/delta", get(get_delta))
         .route("/duplicates", get(get_duplicates))
         .route("/lenses", get(get_lenses))

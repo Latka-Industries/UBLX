@@ -180,7 +180,7 @@ Mouse click remains supported; keyboard is first-class.
 - [x] Palette → CSS tokens (`themes::css`); Settings theme dropdown applies live
 - [x] Middle sort node left of `n/N` (Snapshot / Dupes / Delta) + `s` cycle
 - [x] Pretty Metadata + Writing (KV / column-stat tables; `typed_column_tables`)
-- [ ] Markdown viewer (Viewer tab; needs `/entries/.../content`)
+- [ ] Markdown viewer (Viewer tab; needs `/content/{*path}`)
 
 ---
 
@@ -195,7 +195,7 @@ One concern per PR. Order is dependency-aware; titles are suggestions.
 | **3** | **Palette → CSS tokens** | ✅ Landed — `Palette` → HSL vars; Settings theme switches live look | [`themes/css.rs`](../src/themes/css.rs); WEB_UI token table above |
 | **4** | **Middle sort node** | ✅ Landed — sort left of `n/N` + `s` cycle (TUI `ContentSort` rules) | [`sort.rs`](../crates/ublx-web/src/sort.rs); [`middle.rs`](../src/render/panes/middle.rs) |
 | **5** | **Pretty Metadata + Writing** | ✅ Landed (#47) — host `SectionView` + Settings `typed_column_tables` | [`export.rs`](../src/render/kv_tables/export.rs); [`kv_tables.rs`](../crates/ublx-web/src/kv_tables.rs) |
-| **6** | **Markdown viewer** | Viewer tab renders markdown like TUI (flow, tables, code fences) | [`viewer.rs`](../crates/ublx-web/src/viewer.rs); `GET /entries/{*path}/content`; [`render/viewers/markdown/`](../src/render/viewers/markdown/) |
+| **6** | **Markdown viewer** | Viewer tab renders markdown like TUI (flow, tables, code fences) | [`viewer.rs`](../crates/ublx-web/src/viewer.rs); `GET /content/{*path}`; [`render/viewers/markdown/`](../src/render/viewers/markdown/) |
 | **7** | **Code / syntect viewer** | Syntax-highlighted text for code categories | [`syntect_text`](../src/render/viewers/syntect_text.rs) |
 | **8** | **Tables / CSV (+ misc text)** | Tabular + plain text fallbacks in Viewer | [`csv_handler`](../src/render/viewers/csv_handler.rs), pretty tables |
 | **9** | **Images (and covers)** | Raster / SVG preview in Viewer | [`viewers/images/`](../src/render/viewers/images/), `svg_preview` |

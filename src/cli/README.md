@@ -62,7 +62,7 @@ Notes:
 - `GET /delta?type=` — wire values `added` | `mod` | `removed` (`modified` accepted as alias for `mod`)
 - `GET /duplicates` — `{ mode: "hash"|"name_size", groups: [{ id, label, paths }] }` (read-only; no on-demand blake3 fill)
 - `GET /entries/{*path}?zahir=1` — entry detail; when zahir is set, also `metadata_tables` / `writing_tables` (host-parsed KV / column-stat sections; honors effective `typed_column_tables`)
-- `GET /entries/{*path}/content` — disk file body for Viewer (`file_content_for_viewer`); `?format=text|html` (default: HTML when category is Markdown, else text). Path must stay under the current root.
+- `GET /content/{*path}` — disk file body for Viewer (`file_content_for_viewer`); `?format=text|html` (default: HTML when category is Markdown, else text). Path must stay under the current root.
 - `GET /settings/{scope}` — `scope` is `global`|`local`; returns path, exists, live `toml` text, bools, layout, theme list, `bg_opacity`, `typed_column_tables` (`none`|`abbrev`|`full`), and `css` (effective palette → HSL tokens)
 - `PATCH /settings/{scope}` — structured JSON fields only (no raw TOML body); response is the refreshed view (includes updated `css` / `typed_column_tables`)
 
