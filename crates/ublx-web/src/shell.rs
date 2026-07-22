@@ -6,6 +6,7 @@ use web_sys::KeyboardEvent;
 
 use crate::api::{CatalogFlags, format_timestamp_ns};
 use crate::focus::{PaneFocus, RightTabBus, UiNav};
+use crate::help::{HelpModal, HelpOverlay};
 use crate::keys::{WebAction, action_from_keydown, typing_in_form_field};
 use crate::modes::{DeltaMode, DuplicatesMode, LensesMode, SettingsMode, SnapshotMode};
 use crate::nav::{MainMode, clamp_mode_to_visible, select_mode, use_main_mode};
@@ -17,6 +18,7 @@ pub(crate) fn Shell(flags: CatalogFlags) -> impl IntoView {
     let (mode, set_mode) = use_main_mode();
     let search = CatalogSearch::provide();
     let (nav, tabs) = UiNav::provide();
+    let help = HelpOverlay::provide();
 
     // Deep-link may name a tab that is hidden for this catalog — fall back to Snapshot.
     Effect::new(move |_| {
@@ -28,7 +30,15 @@ pub(crate) fn Shell(flags: CatalogFlags) -> impl IntoView {
         }
     });
 
-    // Global keybus — TUI-shaped hotkeys (ignore while search strip is active or typing in forms).
+    // Reset help section when main mode changes while open.
+    Effect::new(move |_| {
+        let _ = mode.get();
+        if help.visible.get_untracked() {
+            help.set_section.set(0);
+        }
+    });
+
+    // Global keybus — TUI-shaped hotkeys (ignore while typing in forms).
     Effect::new(move |_| {
         let Some(window) = web_sys::window() else {
             return;
@@ -39,20 +49,31 @@ pub(crate) fn Shell(flags: CatalogFlags) -> impl IntoView {
         let mode = mode;
         let set_mode = set_mode;
         let flags = flags;
+        let help = help;
         let closure = wasm_bindgen::closure::Closure::wrap(Box::new(move |ev: KeyboardEvent| {
-            // Catalog search input (and Settings fields) keep their own keys; otherwise hotkeys win.
             if typing_in_form_field() {
                 return;
             }
-            let Some(action) = action_from_keydown(&ev) else {
+            let help_open = help.visible.get_untracked();
+            let Some(action) = action_from_keydown(&ev, help_open) else {
                 return;
             };
             ev.prevent_default();
-            dispatch_action(action, search, nav, tabs, mode, set_mode, flags);
+            dispatch_action(
+                action,
+                KeybusCtx {
+                    search,
+                    nav,
+                    tabs,
+                    mode,
+                    set_mode,
+                    flags,
+                    help,
+                },
+            );
         }) as Box<dyn FnMut(_)>);
         let _ =
             window.add_event_listener_with_callback("keydown", closure.as_ref().unchecked_ref());
-        // Keep listener for the shell lifetime (CSR single mount).
         closure.forget();
     });
 
@@ -93,83 +114,92 @@ pub(crate) fn Shell(flags: CatalogFlags) -> impl IntoView {
         <footer class="status-chrome">
             <FooterNodes flags=flags search=search/>
         </footer>
+
+        <HelpModal mode=mode/>
     }
 }
 
-fn dispatch_action(
-    action: WebAction,
+#[derive(Clone, Copy)]
+struct KeybusCtx {
     search: CatalogSearch,
     nav: UiNav,
     tabs: RightTabBus,
     mode: ReadSignal<MainMode>,
     set_mode: WriteSignal<MainMode>,
     flags: StoredValue<CatalogFlags>,
-) {
-    let f = flags.get_value();
+    help: HelpOverlay,
+}
+
+fn dispatch_action(action: WebAction, ctx: KeybusCtx) {
+    let f = ctx.flags.get_value();
     match action {
-        WebAction::SearchStart => search.start(),
+        WebAction::HelpToggle => ctx.help.toggle(),
+        WebAction::HelpClose => ctx.help.close(),
+        WebAction::HelpSectionNext => ctx.help.cycle_section(ctx.mode.get_untracked(), 1),
+        WebAction::HelpSectionPrev => ctx.help.cycle_section(ctx.mode.get_untracked(), -1),
+        WebAction::HelpAbsorb => {}
+        WebAction::SearchStart => ctx.search.start(),
         WebAction::MainMode(m) => {
             if m.is_visible(f.has_lenses, f.has_delta, f.has_duplicates) {
-                select_mode(set_mode, m);
+                select_mode(ctx.set_mode, m);
             }
         }
         WebAction::MainModeToggle => {
             let next = next_visible_mode(
-                mode.get_untracked(),
+                ctx.mode.get_untracked(),
                 f.has_lenses,
                 f.has_delta,
                 f.has_duplicates,
             );
-            select_mode(set_mode, next);
+            select_mode(ctx.set_mode, next);
         }
-        WebAction::FocusLeft => nav.set_pane.set(PaneFocus::Left),
-        WebAction::FocusMiddle => nav.set_pane.set(PaneFocus::Middle),
+        WebAction::FocusLeft => ctx.nav.set_pane.set(PaneFocus::Left),
+        WebAction::FocusMiddle => ctx.nav.set_pane.set(PaneFocus::Middle),
         WebAction::FocusCycle => {
-            let next = nav.pane.get_untracked().cycle();
-            nav.set_pane.set(next);
+            let next = ctx.nav.pane.get_untracked().cycle();
+            ctx.nav.set_pane.set(next);
         }
         WebAction::MoveUp => {
             blur_panel_row_focus();
-            if let Some(list) = nav.active_list() {
+            if let Some(list) = ctx.nav.active_list() {
                 list.move_by.run(-1);
             }
         }
         WebAction::MoveDown => {
             blur_panel_row_focus();
-            if let Some(list) = nav.active_list() {
+            if let Some(list) = ctx.nav.active_list() {
                 list.move_by.run(1);
             }
         }
         WebAction::MoveUpFast => {
             blur_panel_row_focus();
-            if let Some(list) = nav.active_list() {
+            if let Some(list) = ctx.nav.active_list() {
                 list.move_by.run(-10);
             }
         }
         WebAction::MoveDownFast => {
             blur_panel_row_focus();
-            if let Some(list) = nav.active_list() {
+            if let Some(list) = ctx.nav.active_list() {
                 list.move_by.run(10);
             }
         }
         WebAction::ListTop => {
             blur_panel_row_focus();
-            if let Some(list) = nav.active_list() {
+            if let Some(list) = ctx.nav.active_list() {
                 list.to_start.run(());
             }
         }
         WebAction::ListBottom => {
             blur_panel_row_focus();
-            if let Some(list) = nav.active_list() {
+            if let Some(list) = ctx.nav.active_list() {
                 list.to_end.run(());
             }
         }
         WebAction::RightTab(t) => {
-            // Right tabs switch content only — keyboard focus stays on left/middle.
-            tabs.set_request.set(Some(t));
+            ctx.tabs.set_request.set(Some(t));
         }
         WebAction::CycleRightTab => {
-            tabs.bump_cycle.update(|n| *n = n.wrapping_add(1));
+            ctx.tabs.bump_cycle.update(|n| *n = n.wrapping_add(1));
         }
     }
 }

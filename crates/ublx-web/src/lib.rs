@@ -8,6 +8,7 @@
 
 mod api;
 mod focus;
+mod help;
 mod keys;
 mod modes;
 mod nav;
