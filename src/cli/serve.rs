@@ -26,9 +26,9 @@ use crate::cli_parser::ServeCli;
 use crate::config::{UblxPaths, all_indexed_roots_alphabetical, record_prior_root_selected};
 use crate::handlers::run_snap_pipeline_from_dir_db;
 use crate::handlers::viewing::sectioned_preview_from_zahir;
-use crate::integrations::{ZahirFT, file_type_from_metadata_name};
+use crate::integrations::{ZahirFT, delimiter_from_path_for_viewer, file_type_from_metadata_name};
 use crate::render::kv_tables::{SectionView, parse_json_to_views};
-use crate::render::viewers::syntect_text;
+use crate::render::viewers::{csv_handler, html_escape_minimal, syntect_text};
 use crate::utils::file_content_for_viewer;
 
 /// Live catalog for one serve process — switchable via `/roots/current`.
@@ -470,7 +470,7 @@ async fn get_entry_content(
     let abs = resolve_entry_disk_path(&dir, &path)?;
     let zahir_type = file_type_from_metadata_name(&row.category);
     let text = file_content_for_viewer(&abs, zahir_type).unwrap_or_else(|| "(empty)".into());
-    let want_html = content_want_html(q.format.as_deref(), zahir_type)?;
+    let want_html = content_want_html(q.format.as_deref(), zahir_type, &row.path)?;
     let (format, content) = if want_html {
         let appearance = settings_api::effective_appearance(&dir);
         (
@@ -489,12 +489,19 @@ async fn get_entry_content(
     }))
 }
 
-fn content_want_html(format: Option<&str>, zahir_type: Option<ZahirFT>) -> Result<bool, ApiError> {
+fn content_want_html(
+    format: Option<&str>,
+    zahir_type: Option<ZahirFT>,
+    path: &str,
+) -> Result<bool, ApiError> {
     match format.map(str::trim) {
         Some("html") => Ok(true),
         Some("text") => Ok(false),
-        None => Ok(matches!(zahir_type, Some(ZahirFT::Markdown))
-            || zahir_type.is_some_and(syntect_text::uses_syntect_ft)),
+        None => Ok(matches!(
+            zahir_type,
+            Some(ZahirFT::Markdown | ZahirFT::Csv | ZahirFT::Text)
+        ) || zahir_type.is_some_and(syntect_text::uses_syntect_ft)
+            || delimiter_from_path_for_viewer(path).is_some()),
         Some(other) => Err(ApiError::bad_request(format!(
             "invalid format {other:?}; expected text|html"
         ))),
@@ -512,6 +519,11 @@ fn content_to_html(
         Some(ft) if syntect_text::uses_syntect_ft(ft) => {
             syntect_text::highlight_viewer_html(text, path, ft, appearance)
         }
+        Some(ZahirFT::Csv) => csv_handler::delimited_to_html(text, path),
+        Some(ZahirFT::Text) => format!("<pre>{}</pre>", html_escape_minimal(text)),
+        _ if delimiter_from_path_for_viewer(path).is_some() => {
+            csv_handler::delimited_to_html(text, path)
+        }
         _ => format!("<pre>{}</pre>", html_escape_minimal(text)),
     }
 }
@@ -521,20 +533,6 @@ fn markdown_to_html(src: &str) -> String {
     let parser = Parser::new_ext(src, Options::all());
     let mut out = String::new();
     html::push_html(&mut out, parser);
-    out
-}
-
-fn html_escape_minimal(s: &str) -> String {
-    let mut out = String::with_capacity(s.len());
-    for c in s.chars() {
-        match c {
-            '&' => out.push_str("&amp;"),
-            '<' => out.push_str("&lt;"),
-            '>' => out.push_str("&gt;"),
-            '"' => out.push_str("&quot;"),
-            _ => out.push(c),
-        }
-    }
     out
 }
 
@@ -642,7 +640,7 @@ async fn patch_settings_route(
     Json(patch): Json<SettingsPatch>,
 ) -> Result<impl IntoResponse, ApiError> {
     let dir = current_dir(&state)?;
-    let view = settings_api::patch_settings(&dir, &scope, patch).map_err(ApiError::bad_request)?;
+    let view = settings_api::patch_settings(&dir, &scope, &patch).map_err(ApiError::bad_request)?;
     info!(
         "serve settings patched: scope={scope} dir={}",
         dir.display()

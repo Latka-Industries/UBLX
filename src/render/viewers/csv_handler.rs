@@ -13,6 +13,7 @@ use std::fmt::Write as _;
 use std::io::Cursor;
 
 use crate::integrations::{delimiter_from_path_for_viewer, detect_delimiter_byte};
+use crate::render::viewers::html_escape::html_escape_minimal;
 use crate::render::viewers::pretty_tables;
 use crate::themes;
 
@@ -346,4 +347,100 @@ pub fn table_string_and_line_count(rows: &[Vec<String>], content_width: u16) -> 
     let s = table_string(rows, content_width);
     let count = s.lines().count();
     (s, count)
+}
+
+/// Host HTML for web Viewer — same parse/delimiter rules as the TUI table path.
+///
+/// Unlike the TUI, **all columns** are emitted; the web Viewer uses frozen
+/// H/V scrollbars (`.csv-viewer__hbar` / `__vbar`) with `translate` on the table.
+#[must_use]
+pub fn delimited_to_html(raw: &str, path: &str) -> String {
+    let total_hint = total_rows_hint_from_raw(raw);
+    match parse_csv(raw, Some(path)) {
+        Ok(rows) if rows.is_empty() => format!("<pre>{}</pre>", html_escape_minimal(raw)),
+        Ok(rows) => {
+            let total_cols = rows.iter().map(Vec::len).max().unwrap_or(0);
+            let wide_note = (!should_render_as_table(&rows)).then(|| {
+                format!(
+                    "[wide delimited view: {total_cols} columns — scroll horizontally to see all]"
+                )
+            });
+            rows_to_html_table(&rows, total_hint, wide_note.as_deref())
+        }
+        Err(_) => format!("<pre>{}</pre>", html_escape_minimal(raw)),
+    }
+}
+
+/// Must stay in sync with `.csv-viewer .kv-table th, td { max-width: 36ch }` in ublx-web styles.
+const WEB_CELL_ELLIPSIS_CHARS: usize = 36;
+
+const SHELL_OPEN: &str = concat!(
+    r#"<div class="csv-viewer__shell">"#,
+    r#"<div class="csv-viewer__hbar" aria-hidden="true"><div class="csv-viewer__hspacer"></div></div>"#,
+    r#"<div class="csv-viewer__corner" aria-hidden="true"></div>"#,
+    r#"<div class="csv-viewer__body"><div class="csv-viewer__inner">"#,
+    r#"<table class="kv-table kv-table--wide"><thead><tr>"#,
+);
+
+const SHELL_TAIL: &str = concat!(
+    "</table></div></div>",
+    r#"<div class="csv-viewer__vbar" aria-hidden="true"><div class="csv-viewer__vspacer"></div></div>"#,
+    "</div>",
+);
+
+fn rows_to_html_table(
+    rows: &[Vec<String>],
+    total_rows_hint: Option<usize>,
+    wide_note: Option<&str>,
+) -> String {
+    let mut out = String::new();
+    if let Some(note) = wide_note {
+        let _ = write!(
+            out,
+            r#"<p class="csv-viewer__note">{}</p>"#,
+            html_escape_minimal(note)
+        );
+    }
+    if let Some(total) = total_rows_hint.filter(|t| *t > rows.len()) {
+        let shown = rows.len();
+        let hidden = total.saturating_sub(shown);
+        let _ = write!(
+            out,
+            r#"<p class="csv-viewer__note">[delimited preview: {shown} rows shown, {hidden} hidden of {total}]</p>"#
+        );
+    }
+    out.push_str(SHELL_OPEN);
+    let (header, body) = rows
+        .split_first()
+        .map_or((&[][..], rows), |(h, b)| (h.as_slice(), b));
+    if header.is_empty() {
+        out.push_str("</tr></thead><tbody></tbody>");
+        out.push_str(SHELL_TAIL);
+        return out;
+    }
+    for cell in header {
+        write_html_cell(&mut out, "th", cell);
+    }
+    out.push_str("</tr></thead><tbody>");
+    for row in body {
+        out.push_str("<tr>");
+        let cols = header.len().max(row.len());
+        for i in 0..cols {
+            write_html_cell(&mut out, "td", row.get(i).map_or("", String::as_str));
+        }
+        out.push_str("</tr>");
+    }
+    out.push_str("</tbody>");
+    out.push_str(SHELL_TAIL);
+    out
+}
+
+fn write_html_cell(out: &mut String, tag: &str, cell: &str) {
+    let text = pretty_tables::collapse_viewer_cell_whitespace(cell);
+    let tip = if text.chars().count() > WEB_CELL_ELLIPSIS_CHARS {
+        format!(r#" data-tip="{}""#, html_escape_minimal(&text))
+    } else {
+        String::new()
+    };
+    let _ = write!(out, "<{tag}{tip}>{}</{tag}>", html_escape_minimal(&text));
 }

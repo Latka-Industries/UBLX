@@ -26,6 +26,7 @@ pub struct SettingsBoolControl {
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[allow(clippy::struct_field_names)] // mirrors LayoutOverlay / ublx.toml (`*_pct`)
 pub struct SettingsLayoutControl {
     pub left_pct: u16,
     pub middle_pct: u16,
@@ -264,7 +265,7 @@ pub fn get_settings_view(dir: &Path, scope_str: &str) -> Result<SettingsView, St
 pub fn patch_settings(
     dir: &Path,
     scope_str: &str,
-    patch: SettingsPatch,
+    patch: &SettingsPatch,
 ) -> Result<SettingsView, String> {
     let scope = parse_scope(scope_str)?;
     if scope == SettingsConfigScope::Local && patch.ask_enhance_on_new_root.is_some() {
@@ -272,24 +273,24 @@ pub fn patch_settings(
     }
 
     let paths = UblxPaths::new(dir);
-    let path = scope_path(&paths, scope).ok_or_else(|| {
+    let toml_path = scope_path(&paths, scope).ok_or_else(|| {
         "could not resolve global config path (home/config dir unavailable)".to_string()
     })?;
     let names: Vec<String> = theme_names().into_iter().map(str::to_string).collect();
     let name_refs: Vec<&str> = names.iter().map(String::as_str).collect();
 
     let mut overlay =
-        load_ublx_toml(Some(path.clone()), Some(name_refs.as_slice())).unwrap_or_default();
-    apply_patch(&mut overlay, scope, &patch)?;
+        load_ublx_toml(Some(toml_path.clone()), Some(name_refs.as_slice())).unwrap_or_default();
+    apply_patch(&mut overlay, scope, patch)?;
 
     if scope == SettingsConfigScope::Local {
         strip_global_only_keys_from_local_overlay(&mut overlay);
     }
 
-    if let Some(parent) = path.parent() {
+    if let Some(parent) = toml_path.parent() {
         let _ = fs::create_dir_all(parent);
     }
-    write_ublx_overlay_at(&path, &overlay);
+    write_ublx_overlay_at(&toml_path, &overlay);
 
     get_settings_view(dir, scope_str)
 }
