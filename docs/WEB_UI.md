@@ -215,6 +215,11 @@ One concern per PR. Order is dependency-aware; titles are suggestions.
 | Snapshot trigger | UI for `POST`/`GET /snapshot` |
 | Doctor / health surface | `GET /doctor` + panza health |
 
+**Post v0.2.0** (tracked in Linear, not MVP blockers):
+
+- Catalog fetch cache across main-tab switches — [THI-168](https://linear.app/thicclatka/issue/THI-168/web-ui-cache-catalog-fetches-across-main-tab-switches-v021)
+- Font selection (CSS `--font-mono` / Settings) — [THI-169](https://linear.app/thicclatka/issue/THI-169/web-ui-font-selection-post-v020)
+
 Do **not** expand a mini-PR into “finish the whole Viewer stack” — keep each PR reviewable.
 
 ---

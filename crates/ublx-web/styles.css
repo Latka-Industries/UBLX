@@ -32,6 +32,8 @@
   --table-stripe: 216 55% 18%;
   --radius: 0.25rem;
   --chrome: 0.5rem;
+  /* THI-169: Settings font selection can override later */
+  --font-mono: ui-monospace, "Cascadia Code", "SF Mono", Menlo, monospace;
 }
 
 *,
@@ -46,7 +48,7 @@ body {
   height: 100%;
   background: hsl(var(--background));
   color: hsl(var(--foreground));
-  font-family: ui-monospace, "Cascadia Code", "SF Mono", Menlo, monospace;
+  font-family: var(--font-mono);
   font-size: 15px;
 }
 
@@ -521,7 +523,7 @@ button.tab-node {
 }
 
 .md-viewer code {
-  font-family: ui-monospace, "Cascadia Code", "SF Mono", Menlo, monospace;
+  font-family: var(--font-mono);
   font-size: 0.85em;
   padding: 0.05rem 0.25rem;
   background: hsl(var(--table-stripe));
@@ -549,32 +551,7 @@ button.tab-node {
 }
 
 .md-viewer table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.85rem;
   margin: 0.55rem 0;
-}
-
-.md-viewer th,
-.md-viewer td {
-  padding: 0.2rem 0.55rem;
-  text-align: left;
-  vertical-align: top;
-}
-
-.md-viewer th {
-  background: hsl(var(--card));
-  font-weight: 700;
-  text-decoration: underline;
-  border-bottom: 2px solid hsl(var(--border));
-}
-
-.md-viewer tbody tr:nth-child(odd) {
-  background: hsl(var(--card));
-}
-
-.md-viewer tbody tr:nth-child(even) {
-  background: hsl(var(--table-stripe));
 }
 
 .md-viewer hr {
@@ -622,7 +599,9 @@ button.tab-node {
   overflow-x: auto;
 }
 
-.kv-table {
+/* Shared dense table chrome: Metadata/Writing + markdown tables */
+.kv-table,
+.md-viewer table {
   width: 100%;
   border-collapse: collapse;
   font-size: 0.85rem;
@@ -634,27 +613,37 @@ button.tab-node {
 }
 
 .kv-table th,
-.kv-table td {
+.kv-table td,
+.md-viewer th,
+.md-viewer td {
   padding: 0.2rem 0.55rem;
   text-align: left;
   vertical-align: top;
 }
 
-.kv-table th {
+.kv-table th,
+.md-viewer th {
   background: hsl(var(--card));
   color: hsl(var(--foreground));
   font-weight: 700;
   text-decoration: underline;
-  white-space: nowrap;
   border-bottom: 2px solid hsl(var(--border));
 }
 
+.kv-table th {
+  white-space: nowrap;
+}
+
 /* TUI table_row_style: index 0/even = popup_bg; odd = stripe (CSS 1-based: odd→card) */
-.kv-table tbody tr:nth-child(odd) {
+.kv-table tbody tr:nth-child(odd),
+.md-viewer tbody tr:nth-child(odd),
+.kv-list li:nth-child(odd) {
   background: hsl(var(--card));
 }
 
-.kv-table tbody tr:nth-child(even) {
+.kv-table tbody tr:nth-child(even),
+.md-viewer tbody tr:nth-child(even),
+.kv-list li:nth-child(even) {
   background: hsl(var(--table-stripe));
 }
 
@@ -680,14 +669,6 @@ button.tab-node {
 .kv-list li {
   margin: 0;
   padding: 0.15rem 0.55rem;
-}
-
-.kv-list li:nth-child(odd) {
-  background: hsl(var(--card));
-}
-
-.kv-list li:nth-child(even) {
-  background: hsl(var(--table-stripe));
 }
 
 .settings-inline-row__value {

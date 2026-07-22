@@ -5,9 +5,12 @@ use leptos::prelude::*;
 
 use crate::api::{EntryContent, fetch_entry_content};
 
+/// Zahir catalog category for markdown (`FileType::Markdown.as_metadata_name()`).
+const MARKDOWN_CATEGORY: &str = "Markdown";
+
 /// True when catalog category is Zahir Markdown (same gate as TUI viewer).
 pub(crate) fn is_markdown_category(category: &str) -> bool {
-    category == "Markdown"
+    category == MARKDOWN_CATEGORY
 }
 
 #[component]
@@ -50,25 +53,29 @@ fn MarkdownBody(path: String) -> impl IntoView {
             {move || match content.get() {
                 None => view! { <p class="pane-empty">"…"</p> }.into_any(),
                 Some(Err(e)) => view! { <p class="pane-empty">{e}</p> }.into_any(),
-                Some(Ok(EntryContent { format, content, .. })) => {
-                    if format == "html" {
-                        view! { <MarkdownHtml html=content/> }.into_any()
-                    } else {
-                        view! { <pre class="detail-pre">{content}</pre> }.into_any()
-                    }
-                }
+                Some(Ok(body)) => view! { <ContentBody body=body/> }.into_any(),
             }}
         </Suspense>
     }
 }
 
 #[component]
-fn MarkdownHtml(html: String) -> impl IntoView {
+fn ContentBody(body: EntryContent) -> impl IntoView {
+    if body.format == "html" {
+        view! { <HtmlFragment class="md-viewer" html=body.content/> }.into_any()
+    } else {
+        view! { <pre class="detail-pre">{body.content}</pre> }.into_any()
+    }
+}
+
+/// Trusted host HTML into a div (markdown / future viewers).
+#[component]
+fn HtmlFragment(class: &'static str, html: String) -> impl IntoView {
     let node_ref = NodeRef::<Div>::new();
     Effect::new(move |_| {
         if let Some(el) = node_ref.get() {
             el.set_inner_html(&html);
         }
     });
-    view! { <div class="md-viewer" node_ref=node_ref></div> }
+    view! { <div class=class node_ref=node_ref></div> }
 }
