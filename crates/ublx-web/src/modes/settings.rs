@@ -274,7 +274,7 @@ pub(crate) fn SettingsMode() -> impl IntoView {
                                         )}
                                     </ul>
                                 </div>
-                                <div class="pane-footer">
+                                <div class="pane-footer pane-footer--start">
                                     <span class="status-node">
                                         {if exists { "file" } else { "new" }}
                                     </span>

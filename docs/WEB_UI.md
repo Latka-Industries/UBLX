@@ -128,7 +128,7 @@ Catalog browser that **looks like the TUI**. Dense, path-first. Skip rich file v
 - [x] Lenses: lens names → member paths → entry detail (`/lenses`, `/lenses/{name}`, Zahir detail)
 - [x] Duplicates: groups → member paths → detail (`GET /duplicates`)
 - [x] Settings: Global/Local + toggles/steppers/theme + live read-only TOML (`GET`/`PATCH /settings/{scope}`)
-- [x] Snapshot Contents `n/total` (shared `PathsPane` footer)
+- [x] Snapshot Contents `n/total` on middle pane **bottom-right** (TUI `title_bottom` / `PathsPane`)
 - [x] Feature `ui` + `StaticMount::Dir` / `UBLX_WEB_DIST` (Embedded still TODO)
 
 **Next fill-in (see [`TUI_STRUCTURE.md`](TUI_STRUCTURE.md) checklist):**

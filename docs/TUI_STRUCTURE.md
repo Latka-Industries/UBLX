@@ -1,218 +1,197 @@
 # TUI structure map (for web port)
 
-Source-of-truth map of the ratatui TUI chrome and per-mode panes. Use this when filling out [`crates/ublx-web`](../crates/ublx-web/) so Leptos mirrors roles and labels, not terminal key chords.
+Source-of-truth map of the **live** ratatui chrome: bands, powerline **nodes**, and **where** each node sits (left vs right). Web must copy **placement**, not invent a dashboard.
 
 **Code anchors**
 
 | Layer | Path |
 | ----- | ---- |
-| Frame entry | [`src/render/core.rs`](../src/render/core.rs) — `draw_ublx_frame` |
+| Frame | [`src/render/core.rs`](../src/render/core.rs) — `draw_ublx_frame` |
 | Modes / focus | [`src/layout/setup.rs`](../src/layout/setup.rs) — `MainMode`, `PanelFocus`, `RightPaneMode` |
-| Pane draws | [`src/render/panes/`](../src/render/panes/) |
-| Tab order / labels | [`src/ui/consts/mod.rs`](../src/ui/consts/mod.rs), [`tabs.rs`](../src/ui/consts/tabs.rs), [`strings.rs`](../src/ui/consts/strings.rs) |
+| Powerline nodes | [`src/layout/style/nodes.rs`](../src/layout/style/nodes.rs) — `tab_node_segment`, `node_line`, `viewer_footer_line`, `status_node_spans` |
+| Middle `current/total` | [`src/render/panes/middle.rs`](../src/render/panes/middle.rs) — `counter_line` / `line_for` → **`HorizontalAlignment::Right`** on panel `title_bottom` |
+| Snapshot Contents | [`src/render/panes/snapshot_mode.rs`](../src/render/panes/snapshot_mode.rs) — same middle footer |
+| Right Viewer footer | [`src/render/panes/right/chrome.rs`](../src/render/panes/right/chrome.rs) — size / mtime **right** |
+| Tab order / labels | [`src/ui/consts/`](../src/ui/consts/) |
 | Layout % | [`src/config/profile/core.rs`](../src/config/profile/core.rs) — `LayoutOverlay` |
-| Web shell today | [`crates/ublx-web/src/shell.rs`](../crates/ublx-web/src/shell.rs), [`panes.rs`](../crates/ublx-web/src/panes.rs) |
+| Web shell | [`crates/ublx-web/src/shell.rs`](../crates/ublx-web/src/shell.rs), [`panes.rs`](../crates/ublx-web/src/panes.rs) |
 
-Related design: [`WEB_UI.md`](WEB_UI.md).
+Related: [`WEB_UI.md`](WEB_UI.md).
 
 ---
 
-## Vertical chrome (every mode)
+## Vocabulary
 
-Top → bottom, full terminal width:
+| Term | Meaning in UBLX |
+| ---- | --------------- |
+| **Tab node** | Powerline pill `‹ label ›` (active / inactive styles). Used on the **main mode bar** and as **panel border titles**. |
+| **Status / footer node** | Same pill look for chrome like `Last Snapshot`, `12/345`, size, mtime — **not** a second tab bar. |
+| **`title` / `title_bottom`** | Ratatui `Block` title on the **top** border vs **bottom** border of a pane. Middle counter lives on **`title_bottom`**. |
+| **Alignment** | Nodes are **left-** or **right-**aligned as a cluster inside that band. Do not put the file counter on the left of the middle pane. |
+
+---
+
+## Full-frame layout (every mode)
 
 ```text
-┌─────────────────────────────────────────────────────────────┐
-│  [Snapshot] [Lenses?] [Delta] [Duplicates?] [Settings]  UBLX │  tab row
-├─────────────────────────────────────────────────────────────┤
-│              /absolute/path/to/indexed/root                 │  gap (hint)
-├──────────────────┬──────────────────┬───────────────────────┤
-│                  │                  │                       │
-│   left pane      │   middle pane    │   right pane          │  body (3-pane
-│                  │                  │                       │  or Settings)
-│                  │                  │                       │
-├──────────────────┴──────────────────┴───────────────────────┤
-│  Last Snapshot: <ts>   |or|   Search (Categories & Contents) │  status
-└─────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────────┐
+│ ◀Snapshot▶ ◀Lenses?▶ ◀Delta▶ ◀Duplicates?▶ ◀Settings▶          ◀UBLX▶  │  TOP: main tabs (nodes L→R) + brand (RIGHT)
+├──────────────────────────────────────────────────────────────────────────┤
+│                    /absolute/path/to/indexed/root                        │  GAP: root path (CENTER, hint color)
+├────────────┬─────────────────────────┬───────────────────────────────────┤
+│            │                         │                                   │
+│  LEFT      │  MIDDLE                 │  RIGHT                            │  BODY: 3-pane (or Settings 50/50)
+│  pane      │  pane                   │  pane                             │
+│            │                         │                                   │
+│            │              …  ◀n/N▶   │                    ◀size▶◀mtime▶ │  ← pane border bottoms (see below)
+├────────────┴─────────────────────────┴───────────────────────────────────┤
+│ ◀Last Snapshot: …▶                                                       │  STATUS: snapshot node (LEFT)
+│   — or —                                                                 │    OR catalog search strip (same slot)
+│ ▌ Search (Categories & Contents): query…                                 │
+└──────────────────────────────────────────────────────────────────────────┘
 ```
 
-| Band | Height | Content |
-| ----- | ------ | ------- |
-| Tab row | 1 | Powerline tab nodes + brand `UBLX` (right, fixed ~4 cells) |
-| Gap | 1 | Centered absolute indexed root (`hint` color); truncated middle if needed |
-| Body | rest − 1 | Mode content (see below) |
-| Status | 1 | `Last Snapshot: …` powerline node **or** catalog search strip (search replaces snapshot node while active / non-empty) |
+| Band | Height | Nodes / content | Horizontal placement |
+| ---- | ------ | --------------- | -------------------- |
+| Main tab row | 1 | Mode tab nodes + brand `UBLX` | Tabs **left → right**; brand **far right** (~4 cells) |
+| Gap | 1 | Absolute indexed root | **Centered** |
+| Body | rest − 1 | Mode panes | See per-mode |
+| Status | 1 | `Last Snapshot: …` **or** catalog `/` search | Snapshot / search in the **left** status slot |
 
-Constants: [`src/ui/consts/layout.rs`](../src/ui/consts/layout.rs) (`tab_row_height`, `tab_body_gap_height`, `status_line_height`, `brand_block_width`).
+Constants: [`src/ui/consts/layout.rs`](../src/ui/consts/layout.rs).
 
-Default 3-pane widths (`[layout]` in `ublx.toml`): **left 10% / middle 30% / right 60%**. Must sum to 100.
+Default `[layout]` widths: **left 10% / middle 30% / right 60%** (sum 100).
 
 ---
 
-## Main tabs
+## Main tab row (nodes)
 
-**Visual order (left → right):** Snapshot → Lenses (if any) → Delta → Duplicates (if any) → Settings.
+**Order (left → right):** Snapshot → Lenses (if any) → Delta → Duplicates (if any) → Settings → … → **`UBLX`** (brand, not a mode).
 
-| Mode | Digit key | Shown when |
-| ---- | --------- | ---------- |
+| Mode | Digit | When shown |
+| ---- | ----- | ---------- |
 | Snapshot | `1` | always |
-| Lenses | `2` | at least one lens name |
-| Delta | `7` | always (placeholder panes if no delta data) |
-| Duplicates | `8` | non-empty duplicate groups; label may be `Duplicates (H)` or `Duplicates (N/S)` |
+| Lenses | `2` | ≥1 lens |
+| Delta | `7` | always |
+| Duplicates | `8` | non-empty groups; may read `Duplicates (H)` / `(N/S)` |
 | Settings | `9` | always |
 
-Cycle (`~` / MainModeToggle): Snapshot → Lenses? → Delta → Duplicates? → Settings → Snapshot.
+Cycle (`~`): Snapshot → Lenses? → Delta → Duplicates? → Settings → Snapshot.
 
-Brand string: `UBLX` (not a tab).
+Web: same labels as **in-app tabs** on `/` (optional `/?mode=`). Never use API paths (`/delta`, `/lenses`, …) as UI routes.
+
+---
+
+## Shared 3-pane body (Snapshot / Delta / Duplicates / Lenses)
+
+Each pane is a bordered box. **Top border** = title tab node. **Bottom border** = optional footer nodes.
+
+```text
+┌─◀Categories▶────────────────┐┌─◀Contents▶ / ◀Paths▶──────────────┐┌─◀Viewer (v)▶ ◀Templates?▶ …──┐
+│                             ││                                   ││                              │
+│  list                       ││  path list                        ││  viewer / Zahir body          │
+│                             ││                                   ││                              │
+│                             ││                    [sort?] ◀n/N▶  ││              ◀size▶ ◀mtime▶  │
+└─────────────────────────────┘└───────────────────────────────────┘└──────────────────────────────┘
+     LEFT: title only                 MIDDLE: title_bottom          RIGHT Viewer: title_bottom
+                                      cluster RIGHT-aligned           meta cluster RIGHT-aligned
+```
+
+### Placement rules (do not invent)
+
+| Pane | Top (`title`) | Bottom (`title_bottom`) | Alignment of bottom cluster |
+| ---- | ------------- | ----------------------- | --------------------------- |
+| **Left** | Mode title node (`Categories`, `Delta type`, `Duplicate`, `Lens`) | *(none)* | — |
+| **Middle** | `Contents` (Snapshot) or `Paths` (Delta / Dupes / Lenses) | **`current/total`** selection counter; Snapshot/Dupes may add **sort** node; Delta may add **Time** sort | **RIGHT** — counter is the **rightmost** node. Sort sits **immediately left** of the counter when present. Multiselect may append `· N sel` into the counter text. |
+| **Right** | Tab nodes: `Viewer` / `Templates` / `Metadata` / `Writing` (hide empty) | Viewer only: size + mtime (+ PDF page when relevant) | **RIGHT** |
+| **Right** (find) | — | Find strip on `title_bottom` when active | caller-specific (same strip family as status search) |
+
+**Canonical counter code:** `middle::counter_line` → `style::node_line(..., HorizontalAlignment::Right, ...)`.  
+**Canonical sort+counter:** `middle::line_for` → `viewer_footer_line(Some(counter), None, Some(sort), …)` so spans order is **`[sort][counter]`**, whole line right-aligned.
+
+Empty lists: `(no contents)` / `(no matches)` (search). Loading placeholders in Delta-style modes when empty.
+
+**Fullscreen viewer:** right pane can cover the body; status line still applies.
+
+---
+
+## Per-mode body
+
+### Snapshot
+
+| Pane | Top title | Body | Bottom |
+| ---- | --------- | ---- | ------ |
+| Left | `Categories` | `All` + category names | — |
+| Middle | `Contents` | Paths for category (+ search); UBLX Settings paths may show as `Local` / `Global` | **RIGHT:** sort (`Name`/`Size`/`Mod` + arrow) + **`n/N`** |
+| Right | Viewer tabs | Preview / Zahir for selection | **RIGHT:** size + mtime (Viewer tab) |
+
+### Delta
+
+| Pane | Top title | Body | Bottom |
+| ---- | --------- | ---- | ------ |
+| Left | `Delta type` | `Added` / `Modified` / `Removed` (delta colors) | — |
+| Middle | `Paths` | Paths for type (+ search), often time-grouped | **RIGHT:** `Time ↕` sort + **`n/N`** |
+| Right | `Snapshot overview` | Overview text — **not** file Viewer | — |
+
+### Duplicates / Lenses
+
+Same shell (`user_selected_mode`):
+
+| Pane | Top | Body | Bottom |
+| ---- | --- | ---- | ------ |
+| Left | `Duplicate` / `Lens` | Groups / lens names | — |
+| Middle | `Paths` | Member paths | **RIGHT:** sort (Dupes) + **`n/N`** (Lenses: counter only) |
+| Right | Viewer tabs | Same as Snapshot | **RIGHT:** size + mtime |
+
+### Settings (TUI: **not** 3-pane)
+
+Full body is **50% / 50%** (ignores `[layout]`):
+
+| Side | Content |
+| ---- | ------- |
+| Left | Scope tab nodes `Global` \| `Local` + option rows (bools, layout %, opacity, theme, …) |
+| Right | Raw `ublx.toml` for active scope (scrollable buffer) |
+
+**Web (locked):** still **3-pane** for Settings — scope · controls · help + **live read-only TOML** (no text editor). Writes: `GET`/`PATCH /settings/{scope}` structured JSON only. **Do not** expose TUI-only `bg_opacity` as a web control (terminal OSC chrome).
 
 ---
 
 ## Focus model
 
-| Focus | Meaning |
-| ----- | ------- |
+| Focus | Pane |
+| ----- | ---- |
 | `PanelFocus::Categories` | Left list |
 | `PanelFocus::Contents` | Middle list |
 
-Right pane is **not** a focus target for list navigation (read/scroll/viewer). Focused pane gets focused border + title node; lists use highlight style + list symbol.
+Right pane is not a list-focus target. Focused pane: focused border + active title node; lists use highlight + list symbol (`›`).
 
 ---
 
-## Shared 3-pane chrome
+## Status / overlays (port later)
 
-Used by Snapshot, Delta, Duplicates, Lenses (not Settings).
-
-| Pane | Border title (default) | Body | Footer / extras |
-| ---- | ---------------------- | ---- | --------------- |
-| Left | Mode-specific (below) | Selectable list | — |
-| Middle | `Contents` or `Paths` | Path list (virtualized ≥512 rows in Snapshot) | `current/total` counter; optional sort node; multiselect count |
-| Right | Viewer tabs | Viewer: size / mtime footer (right-aligned); find strip on `title_bottom` |
-
-Panel titles use the same powerline **tab-node** look as the main bar (active vs inactive).
-
-Empty / loading: Delta-style placeholder (`—` / “Loading…”) when Duplicates/Lenses have no data.
-
-**Fullscreen viewer:** Snapshot / Duplicates / Lenses can expand the right pane over the whole body (`viewer_fullscreen`); status line still applies.
+| Surface | Slot | Notes |
+| ------- | ---- | ----- |
+| Catalog search (`/`) | **Status** (replaces Last Snapshot) | Filters categories + contents |
+| Viewer find (Shift+S) | Right `title_bottom` | Literal find in right content |
+| Help / theme / UBLX switch / Command Mode / space menus / toasts | Overlays | — |
 
 ---
 
-## Per-mode panes
+## Web parity checklist
 
-### Snapshot
-
-| Pane | Title | Data |
-| ---- | ----- | ---- |
-| Left | `Categories` | `All` + filtered category names |
-| Middle | `Contents` | Paths for selected category (+ search); UBLX Settings rows may display as `Local` / `Global` |
-| Right | tabbed Viewer… | File preview / Zahir sections for selection |
-
-Data flow: `load_snapshot_for_tui` → `ViewData` (category + search filter). See [`src/app/README.md`](../src/app/README.md).
-
-Middle footer: selection counter + snapshot sort (`Name` / `Size` / `Time` + direction).
-
-### Delta
-
-| Pane | Title | Data |
-| ---- | ----- | ---- |
-| Left | `Delta type` | `Added` / `Modified` / `Removed` (delta palette colors) |
-| Middle | paths list + counter | Paths for selected delta type (+ search) |
-| Right | `Snapshot overview` | Scrollable overview text (`DeltaViewData.overview_text`) — **not** the file Viewer |
-
-No selection-based `RightPaneContent` viewer in Delta.
-
-### Duplicates
-
-Same shell as Lenses (`user_selected_mode`):
-
-| Pane | Title | Data |
-| ---- | ----- | ---- |
-| Left | `Duplicate` | Group labels (hash or name+size mode) |
-| Middle | paths + counter | Member paths in selected group |
-| Right | Viewer tabs | Same right-pane stack as Snapshot for selected path |
-
-### Lenses
-
-| Pane | Title | Data |
-| ---- | ----- | ---- |
-| Left | `Lens` | Lens names |
-| Middle | paths + counter | Paths in selected lens |
-| Right | Viewer tabs | Same as Snapshot |
-
-### Settings (TUI: not 3-pane)
-
-**50% / 50%** horizontal split over the full body (ignores `[layout]` percentages):
-
-| Side | Content |
-| ---- | ------- |
-| Left | Scope powerline tabs `Global` \| `Local` + boolean / layout / opacity option rows |
-| Right | Raw `ublx.toml` preview (scrollable) for the active scope |
-
-**Web (locked):** no embedded TOML text editor. Edit via **controls only** (toggles, selects, steppers). Layout:
-
-| Pane | Role |
-| ---- | ---- |
-| Left | Scope: `Global` / `Local` |
-| Middle | Option rows as toggles / selects / value steppers (same keys as TUI settings rows) |
-| Right | Help for the focused option + **live read-only TOML** (updates after each structured write) |
-
-Writes go through `GET`/`PATCH /settings/{scope}` (structured JSON only — never a raw TOML body).
+| Target | TUI truth | Web must match |
+| ------ | --------- | -------------- |
+| Middle counter | `title_bottom`, **right-aligned** `n/N` node | `PathsPane` footer → **`justify-content: flex-end`** (not left) |
+| Middle sort | Optional node **left of** counter (Snapshot / Dupes / Delta) | Later |
+| Right Viewer meta | size + mtime **right** | `right-pane-footer` already end-aligned |
+| Status | Last Snapshot **left** | Shell footer |
+| Settings | TUI 2-pane + editable-feeling TOML buffer | Web: controls + read-only live TOML |
+| Embedded ship | — | `StaticMount::Embedded` later |
+| Catalog search | status strip | Next fill-in |
 
 ---
 
-## Right pane (Snapshot / Duplicates / Lenses)
-
-Tabs (hotkeys in TUI labels; web can omit chords):
-
-| Mode | Label | Visibility |
-| ---- | ----- | ---------- |
-| Viewer | `Viewer (v)` | always |
-| Templates | `Templates (t)` | non-empty `templates` |
-| Metadata | `Metadata (m)` | `metadata` present |
-| Writing | `Writing (w)` | `writing` present |
-
-`RightPaneContent` carries viewer body, Zahir JSON sections, snap meta (size, mtime, category), and derived open/enhance flags. Viewer stack includes markdown, syntect, CSV/tables, images, PDF/video (optional tools), directory trees, etc. — full parity is **post**-v0.2.0 for web; start with text / Zahir JSON / meta.
-
----
-
-## Status / search / overlays (port later)
-
-Not required for first web fill-in, but part of the TUI surface:
-
-| Surface | Role |
-| ------- | ---- |
-| Catalog search (`/`) | Filters categories + contents; replaces Last Snapshot on status line |
-| Viewer find (Shift+S) | In-pane literal search on right content |
-| Help (`?`) | Mode-aware key help overlay |
-| Theme selector | Palette picker overlay |
-| UBLX switch | Other indexed roots picker |
-| Command Mode | `Ctrl+{leader}` chord menu |
-| Space menus | File / lens / duplicate actions |
-| Startup prompts | Root choice, previous settings, enhance-all |
-| Toasts | Dev / notification |
-
----
-
-## Web parity checklist (vs first-pass shell)
-
-First pass already mirrors: main tabs (conditional Lenses/Delta/Duplicates), brand, project path gap, Last Snapshot footer, bordered 3-pane boxes, Snapshot categories + entries + right-pane tab shell.
-
-| Target | TUI truth | Web today | Suggested next |
-| ------ | --------- | --------- | -------------- |
-| Delta left | Added / Modified / Removed | wired from `/delta` | — |
-| Delta right | Snapshot overview text | snapshot timestamp list | — |
-| Lenses | Lens → paths → Viewer | wired `/lenses` + members + detail | — |
-| Duplicates | Group → paths → Viewer | wired `/duplicates` + detail | — |
-| Snapshot right | Viewer / Templates / Metadata / Writing | entry detail + Zahir section tabs | Disk file Viewer body (later / optional) |
-| Middle footer | `n/total` (+ sort) | Contents + list modes | Sort later; catalog search next |
-| Catalog search | status-line search | missing | Filter client-side or query params |
-| Settings | TUI: 2-pane + raw TOML | scope · controls · live TOML | — |
-| Embedded ship | `StaticMount::Embedded` | `Dir` / `UBLX_WEB_DIST` | After UI modes feel real |
-
----
-
-## Label cheat sheet
-
-Copy these strings when wiring web titles (from `UI_STRINGS`):
+## Label cheat sheet (`UI_STRINGS`)
 
 - Tabs: Snapshot, Lenses, Delta, Duplicates, Settings  
 - Snapshot: Categories, Contents, All, `(no contents)`, `(no matches)`  

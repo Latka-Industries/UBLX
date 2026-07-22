@@ -152,7 +152,9 @@ pub(crate) fn OverviewRightPane(text: Signal<String>) -> impl IntoView {
     }
 }
 
-/// Middle-pane path list with `n/total` footer (Snapshot / Delta / Lenses / Duplicates).
+/// Middle-pane path list with **right-aligned** `current/total` footer node
+/// (TUI: `title_bottom` via [`src/render/panes/middle.rs`](../../../../src/render/panes/middle.rs)).
+/// Used by Snapshot / Delta / Lenses / Duplicates.
 /// Rows with an empty key render as non-selectable timestamp headers.
 #[component]
 pub(crate) fn PathsPane(

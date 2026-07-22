@@ -390,10 +390,15 @@ button.tab-node {
 .pane-footer {
   display: flex;
   flex-wrap: wrap;
+  justify-content: flex-end;
   gap: 0.35rem;
   flex: 0 0 auto;
   padding: 0.3rem 0.45rem;
   border-top: 1px solid hsl(var(--border) / 0.5);
+}
+
+.pane-footer--start {
+  justify-content: flex-start;
 }
 
 .pane-footer .status-node {
