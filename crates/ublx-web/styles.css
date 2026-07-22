@@ -28,6 +28,8 @@
   --delta-mod: 43 97% 71%;
   --delta-removed: 0 84% 60%;
   --node: 217 67% 20%;
+  /* TUI table_row_style odd rows: lightened popup_bg */
+  --table-stripe: 216 55% 18%;
   --radius: 0.25rem;
   --chrome: 0.5rem;
 }
@@ -513,15 +515,25 @@ button.tab-node {
 .kv-table th,
 .kv-table td {
   padding: 0.2rem 0.55rem;
-  border-bottom: 1px solid hsl(var(--border));
   text-align: left;
   vertical-align: top;
 }
 
 .kv-table th {
-  color: hsl(var(--muted-foreground));
-  font-weight: 600;
+  background: hsl(var(--card));
+  color: hsl(var(--foreground));
+  font-weight: 700;
+  text-decoration: underline;
   white-space: nowrap;
+}
+
+/* TUI table_row_style: index 0/even = popup_bg; odd = stripe (CSS 1-based: odd→card) */
+.kv-table tbody tr:nth-child(odd) {
+  background: hsl(var(--card));
+}
+
+.kv-table tbody tr:nth-child(even) {
+  background: hsl(var(--table-stripe));
 }
 
 .kv-table__key {
@@ -537,13 +549,23 @@ button.tab-node {
 
 .kv-list {
   margin: 0;
-  padding-left: 1.1rem;
+  padding: 0;
+  list-style: none;
   font-size: 0.85rem;
   color: hsl(var(--foreground));
 }
 
 .kv-list li {
-  margin: 0.1rem 0;
+  margin: 0;
+  padding: 0.15rem 0.55rem;
+}
+
+.kv-list li:nth-child(odd) {
+  background: hsl(var(--card));
+}
+
+.kv-list li:nth-child(even) {
+  background: hsl(var(--table-stripe));
 }
 
 .settings-inline-row__value {

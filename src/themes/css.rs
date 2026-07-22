@@ -11,7 +11,10 @@ use ratatui::style::Color;
 use serde::Serialize;
 
 use super::color_utils::{color_to_hsl_token, rgb_to_hsl_token};
-use super::{Appearance, Palette, node_pill_background};
+use super::{Appearance, Palette, adjust_surface_rgb, node_pill_background};
+
+/// Matches TUI `table_row_style` stripe strength (`UiConstants::table_stripe_lighten` = 0.06).
+const TABLE_STRIPE_LIGHTEN: f32 = 0.06;
 
 /// Live theme payload for the web UI (`GET`/`PATCH /settings/{scope}`).
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
@@ -75,6 +78,12 @@ pub fn tokens_from_palette(palette: &Palette) -> ThemeCss {
     insert(&mut vars, "--delta-mod", palette.delta_mod);
     insert(&mut vars, "--delta-removed", palette.delta_removed);
     insert(&mut vars, "--node", pill);
+    // TUI `table_row_style`: even = popup_bg (--card); odd = lightened popup_bg
+    insert(
+        &mut vars,
+        "--table-stripe",
+        adjust_surface_rgb(palette.popup_bg, TABLE_STRIPE_LIGHTEN, palette.appearance),
+    );
 
     ThemeCss {
         name: palette.name.to_string(),

@@ -120,6 +120,7 @@ Rules:
 | `search_text()` | `search_text` | `--search` |
 | `hint_text()` | `hint` (+ `popup_bg` in TUI) | `--hint`, `--muted-foreground` |
 | popup / help panel | `popup_bg` | `--card`, `--popover`, `--accent` |
+| `table_row_style` stripes | `popup_bg` + `adjust_surface_rgb(…, table_stripe_lighten)` | `--card` (even) / `--table-stripe` (odd) |
 | `delta_*()` | `delta_added` / `delta_mod` / `delta_removed` | `--delta-*` |
 | `title_brand()` | `title_brand` | `--brand` (also favicon “U”) |
 | page bg (favicon tile) | `background` | `--background` (favicon square) |
