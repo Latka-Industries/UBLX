@@ -2,7 +2,7 @@
 
 Living backlog for **UBLX** (TUI catalog browser). Not a release promise — prioritize by profiling, user need, and architectural fit.
 
-**Status (v0.1.x):** Index → SQLite → Snapshot / Delta / Lenses / Duplicates / Settings; ZahirScan enrichment; strong Viewer (markdown, tables, images, PDF/video via optional tools, syntect code, Zarr, `.tet`). Config is TOML with hot reload. Headless catalog CLI: `ublx query` / `ublx doctor` (shared resolve/open). No plugin system, Lua, in-TUI runner, or user-authored themes yet.
+**Status (v0.1.x):** Index → SQLite → Snapshot / Delta / Lenses / Duplicates / Settings; ZahirScan enrichment; strong Viewer (markdown, tables, images, PDF/video via optional tools, syntect code, Zarr, `.tet`). Config is TOML with hot reload. Headless catalog CLI: `ublx query` / `ublx doctor` / `ublx serve` (JSON API via panza); remote `--url` / `UBLX_URL` on query+doctor. Optional embedded web UI is planned for **v0.2.0** (THI-157). No plugin system, Lua, in-TUI runner, or user-authored themes yet.
 
 Track work in GitHub Issues — **parent** issues by category, **sub-issues** for concrete tasks:
 
@@ -27,8 +27,9 @@ Track work in GitHub Issues — **parent** issues by category, **sub-issues** fo
 | Clap subcommands + shared catalog open | Done (THI-152) | `query` / `doctor`; `-s`/`-f`/`-x` unchanged |
 | `ublx query` | Done (THI-153) | List/filter/detail/delta/lenses; `--json`; nested zahir |
 | `ublx doctor` | Done (THI-154) | PASS/WARN/FAIL; `--fix`; blocked while snapshot writing unless `--force` |
-| `ublx serve` | Backlog (THI-156) | Local read-only HTTP over the same catalog |
-| Web UI for serve | Backlog (THI-157) | Svelte + Vite + Tailwind |
+| `ublx serve` | Done (THI-156 / v0.1.13) | Local HTTP API via panza (`StaticMount::None`) |
+| Remote `--url` / `UBLX_URL` | Done (THI-167 / v0.1.14) | `query` / `doctor` against a running serve |
+| Web UI for serve | Backlog (THI-157 / v0.2.0) | Leptos CSR + **leptos-shadcn-ui**, Cargo feature **`ui`**, panza embed — see [WEB_UI.md](WEB_UI.md) |
 | Crate split (catalog vs TUI) | Backlog (THI-155) | Faster compiles for CLI iteration |
 
 Parent: [THI-151](https://linear.app/thicclatka/issue/THI-151).
@@ -122,7 +123,7 @@ Engineering notes also live in local `TODO.md` (gitignored); items below are the
 
 ## Suggested sequencing
 
-1. **`ublx serve` + optional web UI** — HTTP over the same read surface as `query` (THI-156 / THI-157).
+1. **Optional web UI for serve** — Leptos CSR + `--features ui` (THI-157 / v0.2.0); API already shipped.
 2. **Lenses** — notes + export (user-visible, low architectural risk).
 3. **Performance** — memory / large-file hardening (stability for v0.1.x).
 4. **Platform ADR** — plugins / extension contract before Lua, runner, user themes.

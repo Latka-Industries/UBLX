@@ -1,0 +1,338 @@
+/* Oblivion Ink → shadcn HSL tokens + TUI chrome layout */
+
+:root,
+.dark {
+  --background: 214 65% 11%;
+  --foreground: 171 47% 85%;
+  --card: 216 65% 16%;
+  --card-foreground: 171 47% 85%;
+  --primary: 166 100% 70%;
+  --primary-foreground: 214 65% 11%;
+  --secondary: 209 61% 22%;
+  --secondary-foreground: 166 100% 70%;
+  --muted: 216 65% 10%;
+  --muted-foreground: 210 20% 65%;
+  --accent: 216 65% 16%;
+  --accent-foreground: 171 47% 85%;
+  --destructive: 0 72% 51%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 209 40% 22%;
+  --input: 209 40% 22%;
+  --ring: 166 100% 70%;
+  --brand: 267 94% 68%;
+  --hint: 267 94% 68%;
+  --radius: 0.25rem;
+  --chrome: 0.5rem;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+  font-family: ui-monospace, "Cascadia Code", "SF Mono", Menlo, monospace;
+  font-size: 15px;
+}
+
+body > * {
+  height: 100%;
+}
+
+/* —— shell: header · body · footer —— */
+.tui-shell {
+  display: grid;
+  grid-template-rows: auto auto 1fr auto;
+  height: 100%;
+  min-height: 100vh;
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+}
+
+.shell-loading {
+  padding: 1.5rem;
+  color: hsl(var(--muted-foreground));
+}
+
+.main-chrome {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0.6rem;
+  border-bottom: 1px solid hsl(var(--border));
+  background: hsl(var(--background));
+}
+
+.main-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.main-tabs a {
+  text-decoration: none;
+  color: inherit;
+}
+
+.brand {
+  flex: 0 0 auto;
+  margin-left: auto;
+  padding: 0.15rem 0.5rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: hsl(var(--brand));
+}
+
+/* TUI gap row under tabs: centered indexed project path (`Palette::hint`) */
+.project-path {
+  padding: 0.2rem 0.75rem 0.35rem;
+  text-align: center;
+  color: hsl(var(--hint));
+  font-size: 0.85rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  border-bottom: 1px solid hsl(var(--border) / 0.5);
+}
+
+.mode-body {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.status-chrome {
+  border-top: 1px solid hsl(var(--border));
+  padding: 0.3rem 0.5rem;
+  background: hsl(var(--background));
+}
+
+.footer-nodes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.status-node {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  background: hsl(var(--secondary));
+  color: hsl(var(--secondary-foreground));
+  font-size: 0.875rem;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.status-node--muted {
+  color: hsl(var(--muted-foreground));
+  background: hsl(var(--muted));
+}
+
+.status-node--end {
+  margin-left: auto;
+}
+
+/* —— powerline-ish tab nodes —— */
+.tab-node {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.65rem;
+  border-radius: var(--radius);
+  background: hsl(var(--muted));
+  color: hsl(var(--muted-foreground));
+  font-size: 0.9rem;
+  border: 1px solid transparent;
+  cursor: pointer;
+}
+
+.tab-node--sm {
+  font-size: 0.85rem;
+  padding: 0.2rem 0.6rem;
+}
+
+.tab-node--active {
+  background: hsl(var(--secondary));
+  color: hsl(var(--primary));
+  border-color: hsl(var(--primary) / 0.35);
+}
+
+button.tab-node {
+  font: inherit;
+}
+
+/* —— 3 panes: bordered boxes like ratatui Block + Borders::ALL —— */
+.three-pane {
+  display: grid;
+  grid-template-columns: minmax(11rem, 18%) minmax(14rem, 32%) 1fr;
+  height: 100%;
+  min-height: 0;
+  gap: 0.4rem;
+  padding: 0.4rem;
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.panel-frame {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border: 1px solid hsl(var(--border));
+  background: hsl(var(--background));
+}
+
+.panel--focused .panel-frame {
+  border-color: hsl(var(--primary));
+}
+
+.panel-titlebar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  flex: 0 0 auto;
+  padding: 0.35rem 0.45rem 0.3rem;
+}
+
+.panel-inner,
+.panel-pad {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--secondary-foreground) / 0.55) hsl(var(--muted));
+}
+
+.panel-inner {
+  display: flex;
+  flex-direction: column;
+}
+
+.panel-pad {
+  padding: 0.45rem 0.55rem;
+}
+
+.panel-inner::-webkit-scrollbar,
+.panel-pad::-webkit-scrollbar {
+  width: 0.55rem;
+  height: 0.55rem;
+}
+
+.panel-inner::-webkit-scrollbar-track,
+.panel-pad::-webkit-scrollbar-track {
+  background: hsl(var(--muted));
+  border-left: 1px solid hsl(var(--border) / 0.5);
+}
+
+.panel-inner::-webkit-scrollbar-thumb,
+.panel-pad::-webkit-scrollbar-thumb {
+  background: hsl(var(--secondary));
+  border: 1px solid hsl(var(--primary) / 0.35);
+  border-radius: 999px;
+}
+
+.panel-inner::-webkit-scrollbar-thumb:hover,
+.panel-pad::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--primary) / 0.35);
+  border-color: hsl(var(--primary));
+}
+
+.panel-inner::-webkit-scrollbar-corner,
+.panel-pad::-webkit-scrollbar-corner {
+  background: hsl(var(--muted));
+}
+
+.panel-list {
+  list-style: none;
+  margin: 0;
+  padding: 0.15rem 0 0.35rem;
+}
+
+.panel-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  width: 100%;
+  margin: 0;
+  padding: 0.2rem 0.55rem;
+  border: 0;
+  background: transparent;
+  color: hsl(var(--foreground));
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.panel-row:hover {
+  background: hsl(var(--secondary) / 0.45);
+}
+
+.panel-row--selected {
+  background: hsl(var(--secondary));
+  color: hsl(var(--primary));
+}
+
+.panel-row__sym {
+  flex: 0 0 0.75rem;
+  color: hsl(var(--primary));
+  font-weight: 700;
+}
+
+.panel-row__text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pane-empty {
+  margin: 0;
+  padding: 0.45rem 0.55rem;
+  color: hsl(var(--muted-foreground));
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.right-pane {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.right-pane-chrome {
+  border-bottom: 1px solid hsl(var(--border) / 0.5);
+}
+
+.right-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  flex: 1;
+}
+
+@media (max-width: 900px) {
+  .three-pane {
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(8rem, 22%) minmax(10rem, 30%) 1fr;
+  }
+}

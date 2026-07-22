@@ -1,3 +1,8 @@
+[workspace]
+members = [".", "crates/ublx-web"]
+default-members = ["."]
+resolver = "2"
+
 [package]
 name = "ublx"
 version = "0.1.14"
@@ -26,6 +31,8 @@ no-default-features = true
 [features]
 default = ["zahir-netcdf"]
 zahir-netcdf = ["zahirscan/netcdf"]
+# Embedded / Dir-mounted Leptos UI for `ublx serve` (build UI with crates/ublx-web/build.sh first).
+ui = []
 
 [dependencies]
 anyhow = "1.0.104"
