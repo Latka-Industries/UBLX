@@ -39,8 +39,8 @@ pub(crate) fn ThreePane(
             <PanelBox
                 title="Right"
                 hide_default_title=true
-                focused=Signal::derive(move || focus.get() == PaneFocus::Right)
-                on_focus=Callback::new(move |_| set_focus.set(PaneFocus::Right))
+                focused=Signal::derive(|| false)
+                on_focus=Callback::new(|_| {})
             >
                 {right}
             </PanelBox>
@@ -101,6 +101,11 @@ pub(crate) fn PanelRow(
                     } else {
                         "panel-row"
                     }
+                }
+                on:mousedown=move |ev| {
+                    // Prevent the button from taking DOM focus; otherwise click→arrow
+                    // leaves a stuck :focus highlight on the old row.
+                    ev.prevent_default();
                 }
                 on:click=move |_| on_select.run(())
             >

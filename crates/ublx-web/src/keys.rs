@@ -25,13 +25,12 @@ pub(crate) enum WebAction {
 }
 
 /// Map a keydown to a [`WebAction`]. Returns `None` when the event should pass through.
+///
+/// Caller must skip invoking this while a form field (including catalog search input) is focused.
 #[must_use]
-pub(crate) fn action_from_keydown(ev: &KeyboardEvent, search_active: bool) -> Option<WebAction> {
-    if search_active {
-        return None;
-    }
-
+pub(crate) fn action_from_keydown(ev: &KeyboardEvent) -> Option<WebAction> {
     let key = ev.key();
+    let code = ev.code();
     let ctrl = ev.ctrl_key() || ev.meta_key();
     let alt = ev.alt_key();
     let shift = ev.shift_key();
@@ -44,14 +43,24 @@ pub(crate) fn action_from_keydown(ev: &KeyboardEvent, search_active: bool) -> Op
         return Some(WebAction::CycleRightTab);
     }
 
-    // Mode digits / search / toggle (ignore when Ctrl held).
+    // Mode digits via `code` (layout-stable) + numpad.
+    if !ctrl && !shift {
+        let digit_mode = match code.as_str() {
+            "Digit1" | "Numpad1" => Some(MainMode::Snapshot),
+            "Digit2" | "Numpad2" => Some(MainMode::Lenses),
+            "Digit7" | "Numpad7" => Some(MainMode::Delta),
+            "Digit8" | "Numpad8" => Some(MainMode::Duplicates),
+            "Digit9" | "Numpad9" => Some(MainMode::Settings),
+            _ => None,
+        };
+        if let Some(m) = digit_mode {
+            return Some(WebAction::MainMode(m));
+        }
+    }
+
+    // Search / toggle / Tab (ignore when Ctrl held).
     if !ctrl {
         match key.as_str() {
-            "1" if !shift => return Some(WebAction::MainMode(MainMode::Snapshot)),
-            "2" if !shift => return Some(WebAction::MainMode(MainMode::Lenses)),
-            "7" if !shift => return Some(WebAction::MainMode(MainMode::Delta)),
-            "8" if !shift => return Some(WebAction::MainMode(MainMode::Duplicates)),
-            "9" if !shift => return Some(WebAction::MainMode(MainMode::Settings)),
             "/" if !shift => return Some(WebAction::SearchStart),
             "~" => return Some(WebAction::MainModeToggle),
             "Tab" if !shift => return Some(WebAction::FocusCycle),

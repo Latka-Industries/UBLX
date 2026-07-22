@@ -4,19 +4,19 @@ use leptos::prelude::*;
 
 use crate::panes::RightTab;
 
+/// Keyboard focus is left or middle only — right pane is content/tabs, not a focus target.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub(crate) enum PaneFocus {
     Left,
     #[default]
     Middle,
-    Right,
 }
 
 impl PaneFocus {
     pub(crate) fn cycle(self) -> Self {
         match self {
             Self::Left => Self::Middle,
-            Self::Middle | Self::Right => Self::Left,
+            Self::Middle => Self::Left,
         }
     }
 }
@@ -70,7 +70,6 @@ impl UiNav {
         match self.pane.get_untracked() {
             PaneFocus::Left => self.left.get_untracked(),
             PaneFocus::Middle => self.middle.get_untracked(),
-            PaneFocus::Right => None,
         }
     }
 }

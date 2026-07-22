@@ -85,6 +85,7 @@ pub(crate) fn DeltaMode() -> impl IntoView {
                                                         };
                                                         format!("{base} {class}")
                                                     }
+                                                    on:mousedown=move |ev| ev.prevent_default()
                                                     on:click=move |_| {
                                                         set_kind.set(k);
                                                         set_selected_path.set(None);

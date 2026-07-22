@@ -40,11 +40,11 @@ pub(crate) fn Shell(flags: CatalogFlags) -> impl IntoView {
         let set_mode = set_mode;
         let flags = flags;
         let closure = wasm_bindgen::closure::Closure::wrap(Box::new(move |ev: KeyboardEvent| {
+            // Catalog search input (and Settings fields) keep their own keys; otherwise hotkeys win.
             if typing_in_form_field() {
                 return;
             }
-            let search_active = search.active.get_untracked();
-            let Some(action) = action_from_keydown(&ev, search_active) else {
+            let Some(action) = action_from_keydown(&ev) else {
                 return;
             };
             ev.prevent_default();
@@ -129,43 +129,64 @@ fn dispatch_action(
             nav.set_pane.set(next);
         }
         WebAction::MoveUp => {
+            blur_panel_row_focus();
             if let Some(list) = nav.active_list() {
                 list.move_by.run(-1);
             }
         }
         WebAction::MoveDown => {
+            blur_panel_row_focus();
             if let Some(list) = nav.active_list() {
                 list.move_by.run(1);
             }
         }
         WebAction::MoveUpFast => {
+            blur_panel_row_focus();
             if let Some(list) = nav.active_list() {
                 list.move_by.run(-10);
             }
         }
         WebAction::MoveDownFast => {
+            blur_panel_row_focus();
             if let Some(list) = nav.active_list() {
                 list.move_by.run(10);
             }
         }
         WebAction::ListTop => {
+            blur_panel_row_focus();
             if let Some(list) = nav.active_list() {
                 list.to_start.run(());
             }
         }
         WebAction::ListBottom => {
+            blur_panel_row_focus();
             if let Some(list) = nav.active_list() {
                 list.to_end.run(());
             }
         }
         WebAction::RightTab(t) => {
+            // Right tabs switch content only — keyboard focus stays on left/middle.
             tabs.set_request.set(Some(t));
-            nav.set_pane.set(PaneFocus::Right);
         }
         WebAction::CycleRightTab => {
             tabs.bump_cycle.update(|n| *n = n.wrapping_add(1));
-            nav.set_pane.set(PaneFocus::Right);
         }
+    }
+}
+
+/// Drop DOM focus from a clicked panel row so keyboard selection is the only highlight.
+fn blur_panel_row_focus() {
+    let Some(doc) = web_sys::window().and_then(|w| w.document()) else {
+        return;
+    };
+    let Some(el) = doc.active_element() else {
+        return;
+    };
+    let class = el.get_attribute("class").unwrap_or_default();
+    if class.split_whitespace().any(|c| c == "panel-row")
+        && let Ok(html) = el.dyn_into::<web_sys::HtmlElement>()
+    {
+        let _ = html.blur();
     }
 }
 
@@ -205,7 +226,7 @@ fn MainTabBar(
                     view! {
                         <Show when=move || visible.get()>
                             <TabBtn
-                                label=m.label()
+                                label=m.tab_title()
                                 active=Signal::derive(move || mode.get() == m)
                                 on_click=Callback::new(move |_| select_mode(set_mode, m))
                             />
@@ -218,7 +239,7 @@ fn MainTabBar(
 }
 
 #[component]
-fn TabBtn(label: &'static str, active: Signal<bool>, on_click: Callback<()>) -> impl IntoView {
+fn TabBtn(label: String, active: Signal<bool>, on_click: Callback<()>) -> impl IntoView {
     view! {
         <button
             type="button"
@@ -310,6 +331,11 @@ fn FooterNodes(flags: StoredValue<CatalogFlags>, search: CatalogSearch) -> impl 
                             prop:value=move || search.query.get()
                             on:input=move |ev| {
                                 search.set_query.set(event_target_value(&ev));
+                            }
+                            on:blur=move |_| {
+                                // Leave typing mode on blur so digit/mode hotkeys work again;
+                                // keep query (strip stays visible) like TUI after Enter.
+                                search.set_active.set(false);
                             }
                             on:keydown=move |ev| {
                                 let key = ev.key();

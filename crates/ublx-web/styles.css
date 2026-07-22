@@ -330,13 +330,42 @@ button.tab-node {
   cursor: pointer;
 }
 
+/* Selection class is the only row highlight — never leave a stuck :focus ghost after click. */
+.panel-row:focus,
+.panel-row:focus-visible {
+  outline: none;
+}
+
+.panel-row:focus:not(.panel-row--selected),
+.panel-row:focus-visible:not(.panel-row--selected) {
+  background: transparent;
+  color: hsl(var(--foreground));
+}
+
 .panel-row:hover {
   background: hsl(var(--secondary) / 0.45);
 }
 
+/* Selected row in an unfocused pane — keep state visible, don't compete with the cursor. */
 .panel-row--selected {
+  background: hsl(var(--secondary) / 0.3);
+  color: hsl(var(--foreground));
+}
+
+.panel-row--selected .panel-row__sym {
+  color: hsl(var(--muted-foreground));
+  font-weight: 600;
+}
+
+/* Active cursor: full selected chrome only in the focused pane. */
+.panel--focused .panel-row--selected {
   background: hsl(var(--secondary));
   color: hsl(var(--primary));
+}
+
+.panel--focused .panel-row--selected .panel-row__sym {
+  color: hsl(var(--primary));
+  font-weight: 700;
 }
 
 .panel-row__sym {
@@ -474,9 +503,10 @@ button.tab-node {
   color: hsl(0 70% 60%);
 }
 
-.panel-row--selected.delta-added .panel-row__text,
-.panel-row--selected.delta-mod .panel-row__text,
-.panel-row--selected.delta-removed .panel-row__text {
+/* Focused selection uses pane primary; unfocused keeps delta hues. */
+.panel--focused .panel-row--selected.delta-added .panel-row__text,
+.panel--focused .panel-row--selected.delta-mod .panel-row__text,
+.panel--focused .panel-row--selected.delta-removed .panel-row__text {
   color: inherit;
 }
 
