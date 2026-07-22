@@ -26,7 +26,9 @@ use crate::cli_parser::ServeCli;
 use crate::config::{UblxPaths, all_indexed_roots_alphabetical, record_prior_root_selected};
 use crate::handlers::run_snap_pipeline_from_dir_db;
 use crate::handlers::viewing::sectioned_preview_from_zahir;
+use crate::integrations::{ZahirFT, file_type_from_metadata_name};
 use crate::render::kv_tables::{SectionView, parse_json_to_views};
+use crate::utils::file_content_for_viewer;
 
 /// Live catalog for one serve process — switchable via `/roots/current`.
 struct ServeCatalog {
@@ -135,6 +137,7 @@ pub fn run(args: &ServeCli) -> Result<(), anyhow::Error> {
         .route("/categories", get(get_categories))
         .route("/entries", get(get_entries))
         .route("/entries/{*path}", get(get_entry))
+        .route("/content/{*path}", get(get_entry_content))
         .route("/delta", get(get_delta))
         .route("/duplicates", get(get_duplicates))
         .route("/lenses", get(get_lenses))
@@ -421,14 +424,10 @@ async fn get_entry(
     AxumPath(path): AxumPath<String>,
     Query(q): Query<EntryQuery>,
 ) -> Result<Response, ApiError> {
-    let path = normalize_entry_path(&path);
+    let path = require_rel_path(&path)?;
     let dir = current_dir(&state)?;
     with_db(&state, |conn| {
-        let row = match entry_detail(conn, &path, q.zahir) {
-            Ok(r) => r,
-            Err(e) if is_not_found(&e) => return Err(ApiError::not_found(e)),
-            Err(e) => return Err(ApiError::from(e)),
-        };
+        let row = entry_row(conn, &path, q.zahir)?;
         if !q.zahir {
             return Ok(Json(row).into_response());
         }
@@ -441,6 +440,97 @@ async fn get_entry(
         })
         .into_response())
     })
+}
+
+#[derive(Debug, Deserialize)]
+struct EntryContentQuery {
+    /// `text` or `html` (markdown → HTML via pulldown-cmark). Omitted → HTML for Markdown.
+    #[serde(default)]
+    format: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+struct EntryContentResponse {
+    path: String,
+    category: String,
+    /// `text` or `html`
+    format: String,
+    content: String,
+}
+
+async fn get_entry_content(
+    State(state): State<AppState>,
+    AxumPath(path): AxumPath<String>,
+    Query(q): Query<EntryContentQuery>,
+) -> Result<impl IntoResponse, ApiError> {
+    let path = require_rel_path(&path)?;
+    let dir = current_dir(&state)?;
+    let row = with_db(&state, |conn| entry_row(conn, &path, false))?;
+    let abs = resolve_entry_disk_path(&dir, &path)?;
+    let zahir_type = file_type_from_metadata_name(&row.category);
+    let text = file_content_for_viewer(&abs, zahir_type).unwrap_or_else(|| "(empty)".into());
+    let want_html = content_want_html(q.format.as_deref(), zahir_type)?;
+    let (format, content) = if want_html {
+        ("html".into(), markdown_to_html(&text))
+    } else {
+        ("text".into(), text)
+    };
+
+    Ok(Json(EntryContentResponse {
+        path: row.path,
+        category: row.category,
+        format,
+        content,
+    }))
+}
+
+fn content_want_html(format: Option<&str>, zahir_type: Option<ZahirFT>) -> Result<bool, ApiError> {
+    match format.map(str::trim) {
+        Some("html") => Ok(true),
+        Some("text") => Ok(false),
+        None => Ok(zahir_type == Some(ZahirFT::Markdown)),
+        Some(other) => Err(ApiError::bad_request(format!(
+            "invalid format {other:?}; expected text|html"
+        ))),
+    }
+}
+
+fn markdown_to_html(src: &str) -> String {
+    use pulldown_cmark::{Options, Parser, html};
+    let parser = Parser::new_ext(src, Options::all());
+    let mut out = String::new();
+    html::push_html(&mut out, parser);
+    out
+}
+
+fn entry_row(conn: &Connection, path: &str, include_zahir: bool) -> Result<EntryRow, ApiError> {
+    match entry_detail(conn, path, include_zahir) {
+        Ok(r) => Ok(r),
+        Err(e) if is_not_found(&e) => Err(ApiError::not_found(e)),
+        Err(e) => Err(ApiError::from(e)),
+    }
+}
+
+/// Normalize and reject empty / `..` segments (path-traversal).
+fn require_rel_path(path: &str) -> Result<String, ApiError> {
+    let path = normalize_entry_path(path);
+    if path.is_empty() || path.split('/').any(|s| s == "..") {
+        return Err(ApiError::bad_request("invalid entry path"));
+    }
+    Ok(path)
+}
+
+/// Join catalog-relative path under the current root; reject escapes outside the root.
+fn resolve_entry_disk_path(root: &Path, rel: &str) -> Result<PathBuf, ApiError> {
+    let root = canonicalize_dir(root);
+    let joined = root.join(rel);
+    let canon = joined
+        .canonicalize()
+        .map_err(|e| ApiError::not_found(format!("file not found for {rel}: {e}")))?;
+    if !canon.starts_with(&root) {
+        return Err(ApiError::bad_request("path escapes project root"));
+    }
+    Ok(canon)
 }
 
 #[derive(Debug, Serialize)]

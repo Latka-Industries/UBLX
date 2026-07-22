@@ -304,6 +304,32 @@ pub(crate) async fn fetch_entry_detail(path: &str) -> Result<EntryDetail, String
     Ok(EntryDetail::from_row(row))
 }
 
+/// Disk file body for Viewer (`GET /content/{path}`).
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Eq)]
+pub(crate) struct EntryContent {
+    #[serde(default)]
+    pub path: String,
+    #[serde(default)]
+    pub category: String,
+    /// `text` or `html`
+    #[serde(default)]
+    pub format: String,
+    #[serde(default)]
+    pub content: String,
+}
+
+/// `format`: `Some("html")` | `Some("text")` | `None` (server default — HTML for Markdown).
+pub(crate) async fn fetch_entry_content(
+    path: &str,
+    format: Option<&str>,
+) -> Result<EntryContent, String> {
+    let mut url = format!("/content/{}", encode_entry_path(path));
+    if let Some(f) = format {
+        url.push_str(&format!("?format={f}"));
+    }
+    get_json::<EntryContent>(&url).await
+}
+
 pub(crate) async fn fetch_lens_names() -> Vec<String> {
     get_json::<Vec<String>>("/lenses").await.unwrap_or_default()
 }

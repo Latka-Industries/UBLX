@@ -179,7 +179,8 @@ Mouse click remains supported; keyboard is first-class.
 - [x] Help overlay (`?`) + footer `? — Help` chip; 7px shell inset from browser edge
 - [x] Palette → CSS tokens (`themes::css`); Settings theme dropdown applies live
 - [x] Middle sort node left of `n/N` (Snapshot / Dupes / Delta) + `s` cycle
-- [ ] Pretty Metadata + Writing (KV / column-stat tables; `typed_column_tables`)
+- [x] Pretty Metadata + Writing (KV / column-stat tables; `typed_column_tables`)
+- [ ] Markdown viewer (Viewer tab; needs `/content/{*path}`)
 
 ---
 
@@ -193,8 +194,8 @@ One concern per PR. Order is dependency-aware; titles are suggestions.
 | **2** | **Help overlay (`?`)** | ✅ Landed (#44) — mode-aware popup, footer chip, Esc/`?`/backdrop close | [`help.rs`](../crates/ublx-web/src/help.rs) |
 | **3** | **Palette → CSS tokens** | ✅ Landed — `Palette` → HSL vars; Settings theme switches live look | [`themes/css.rs`](../src/themes/css.rs); WEB_UI token table above |
 | **4** | **Middle sort node** | ✅ Landed — sort left of `n/N` + `s` cycle (TUI `ContentSort` rules) | [`sort.rs`](../crates/ublx-web/src/sort.rs); [`middle.rs`](../src/render/panes/middle.rs) |
-| **5** | **Pretty Metadata + Writing** | Port KV / column-stat table rendering into Metadata & Writing tabs (abbrev/full rules) | [`export.rs`](../src/render/kv_tables/export.rs); [`kv_tables.rs`](../crates/ublx-web/src/kv_tables.rs); Settings `typed_column_tables` |
-| **6** | **Markdown viewer** | Viewer tab renders markdown like TUI (flow, tables, code fences) | [`render/viewers/markdown/`](../src/render/viewers/markdown/); needs file/preview API if not already |
+| **5** | **Pretty Metadata + Writing** | ✅ Landed (#47) — host `SectionView` + Settings `typed_column_tables` | [`export.rs`](../src/render/kv_tables/export.rs); [`kv_tables.rs`](../crates/ublx-web/src/kv_tables.rs) |
+| **6** | **Markdown viewer** | Viewer tab renders markdown like TUI (flow, tables, code fences) | [`viewer.rs`](../crates/ublx-web/src/viewer.rs); `GET /content/{*path}`; [`render/viewers/markdown/`](../src/render/viewers/markdown/) |
 | **7** | **Code / syntect viewer** | Syntax-highlighted text for code categories | [`syntect_text`](../src/render/viewers/syntect_text.rs) |
 | **8** | **Tables / CSV (+ misc text)** | Tabular + plain text fallbacks in Viewer | [`csv_handler`](../src/render/viewers/csv_handler.rs), pretty tables |
 | **9** | **Images (and covers)** | Raster / SVG preview in Viewer | [`viewers/images/`](../src/render/viewers/images/), `svg_preview` |
@@ -213,6 +214,11 @@ One concern per PR. Order is dependency-aware; titles are suggestions.
 | Root switcher | UI for `GET`/`PUT /roots/current` |
 | Snapshot trigger | UI for `POST`/`GET /snapshot` |
 | Doctor / health surface | `GET /doctor` + panza health |
+
+**Post v0.2.0** (tracked in Linear, not MVP blockers):
+
+- Catalog fetch cache across main-tab switches — [THI-168](https://linear.app/thicclatka/issue/THI-168/web-ui-cache-catalog-fetches-across-main-tab-switches-v021)
+- Font selection (CSS `--font-mono` / Settings) — [THI-169](https://linear.app/thicclatka/issue/THI-169/web-ui-font-selection-post-v020)
 
 Do **not** expand a mini-PR into “finish the whole Viewer stack” — keep each PR reviewable.
 

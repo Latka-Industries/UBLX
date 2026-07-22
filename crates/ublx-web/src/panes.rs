@@ -11,6 +11,7 @@ use crate::kv_tables::KvTables;
 use crate::nav::MainMode;
 use crate::search;
 use crate::sort::ContentSortCtx;
+use crate::viewer::EntryViewer;
 
 /// Shared 3-pane TUI layout — bordered boxes with title nodes.
 /// Pane focus lives in [`UiNav`] (keyboard + click).
@@ -411,7 +412,6 @@ pub(crate) fn EntryRightPane(detail: Signal<Option<EntryDetail>>) -> impl IntoVi
                     let d = detail.get().unwrap_or_default();
                     let path = d.path.clone();
                     let category = d.category.clone();
-                    let show_category = !category.is_empty();
                     let size = d.size;
                     let templates = d.templates.clone();
                     let metadata = d.metadata.clone();
@@ -446,15 +446,7 @@ pub(crate) fn EntryRightPane(detail: Signal<Option<EntryDetail>>) -> impl IntoVi
                                     let path = path.clone();
                                     let category = category.clone();
                                     view! {
-                                        <div class="entry-viewer">
-                                            <p class="entry-viewer__path">{path}</p>
-                                            <Show when=move || show_category>
-                                                <p class="entry-viewer__meta">{category.clone()}</p>
-                                            </Show>
-                                            <p class="pane-empty entry-viewer__note">
-                                                "(viewer — disk file preview not available over serve yet)"
-                                            </p>
-                                        </div>
+                                        <EntryViewer path=path category=category/>
                                     }
                                     .into_any()
                                 }
