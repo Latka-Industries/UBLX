@@ -6,12 +6,14 @@ use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
 
 use crate::config::{
-    LayoutOverlay, UblxOverlay, UblxPaths, load_ublx_toml,
+    ColumnStatsDisplay, LayoutOverlay, UblxOverlay, UblxPaths, load_ublx_toml,
     strip_global_only_keys_from_local_overlay, write_ublx_overlay_at,
 };
 use crate::layout::setup::SettingsConfigScope;
 use crate::modules::settings::{
-    SettingsBoolKey, bool_key, bool_row_count, bool_row_label, overlay_bool, write_bool,
+    SettingsBoolKey, bool_key, bool_row_count, bool_row_label, overlay_bool,
+    overlay_typed_column_tables, typed_column_tables_toml_value, write_bool,
+    write_typed_column_tables,
 };
 use crate::themes;
 
@@ -43,6 +45,8 @@ pub struct SettingsView {
     pub theme: String,
     pub themes: Vec<String>,
     pub bg_opacity: f32,
+    /// `none` | `abbrev` | `full` — display overlay value (Local = merged).
+    pub typed_column_tables: String,
     /// Effective (global∪local) palette → live CSS / shadcn HSL tokens for the web UI.
     pub css: themes::ThemeCss,
 }
@@ -57,6 +61,8 @@ pub struct SettingsPatch {
     pub theme: Option<String>,
     pub bg_opacity: Option<f32>,
     pub layout: Option<LayoutOverlay>,
+    /// `none` | `abbrev` | `full`.
+    pub typed_column_tables: Option<String>,
 }
 
 fn theme_names() -> Vec<&'static str> {
@@ -66,13 +72,36 @@ fn theme_names() -> Vec<&'static str> {
         .collect()
 }
 
-/// Merged global+local overlay theme → CSS tokens (what the web shell should look like).
-fn effective_theme_css(dir: &Path, name_refs: &[&str]) -> themes::ThemeCss {
+/// Merged global+local overlay (theme + column-stats) for serve-side rendering.
+fn effective_overlay(dir: &Path, name_refs: &[&str]) -> UblxOverlay {
     let paths = UblxPaths::new(dir);
     let global = load_ublx_toml(paths.global_config(), Some(name_refs));
     let local = load_ublx_toml(Some(paths.local_config_path_for_write()), Some(name_refs));
-    let merged = UblxOverlay::merge(global, local);
-    themes::tokens_for_theme_name(merged.theme.as_deref())
+    UblxOverlay::merge(global, local)
+}
+
+/// Merged global+local overlay theme → CSS tokens (what the web shell should look like).
+fn effective_theme_css(dir: &Path, name_refs: &[&str]) -> themes::ThemeCss {
+    themes::tokens_for_theme_name(effective_overlay(dir, name_refs).theme.as_deref())
+}
+
+/// Effective `typed_column_tables` for Metadata / Writing table export.
+#[must_use]
+pub fn effective_typed_column_tables(dir: &Path) -> ColumnStatsDisplay {
+    let names: Vec<String> = theme_names().into_iter().map(str::to_string).collect();
+    let name_refs: Vec<&str> = names.iter().map(String::as_str).collect();
+    overlay_typed_column_tables(&effective_overlay(dir, &name_refs))
+}
+
+fn parse_typed_column_tables(raw: &str) -> Result<ColumnStatsDisplay, String> {
+    match raw.trim().to_ascii_lowercase().as_str() {
+        "none" => Ok(ColumnStatsDisplay::None),
+        "abbrev" => Ok(ColumnStatsDisplay::Abbrev),
+        "full" => Ok(ColumnStatsDisplay::Full),
+        other => Err(format!(
+            "invalid typed_column_tables {other:?}; expected none|abbrev|full"
+        )),
+    }
 }
 
 fn parse_scope(scope: &str) -> Result<SettingsConfigScope, String> {
@@ -197,6 +226,8 @@ pub fn get_settings_view(dir: &Path, scope_str: &str) -> Result<SettingsView, St
 
     let (exists, toml) = read_toml_text(&path);
     let (bools, layout, theme, bg_opacity) = controls_from_overlay(scope, &display_overlay);
+    let typed_column_tables =
+        typed_column_tables_toml_value(overlay_typed_column_tables(&display_overlay)).to_string();
     let css = effective_theme_css(dir, &name_refs);
 
     Ok(SettingsView {
@@ -212,6 +243,7 @@ pub fn get_settings_view(dir: &Path, scope_str: &str) -> Result<SettingsView, St
         theme,
         themes: names,
         bg_opacity,
+        typed_column_tables,
         css,
     })
 }
@@ -298,6 +330,10 @@ fn apply_patch(
             return Err(format!("layout percentages must sum to 100 (got {sum})"));
         }
         overlay.layout = Some(layout.clone());
+    }
+    if let Some(ref raw) = patch.typed_column_tables {
+        let v = parse_typed_column_tables(raw)?;
+        write_typed_column_tables(overlay, v);
     }
     Ok(())
 }

@@ -29,6 +29,7 @@
 pub mod column_metadata;
 pub mod consts;
 pub mod draw;
+pub mod export;
 pub mod format;
 pub mod parse_ctx;
 pub mod ratatui_table;
@@ -39,6 +40,7 @@ pub mod walk;
 pub mod xlsx;
 
 pub use draw::*;
+pub use export::{SectionView, parse_json_to_views};
 pub use parse_ctx::KvParseCtx;
 pub use sections::*;
 pub use walk::WalkKeyVars;

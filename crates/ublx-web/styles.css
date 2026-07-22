@@ -476,6 +476,81 @@ button.tab-node {
   color: hsl(var(--foreground));
 }
 
+/* —— Metadata / Writing KV tables (TUI kv_tables) —— */
+.kv-tables {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.kv-section__title {
+  margin: 0 0 0.35rem;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: hsl(var(--foreground));
+}
+
+.kv-section__title--sub {
+  font-weight: 600;
+  color: hsl(var(--muted-foreground));
+}
+
+.kv-table-scroll {
+  overflow-x: auto;
+}
+
+.kv-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.kv-table--wide {
+  width: max-content;
+  min-width: 100%;
+}
+
+.kv-table th,
+.kv-table td {
+  padding: 0.2rem 0.55rem;
+  border-bottom: 1px solid hsl(var(--border));
+  text-align: left;
+  vertical-align: top;
+}
+
+.kv-table th {
+  color: hsl(var(--muted-foreground));
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.kv-table__key {
+  color: hsl(var(--hint));
+  white-space: nowrap;
+  padding-right: 0.85rem;
+}
+
+.kv-table__value {
+  color: hsl(var(--foreground));
+  word-break: break-word;
+}
+
+.kv-list {
+  margin: 0;
+  padding-left: 1.1rem;
+  font-size: 0.85rem;
+  color: hsl(var(--foreground));
+}
+
+.kv-list li {
+  margin: 0.1rem 0;
+}
+
+.settings-inline-row__value {
+  color: hsl(var(--search));
+  font-variant-numeric: tabular-nums;
+}
+
 .right-pane-footer {
   display: flex;
   flex-wrap: wrap;

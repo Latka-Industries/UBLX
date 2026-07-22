@@ -127,6 +127,46 @@ pub(crate) struct EntryRow {
     pub mtime_ns: Option<i64>,
     #[serde(default)]
     pub zahir: Option<Value>,
+    /// Host-parsed Metadata tables (`kv_tables`); present when `?zahir=1`.
+    #[serde(default)]
+    pub metadata_tables: Option<Vec<SectionView>>,
+    /// Host-parsed Writing tables.
+    #[serde(default)]
+    pub writing_tables: Option<Vec<SectionView>>,
+}
+
+/// One Metadata / Writing section from serve (`SectionView` export).
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub(crate) enum SectionView {
+    KeyValue {
+        #[serde(default)]
+        title: Option<String>,
+        #[serde(default)]
+        sub_title: bool,
+        #[serde(default)]
+        rows: Vec<KvRowView>,
+    },
+    Contents {
+        title: String,
+        #[serde(default)]
+        sub_title: bool,
+        #[serde(default)]
+        columns: Vec<String>,
+        #[serde(default)]
+        rows: Vec<Vec<String>>,
+    },
+    SingleColumnList {
+        title: String,
+        #[serde(default)]
+        values: Vec<String>,
+    },
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
+pub(crate) struct KvRowView {
+    pub key: String,
+    pub value: String,
 }
 
 /// Right-pane payload derived from `/entries/{path}?zahir=1` (mirrors TUI section split).
@@ -139,6 +179,8 @@ pub(crate) struct EntryDetail {
     pub templates: String,
     pub metadata: Option<String>,
     pub writing: Option<String>,
+    pub metadata_tables: Vec<SectionView>,
+    pub writing_tables: Vec<SectionView>,
 }
 
 impl EntryDetail {
@@ -152,6 +194,8 @@ impl EntryDetail {
             templates: sections.templates,
             metadata: sections.metadata,
             writing: sections.writing,
+            metadata_tables: row.metadata_tables.unwrap_or_default(),
+            writing_tables: row.writing_tables.unwrap_or_default(),
         }
     }
 
@@ -160,11 +204,11 @@ impl EntryDetail {
     }
 
     pub(crate) fn has_metadata(&self) -> bool {
-        self.metadata.as_ref().is_some_and(|s| !s.is_empty())
+        !self.metadata_tables.is_empty() || self.metadata.as_ref().is_some_and(|s| !s.is_empty())
     }
 
     pub(crate) fn has_writing(&self) -> bool {
-        self.writing.as_ref().is_some_and(|s| !s.is_empty())
+        !self.writing_tables.is_empty() || self.writing.as_ref().is_some_and(|s| !s.is_empty())
     }
 }
 
@@ -359,8 +403,15 @@ pub(crate) struct SettingsView {
     pub themes: Vec<String>,
     #[serde(default)]
     pub bg_opacity: f32,
+    /// `none` | `abbrev` | `full`
+    #[serde(default = "default_typed_column_tables")]
+    pub typed_column_tables: String,
     #[serde(default)]
     pub css: ThemeCssBody,
+}
+
+fn default_typed_column_tables() -> String {
+    "abbrev".into()
 }
 
 #[derive(Clone, Debug, Default, Serialize)]
@@ -381,6 +432,8 @@ pub(crate) struct SettingsPatch {
     pub bg_opacity: Option<f32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub layout: Option<SettingsLayoutPatch>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub typed_column_tables: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize)]

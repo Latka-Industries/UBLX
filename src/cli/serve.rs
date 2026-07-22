@@ -17,14 +17,16 @@ use serde::{Deserialize, Serialize};
 use crate::app::tokio_rt;
 use crate::cli::catalog::open_catalog_for_read;
 use crate::cli::catalog_read::{
-    EntryListFilter, entry_detail, is_not_found, list_categories, list_delta, list_duplicates,
-    list_entries, list_lens_entries, list_lens_names,
+    EntryListFilter, EntryRow, entry_detail, is_not_found, list_categories, list_delta,
+    list_duplicates, list_entries, list_lens_entries, list_lens_names,
 };
 use crate::cli::doctor;
 use crate::cli::settings_api::{self, SettingsPatch};
 use crate::cli_parser::ServeCli;
 use crate::config::{UblxPaths, all_indexed_roots_alphabetical, record_prior_root_selected};
 use crate::handlers::run_snap_pipeline_from_dir_db;
+use crate::handlers::viewing::sectioned_preview_from_zahir;
+use crate::render::kv_tables::{SectionView, parse_json_to_views};
 
 /// Live catalog for one serve process — switchable via `/roots/current`.
 struct ServeCatalog {
@@ -420,9 +422,54 @@ async fn get_entry(
     Query(q): Query<EntryQuery>,
 ) -> Result<Response, ApiError> {
     let path = normalize_entry_path(&path);
+    let dir = current_dir(&state)?;
     with_db(&state, |conn| {
-        json_or_not_found(entry_detail(conn, &path, q.zahir))
+        let row = match entry_detail(conn, &path, q.zahir) {
+            Ok(r) => r,
+            Err(e) if is_not_found(&e) => return Err(ApiError::not_found(e)),
+            Err(e) => return Err(ApiError::from(e)),
+        };
+        if !q.zahir {
+            return Ok(Json(row).into_response());
+        }
+        let typed = settings_api::effective_typed_column_tables(&dir);
+        let (metadata_tables, writing_tables) = entry_table_views(row.zahir.as_ref(), typed);
+        Ok(Json(EntryDetailResponse {
+            row,
+            metadata_tables,
+            writing_tables,
+        })
+        .into_response())
     })
+}
+
+#[derive(Debug, Serialize)]
+struct EntryDetailResponse {
+    #[serde(flatten)]
+    row: EntryRow,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    metadata_tables: Option<Vec<SectionView>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    writing_tables: Option<Vec<SectionView>>,
+}
+
+fn entry_table_views(
+    zahir: Option<&serde_json::Value>,
+    typed: crate::config::ColumnStatsDisplay,
+) -> (Option<Vec<SectionView>>, Option<Vec<SectionView>>) {
+    let Some(value) = zahir else {
+        return (None, None);
+    };
+    let preview = sectioned_preview_from_zahir(value);
+    let metadata_tables = preview.metadata.as_deref().and_then(|json| {
+        let views = parse_json_to_views(json, typed);
+        (!views.is_empty()).then_some(views)
+    });
+    let writing_tables = preview.writing.as_deref().and_then(|json| {
+        let views = parse_json_to_views(json, typed);
+        (!views.is_empty()).then_some(views)
+    });
+    (metadata_tables, writing_tables)
 }
 
 async fn get_delta(
