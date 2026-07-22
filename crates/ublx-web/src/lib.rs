@@ -55,7 +55,7 @@ fn App() -> impl IntoView {
         <Suspense fallback=move || {
             view! {
                 <div class="shell-boot">
-                    <p class="shell-loading">"Connecting to ublx serve…"</p>
+                    <p class="shell-loading">"Connecting to UBLX…"</p>
                 </div>
             }
         }>
