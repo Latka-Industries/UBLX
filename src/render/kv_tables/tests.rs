@@ -1,23 +1,23 @@
-//! JSON sections, viewport math, column widths for metadata/writing tables.
+//! KV / column-stat table parse + layout helpers.
 
 use ratatui::layout::Rect;
 
-use serde_json::{Value, json};
-use ublx::config::PARALLEL;
-use ublx::render::kv_tables::{
+use crate::config::PARALLEL;
+use crate::render::kv_tables::{
     SectionRange, VisibleRange, content_height,
     format::DEFAULT_MAX_ARRAY_INLINE,
     line_byte_starts, parse_json_sections,
     ratatui_table::{balanced_column_widths, contents_natural_widths},
     rect_in_viewport, searchable_text_from_json, visible_section_window,
 };
+use serde_json::{Value, json};
 
 #[test]
 fn parse_json_kv_only() {
     let sections = parse_json_sections(r#"{"alpha": 1, "beta": "two"}"#);
     assert_eq!(sections.len(), 1);
     match &sections[0] {
-        ublx::render::kv_tables::Section::KeyValue(kv) => {
+        crate::render::kv_tables::Section::KeyValue(kv) => {
             assert!(kv.title.as_ref().is_some_and(|t| !t.is_empty()));
             assert_eq!(kv.rows.len(), 2);
         }
@@ -36,7 +36,7 @@ fn parse_json_contents_entries() {
     );
     let has_contents = sections
         .iter()
-        .any(|s| matches!(s, ublx::render::kv_tables::Section::Contents(_)));
+        .any(|s| matches!(s, crate::render::kv_tables::Section::Contents(_)));
     assert!(has_contents);
 }
 
@@ -64,12 +64,12 @@ fn line_byte_starts_matches_joined_lines() {
 #[test]
 fn content_height_matches_kv_metrics() {
     let json = r#"{"x": 1}"#;
-    let h = content_height(json, ublx::config::ColumnStatsDisplay::default());
+    let h = content_height(json, crate::config::ColumnStatsDisplay::default());
     let sections = parse_json_sections(json);
     let mut expected: u16 = 0;
     for (i, section) in sections.iter().enumerate() {
         if i > 0 {
-            expected += ublx::render::kv_tables::consts::TABLE_GAP;
+            expected += crate::render::kv_tables::consts::TABLE_GAP;
         }
         let (has_title, header_lines, num_rows) = section.line_metrics();
         expected += u16::from(has_title);
@@ -149,7 +149,7 @@ fn balanced_column_widths_distributes_remainder() {
 
 #[test]
 fn contents_natural_widths_serial_small_window() {
-    let section = ublx::render::kv_tables::ContentsSection {
+    let section = crate::render::kv_tables::ContentsSection {
         title: "T".to_string(),
         columns: vec!["A".to_string(), "B".to_string()],
         column_keys: vec!["a".to_string(), "b".to_string()],
@@ -171,7 +171,7 @@ fn contents_natural_widths_parallel_path_deterministic() {
     let entries: Vec<Value> = (0..PARALLEL.contents_natural_widths + 50)
         .map(|_| row.clone())
         .collect();
-    let section = ublx::render::kv_tables::ContentsSection {
+    let section = crate::render::kv_tables::ContentsSection {
         title: "Big".to_string(),
         columns: vec!["C".to_string()],
         column_keys: vec!["c".to_string()],
@@ -188,8 +188,8 @@ fn contents_natural_widths_parallel_path_deterministic() {
 
 #[test]
 fn column_stats_abbrev_caps_long_tables() {
-    use ublx::config::ColumnStatsDisplay;
-    use ublx::render::kv_tables::{Section, parse_json_sections_with};
+    use crate::config::ColumnStatsDisplay;
+    use crate::render::kv_tables::{Section, parse_json_sections_with};
     let mut columns = String::from("[");
     for i in 0..25 {
         if i > 0 {
@@ -224,8 +224,8 @@ fn column_stats_abbrev_caps_long_tables() {
 
 #[test]
 fn column_stats_abbrev_keeps_all_stat_columns_on_short_table() {
-    use ublx::config::ColumnStatsDisplay;
-    use ublx::render::kv_tables::{Section, parse_json_sections_with};
+    use crate::config::ColumnStatsDisplay;
+    use crate::render::kv_tables::{Section, parse_json_sections_with};
     let json = r#"{
         "row_count": 100,
         "columns": [
@@ -248,8 +248,8 @@ fn column_stats_abbrev_keeps_all_stat_columns_on_short_table() {
 
 #[test]
 fn column_stats_none_skips_tables() {
-    use ublx::config::ColumnStatsDisplay;
-    use ublx::render::kv_tables::{Section, parse_json_sections_with};
+    use crate::config::ColumnStatsDisplay;
+    use crate::render::kv_tables::{Section, parse_json_sections_with};
     let json = r#"{
         "row_count": 100,
         "columns": [

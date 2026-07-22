@@ -44,3 +44,6 @@ pub use export::{SectionView, parse_json_to_views};
 pub use parse_ctx::KvParseCtx;
 pub use sections::*;
 pub use walk::WalkKeyVars;
+
+#[cfg(test)]
+mod tests;

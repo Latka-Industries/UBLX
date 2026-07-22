@@ -12,3 +12,6 @@ pub mod syntect_text;
 pub mod video_preview;
 
 pub use html_escape::html_escape_minimal;
+
+#[cfg(test)]
+mod tests;

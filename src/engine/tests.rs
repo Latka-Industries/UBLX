@@ -1,7 +1,7 @@
-//! Engine index types and render-side LRU cache.
+//! Engine unit tests: delta types + LRU cache.
 
-use ublx::engine::cache::LruCache;
-use ublx::engine::db_ops::{DELTA_CATEGORY_COUNT, DeltaType};
+use crate::engine::cache::LruCache;
+use crate::engine::db_ops::{DELTA_CATEGORY_COUNT, DeltaType};
 
 #[test]
 fn delta_type_as_index() {

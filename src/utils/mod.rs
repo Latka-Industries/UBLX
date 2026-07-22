@@ -24,3 +24,8 @@ pub use perf::*;
 pub use terminal_osc::*;
 pub use tet_info::*;
 pub use tools::*;
+
+#[cfg(test)]
+mod performance_tests;
+#[cfg(test)]
+mod tests;

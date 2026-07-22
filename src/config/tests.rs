@@ -1,9 +1,9 @@
-//! Config overlays: layout TOML, merge, and enhance (zahir batch) policy.
+//! Config overlays: layout TOML, merge, enhance policy, typed columns, command-mode leader.
 
-use ublx::config::{
+use crate::config::{
     EnhancePolicy, EnhancePolicyEntry, LayoutOverlay, Osc11BackgroundFormat, UblxOpts, UblxOverlay,
 };
-use ublx::integrations::{NefaxOpts, ZahirRC};
+use crate::integrations::{NefaxOpts, ZahirRC};
 
 #[test]
 fn layout_overlay_default() {
@@ -54,7 +54,7 @@ fn ublx_overlay_merge_global_run_snapshot_when_no_local() {
 
 #[test]
 fn ublx_overlay_merge_local_does_not_override_global_only_keys() {
-    use ublx::config::CommandModeOverlay;
+    use crate::config::CommandModeOverlay;
 
     let global = UblxOverlay {
         opacity_format: Some(Osc11BackgroundFormat::Rgba),
@@ -121,8 +121,8 @@ fn opts_with(enable_enhance_all: bool, entries: Vec<EnhancePolicyEntry>) -> Ublx
         with_hash_cache_before_apply: None,
         enhance_policy: entries,
         run_snapshot_on_startup: true,
-        typed_column_tables: ublx::config::ColumnStatsDisplay::default(),
-        command_mode_leader: ublx::config::DEFAULT_COMMAND_MODE_LEADER,
+        typed_column_tables: crate::config::ColumnStatsDisplay::default(),
+        command_mode_leader: crate::config::DEFAULT_COMMAND_MODE_LEADER,
     }
 }
 
@@ -189,7 +189,7 @@ fn deserializes_legacy_always_never_toml() {
 
 #[test]
 fn typed_column_tables_overlay_merge_local_overrides_global() {
-    use ublx::config::ColumnStatsDisplay;
+    use crate::config::ColumnStatsDisplay;
     let global = UblxOverlay {
         typed_column_tables: Some(ColumnStatsDisplay::Full),
         ..Default::default()
@@ -204,7 +204,7 @@ fn typed_column_tables_overlay_merge_local_overrides_global() {
 
 #[test]
 fn typed_column_tables_overlay_parse_toml() {
-    use ublx::config::ColumnStatsDisplay;
+    use crate::config::ColumnStatsDisplay;
     let overlay: UblxOverlay = toml::from_str("typed_column_tables = \"abbrev\"\n").unwrap();
     assert_eq!(
         overlay.typed_column_tables,
@@ -214,14 +214,14 @@ fn typed_column_tables_overlay_parse_toml() {
 
 #[test]
 fn typed_column_tables_overlay_parse_legacy_column_stats_alias() {
-    use ublx::config::ColumnStatsDisplay;
+    use crate::config::ColumnStatsDisplay;
     let overlay: UblxOverlay = toml::from_str("column_stats = \"full\"\n").unwrap();
     assert_eq!(overlay.typed_column_tables, Some(ColumnStatsDisplay::Full));
 }
 
 #[test]
 fn overlay_backfill_adds_typed_column_tables_when_missing() {
-    use ublx::config::{ColumnStatsDisplay, default_overlay_for_new_file};
+    use crate::config::{ColumnStatsDisplay, default_overlay_for_new_file};
     let template = default_overlay_for_new_file("default");
     let mut existing = UblxOverlay {
         theme: Some("custom".into()),
@@ -237,7 +237,7 @@ fn overlay_backfill_adds_typed_column_tables_when_missing() {
 
 #[test]
 fn overlay_backfill_does_not_overwrite_existing_typed_column_tables() {
-    use ublx::config::{ColumnStatsDisplay, default_overlay_for_new_file};
+    use crate::config::{ColumnStatsDisplay, default_overlay_for_new_file};
     let template = default_overlay_for_new_file("default");
     let mut existing = UblxOverlay {
         typed_column_tables: Some(ColumnStatsDisplay::Full),
@@ -249,7 +249,7 @@ fn overlay_backfill_does_not_overwrite_existing_typed_column_tables() {
 
 #[test]
 fn overlay_backfill_skips_global_only_keys_on_local_scope() {
-    use ublx::config::default_overlay_for_new_file;
+    use crate::config::default_overlay_for_new_file;
     let template = default_overlay_for_new_file("default");
     let mut existing = UblxOverlay::default();
     assert!(existing.backfill_missing_from_template(&template, true));
@@ -257,16 +257,16 @@ fn overlay_backfill_skips_global_only_keys_on_local_scope() {
     assert!(existing.opacity_format.is_none());
     assert_eq!(
         existing.typed_column_tables,
-        Some(ublx::config::ColumnStatsDisplay::Abbrev)
+        Some(crate::config::ColumnStatsDisplay::Abbrev)
     );
 }
 
 #[test]
 fn ensure_global_config_backfills_existing_file_on_disk() {
-    use std::fs;
-    use ublx::config::{
+    use crate::config::{
         ColumnStatsDisplay, ensure_global_config_file_with_defaults, load_ublx_toml,
     };
+    use std::fs;
     let path = std::env::temp_dir().join(format!(
         "ublx-global-config-test-{}-column-stats",
         std::process::id()
@@ -284,8 +284,8 @@ fn ensure_global_config_backfills_existing_file_on_disk() {
 
 #[test]
 fn settings_typed_column_tables_row_layout_indices() {
-    use ublx::layout::setup::SettingsConfigScope;
-    use ublx::modules::settings::{
+    use crate::layout::setup::SettingsConfigScope;
+    use crate::modules::settings::{
         bool_row_count, command_mode_leader_row_index, layout_button_index,
         opacity_format_row_index, typed_column_tables_row_index,
     };
@@ -316,8 +316,8 @@ fn settings_typed_column_tables_row_layout_indices() {
 
 #[test]
 fn typed_column_tables_cycle_order() {
-    use ublx::config::ColumnStatsDisplay;
-    use ublx::modules::settings::cycle_typed_column_tables;
+    use crate::config::ColumnStatsDisplay;
+    use crate::modules::settings::cycle_typed_column_tables;
 
     assert_eq!(
         cycle_typed_column_tables(ColumnStatsDisplay::None),
@@ -335,7 +335,7 @@ fn typed_column_tables_cycle_order() {
 
 #[test]
 fn command_mode_leader_parse_and_cycle() {
-    use ublx::config::{
+    use crate::config::{
         CommandModeOverlay, UblxOverlay, cycle_command_mode_leader, parse_command_mode_leader,
         validate_hot_reload_overlay,
     };

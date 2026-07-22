@@ -1,8 +1,8 @@
-//! Main tab bar mode order and labels (Snapshot, optional Lenses, Delta, optional Duplicates, Settings).
+//! Main tab bar mode/label ordering.
 
-use ublx::engine::db_ops::DuplicateGroupingMode;
-use ublx::layout::setup::MainMode;
-use ublx::ui::main_tab_bar_modes_and_labels;
+use crate::engine::db_ops::DuplicateGroupingMode;
+use crate::layout::setup::MainMode;
+use crate::ui::main_tab_bar_modes_and_labels;
 
 #[test]
 fn main_tab_bar_modes_order_no_optional() {

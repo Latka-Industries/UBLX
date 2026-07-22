@@ -99,7 +99,8 @@ macro_rules! define_path_ext_predicate {
 
 #[cfg(test)]
 mod tests {
-    use super::shorten_path_for_title;
+    use super::{path_has_extension, resolve_under_root, shorten_path_for_title};
+    use std::path::{Path, PathBuf};
 
     #[test]
     fn shorten_path_for_title_short_unchanged() {
@@ -120,5 +121,38 @@ mod tests {
     #[test]
     fn shorten_path_for_title_normalizes_backslashes() {
         assert_eq!(shorten_path_for_title(r"a\b\c\d"), ".../b/c/d");
+    }
+
+    #[test]
+    fn path_has_extension_matches_final_segment() {
+        assert!(path_has_extension("foo.md", &["md"]));
+        assert!(path_has_extension("foo.MD", &["md"]));
+        assert!(path_has_extension("a/b/c.markdown", &["markdown"]));
+        assert!(path_has_extension("a/b/c.MARKDOWN", &["markdown"]));
+    }
+
+    #[test]
+    fn path_has_extension_rejects_non_matching() {
+        assert!(!path_has_extension("foo.txt", &["md"]));
+        assert!(!path_has_extension("foo", &["md"]));
+        assert!(!path_has_extension("foo.md.bak", &["md"]));
+    }
+
+    #[test]
+    fn resolve_under_root_joins_relative() {
+        let base = Path::new("project");
+        assert_eq!(
+            resolve_under_root(base, "a/b"),
+            PathBuf::from("project").join("a/b")
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn resolve_under_root_absolute_replaces_prefix() {
+        assert_eq!(
+            resolve_under_root(Path::new("/proj/.ublx"), "/x/y"),
+            PathBuf::from("/x/y")
+        );
     }
 }
