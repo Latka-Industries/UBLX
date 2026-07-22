@@ -287,7 +287,9 @@ button.tab-node {
   flex: 1;
   display: flex;
   flex-direction: column;
+  min-width: 0;
   min-height: 0;
+  overflow-x: hidden;
   border: 1px solid hsl(var(--border));
   background: hsl(var(--background));
 }
@@ -308,8 +310,10 @@ button.tab-node {
 .panel-inner,
 .panel-pad {
   flex: 1;
+  min-width: 0;
   min-height: 0;
-  overflow: auto;
+  overflow-x: hidden;
+  overflow-y: auto;
   scrollbar-width: thin;
   scrollbar-color: hsl(var(--secondary-foreground) / 0.55) hsl(var(--muted));
 }
@@ -321,6 +325,8 @@ button.tab-node {
 
 .panel-pad {
   padding: 0.45rem 0.55rem;
+  display: flex;
+  flex-direction: column;
 }
 
 .panel-inner::-webkit-scrollbar,
@@ -438,7 +444,9 @@ button.tab-node {
   display: flex;
   flex-direction: column;
   height: 100%;
+  min-width: 0;
   min-height: 0;
+  overflow-x: hidden;
 }
 
 .right-pane-chrome {
@@ -450,6 +458,34 @@ button.tab-node {
   flex-wrap: wrap;
   gap: 0.3rem;
   flex: 1;
+}
+
+.entry-viewer {
+  min-width: 0;
+  max-width: 100%;
+  width: 100%;
+}
+
+/* CSV: pane does not scroll — frozen H/V bars drive translate on the table. */
+.panel-pad:has(.csv-viewer) {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.entry-viewer:has(.csv-viewer),
+.csv-viewer-host {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+}
+
+.csv-viewer-host > .csv-viewer {
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 .entry-viewer__note {
@@ -568,6 +604,140 @@ button.tab-node {
   font: inherit;
   border: none;
   border-radius: 0;
+}
+
+/* —— CSV / delimited + plain Text Viewer ——
+   Frozen top H-bar + side V-bar; table moves via translate(-x, -y). */
+.csv-viewer {
+  --csv-bar: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.csv-viewer__note {
+  flex: 0 0 auto;
+  margin: 0 0 0.5rem;
+  color: hsl(var(--muted-foreground));
+  font-size: 0.85rem;
+}
+
+.csv-viewer__shell {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--csv-bar);
+  grid-template-rows: var(--csv-bar) minmax(0, 1fr);
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+}
+
+.csv-viewer__hbar,
+.csv-viewer__vbar {
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--primary) / 0.85) hsl(var(--muted));
+}
+
+.csv-viewer__hbar {
+  grid-column: 1;
+  grid-row: 1;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.csv-viewer__corner {
+  grid-column: 2;
+  grid-row: 1;
+  background: hsl(var(--muted));
+}
+
+.csv-viewer__body {
+  grid-column: 1;
+  grid-row: 2;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.csv-viewer__vbar {
+  grid-column: 2;
+  grid-row: 2;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.csv-viewer__hbar::-webkit-scrollbar {
+  height: var(--csv-bar);
+}
+
+.csv-viewer__vbar::-webkit-scrollbar {
+  width: var(--csv-bar);
+}
+
+.csv-viewer__hbar::-webkit-scrollbar-thumb,
+.csv-viewer__vbar::-webkit-scrollbar-thumb {
+  background: hsl(var(--primary) / 0.55);
+  border-radius: 2px;
+}
+
+.csv-viewer__hspacer {
+  height: 1px;
+}
+
+.csv-viewer__vspacer {
+  width: 1px;
+}
+
+.csv-viewer__inner {
+  width: max-content;
+  min-width: 100%;
+  will-change: transform;
+}
+
+.csv-viewer .kv-table {
+  width: max-content;
+  min-width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+/* max-width must match WEB_CELL_ELLIPSIS_CHARS in csv_handler.rs */
+.csv-viewer .kv-table th,
+.csv-viewer .kv-table td {
+  max-width: 36ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 0.2rem 0.55rem;
+  text-align: left;
+  vertical-align: top;
+}
+
+.csv-viewer .kv-table thead th {
+  background: hsl(var(--card));
+}
+
+.csv-viewer [data-tip] {
+  cursor: help;
+}
+
+.text-viewer {
+  margin-top: 0.35rem;
+}
+
+.text-viewer pre {
+  margin: 0;
+  padding: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  line-height: 1.4;
 }
 
 .detail-pre {

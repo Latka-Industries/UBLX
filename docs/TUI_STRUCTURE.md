@@ -192,7 +192,7 @@ Right pane is not a list-focus target. Focused pane: focused border + active tit
 | Metadata / Writing | pretty KV + column tables | thin / JSON-ish | **#5** |
 | Viewer markdown | full md pipeline | stub | **#6** |
 | Viewer code | syntect | syntect HTML | **#7** |
-| Viewer tables/CSV | pretty / csv | stub | **#8** |
+| Viewer tables/CSV | pretty / csv | HTML table / Text `<pre>` | **#8** |
 | Viewer images | raster / svg | stub | **#9** |
 | Viewer PDF/video | optional tools | stub | **#10** |
 | Viewer find | Shift+S strip | missing | **#11** |

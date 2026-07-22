@@ -3640,6 +3640,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "leptos-shadcn-tooltip"
+version = "0.8.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3e41d37932d700444e1d3a21f10f198c3c9e76dde3fd78d58da4b5a099939fd7"
+dependencies = [
+ "leptos",
+ "leptos-node-ref",
+ "leptos-shadcn-signal-management",
+ "leptos-struct-component",
+ "leptos-style",
+ "tailwind_fuse",
+ "web-sys",
+]
+
+[[package]]
 name = "leptos-shadcn-ui"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3652,6 +3667,7 @@ dependencies = [
  "leptos-shadcn-button",
  "leptos-shadcn-card",
  "leptos-shadcn-separator",
+ "leptos-shadcn-tooltip",
  "leptos-struct-component",
  "leptos-style",
  "leptos_router",
@@ -7927,6 +7943,7 @@ dependencies = [
  "js-sys",
  "leptos",
  "leptos-shadcn-ui",
+ "leptos-style",
  "serde",
  "serde_json",
  "urlencoding",

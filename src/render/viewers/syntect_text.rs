@@ -19,6 +19,7 @@ use syntect::util::LinesWithEndings;
 
 use crate::engine::db_ops::UblxDbCategory;
 use crate::integrations::ZahirFT;
+use crate::render::viewers::html_escape::html_escape_minimal;
 use crate::themes::{self, Appearance, SYNTECT_THEME_KEYS};
 
 static DEFAULT_SYNTAX_SET: LazyLock<SyntaxSet> = LazyLock::new(SyntaxSet::load_defaults_newlines);
@@ -157,20 +158,6 @@ pub fn highlight_viewer_html(raw: &str, path: &str, ft: ZahirFT, appearance: App
         Ok(html) => html,
         Err(_) => format!("<pre>{}</pre>", html_escape_minimal(raw)),
     }
-}
-
-fn html_escape_minimal(s: &str) -> String {
-    let mut out = String::with_capacity(s.len());
-    for c in s.chars() {
-        match c {
-            '&' => out.push_str("&amp;"),
-            '<' => out.push_str("&lt;"),
-            '>' => out.push_str("&gt;"),
-            '"' => out.push_str("&quot;"),
-            _ => out.push(c),
-        }
-    }
-    out
 }
 
 /// Syntax-highlight using DB [`UblxDbCategory`]; caller should only invoke for zahir types that use syntect.
