@@ -525,6 +525,7 @@ button.tab-node {
   font-weight: 700;
   text-decoration: underline;
   white-space: nowrap;
+  border-bottom: 2px solid hsl(var(--border));
 }
 
 /* TUI table_row_style: index 0/even = popup_bg; odd = stripe (CSS 1-based: odd→card) */
