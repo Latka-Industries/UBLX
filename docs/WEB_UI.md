@@ -121,8 +121,11 @@ Rules:
 | `hint_text()` | `hint` (+ `popup_bg` in TUI) | `--hint`, `--muted-foreground` |
 | popup / help panel | `popup_bg` | `--card`, `--popover`, `--accent` |
 | `delta_*()` | `delta_added` / `delta_mod` / `delta_removed` | `--delta-*` |
-| `title_brand()` | `title_brand` | `--brand` |
+| `title_brand()` | `title_brand` | `--brand` (also favicon “U”) |
+| page bg (favicon tile) | `background` | `--background` (favicon square) |
 | footer / status pills | `node_pill_background()` | `--node`, `--border`, `--input` |
+
+Favicon (`link[rel=icon]`) is rebuilt on each theme apply: page `background` fill + `title_brand` letter — same fields the TUI uses for brand chrome.
 
 **MVP:** full shipped palette list from Settings. `styles.css` keeps Oblivion Ink only as **pre-fetch fallback**.
 
