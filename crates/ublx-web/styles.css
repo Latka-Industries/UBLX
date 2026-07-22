@@ -49,8 +49,11 @@ body > * {
 .tui-shell {
   display: grid;
   grid-template-rows: auto auto 1fr auto;
-  height: 100%;
-  min-height: 100vh;
+  box-sizing: border-box;
+  width: calc(100% - 4px);
+  height: calc(100% - 4px);
+  min-height: calc(100vh - 4px);
+  margin: 2px;
   background: hsl(var(--background));
   color: hsl(var(--foreground));
 }
