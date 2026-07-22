@@ -145,6 +145,55 @@ body > * {
   margin-left: auto;
 }
 
+.status-node--button {
+  border: none;
+  cursor: pointer;
+  font: inherit;
+}
+
+.catalog-search {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+  max-width: min(100%, 42rem);
+  padding: 0.1rem 0.45rem;
+  border-radius: 0.2rem;
+  background: hsl(var(--muted));
+  border-left: 3px solid hsl(var(--ring));
+  cursor: text;
+}
+
+.catalog-search--active {
+  border-left-color: hsl(var(--ring));
+}
+
+.catalog-search__label {
+  flex: 0 0 auto;
+  color: hsl(var(--ring));
+  font-size: 0.875rem;
+  white-space: nowrap;
+}
+
+.catalog-search__query,
+.catalog-search__input {
+  flex: 1;
+  min-width: 6rem;
+  margin: 0;
+  padding: 0.1rem 0.2rem;
+  border: none;
+  background: transparent;
+  color: hsl(var(--foreground));
+  font: inherit;
+  font-size: 0.875rem;
+  outline: none;
+}
+
+.catalog-search__query {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* —— powerline-ish tab nodes —— */
 .tab-node {
   display: inline-flex;

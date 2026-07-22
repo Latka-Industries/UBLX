@@ -4,35 +4,57 @@ use leptos::prelude::*;
 
 use crate::api::{fetch_duplicates, fetch_entry_detail};
 use crate::panes::{EntryRightPane, PanelRow, PathsPane, ThreePane};
+use crate::search::{
+    CatalogSearch, empty_list_message, filter_paths, fuzzy_matches_field, path_rows,
+};
 
 #[component]
 pub(crate) fn DuplicatesMode() -> impl IntoView {
+    let search = CatalogSearch::expect();
     let catalog = LocalResource::new(fetch_duplicates);
     let (selected_id, set_selected_id) = signal::<Option<usize>>(None);
     let (selected_path, set_selected_path) = signal::<Option<String>>(None);
 
+    let visible_groups = Signal::derive(move || {
+        let cat = catalog.get().unwrap_or_default();
+        let q = search.trimmed.get();
+        if q.is_empty() {
+            return cat.groups;
+        }
+        cat.groups
+            .into_iter()
+            .filter(|g| {
+                fuzzy_matches_field(&g.label, &q)
+                    || g.paths.iter().any(|p| fuzzy_matches_field(p, &q))
+            })
+            .collect()
+    });
+
     Effect::new(move |_| {
-        let groups = catalog.get().unwrap_or_default().groups;
+        let groups = visible_groups.get();
         if selected_id.get_untracked().is_none()
             && let Some(first) = groups.first()
         {
             set_selected_id.set(Some(first.id));
         }
+        if let Some(id) = selected_id.get_untracked()
+            && !groups.iter().any(|g| g.id == id)
+        {
+            set_selected_id.set(groups.first().map(|g| g.id));
+            set_selected_path.set(None);
+        }
     });
 
     let paths = Signal::derive(move || {
-        let cat = catalog.get().unwrap_or_default();
+        let groups = visible_groups.get();
         let id = selected_id.get();
-        cat.groups
+        let q = search.trimmed.get();
+        let raw = groups
             .into_iter()
             .find(|g| Some(g.id) == id)
-            .map(|g| {
-                g.paths
-                    .into_iter()
-                    .map(|p| (p.clone(), p))
-                    .collect::<Vec<_>>()
-            })
-            .unwrap_or_default()
+            .map(|g| g.paths)
+            .unwrap_or_default();
+        path_rows(filter_paths(&raw, &q))
     });
 
     let detail = LocalResource::new(move || {
@@ -54,8 +76,11 @@ pub(crate) fn DuplicatesMode() -> impl IntoView {
                 <Suspense fallback=move || view! { <p class="pane-empty">"…"</p> }>
                     {move || {
                         let cat = catalog.get().unwrap_or_default();
-                        if cat.groups.is_empty() {
-                            return view! { <p class="pane-empty">"(no duplicates)"</p> }.into_any();
+                        let groups = visible_groups.get();
+                        if groups.is_empty() {
+                            let empty =
+                                empty_list_message(&search.trimmed.get(), "(no duplicates)");
+                            return view! { <p class="pane-empty">{empty}</p> }.into_any();
                         }
                         let mode_hint = match cat.mode.as_str() {
                             "hash" => " (H)",
@@ -68,8 +93,7 @@ pub(crate) fn DuplicatesMode() -> impl IntoView {
                                     {format!("Grouping{mode_hint}")}
                                 </p>
                                 <ul class="panel-list">
-                                    {cat
-                                        .groups
+                                    {groups
                                         .into_iter()
                                         .map(|g| {
                                             let id = g.id;

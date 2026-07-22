@@ -4,20 +4,34 @@ use leptos::prelude::*;
 
 use crate::api::{fetch_entry_detail, fetch_lens_entries, fetch_lens_names};
 use crate::panes::{EntryRightPane, PanelRow, PathsPane, ThreePane};
+use crate::search::{CatalogSearch, empty_list_message, filter_labels, filter_paths, path_rows};
 
 #[component]
 pub(crate) fn LensesMode() -> impl IntoView {
+    let search = CatalogSearch::expect();
     let lenses = LocalResource::new(fetch_lens_names);
     let (selected_lens, set_selected_lens) = signal::<Option<String>>(None);
     let (selected_path, set_selected_path) = signal::<Option<String>>(None);
 
+    let visible_lenses = Signal::derive(move || {
+        let names = lenses.get().unwrap_or_default();
+        let q = search.trimmed.get();
+        filter_labels(&names, &q)
+    });
+
     // Pick the first lens once names load (TUI lands on first left-row too).
     Effect::new(move |_| {
-        let names = lenses.get().unwrap_or_default();
+        let names = visible_lenses.get();
         if selected_lens.get_untracked().is_none()
             && let Some(first) = names.first()
         {
             set_selected_lens.set(Some(first.clone()));
+        }
+        if let Some(sel) = selected_lens.get_untracked()
+            && !names.iter().any(|n| n == &sel)
+        {
+            set_selected_lens.set(names.first().cloned());
+            set_selected_path.set(None);
         }
     });
 
@@ -32,12 +46,14 @@ pub(crate) fn LensesMode() -> impl IntoView {
     });
 
     let paths = Signal::derive(move || {
-        members
+        let q = search.trimmed.get();
+        let raw: Vec<String> = members
             .get()
             .unwrap_or_default()
             .into_iter()
-            .map(|r| (r.path.clone(), r.path))
-            .collect::<Vec<_>>()
+            .map(|r| r.path)
+            .collect();
+        path_rows(filter_paths(&raw, &q))
     });
 
     let detail = LocalResource::new(move || {
@@ -58,9 +74,11 @@ pub(crate) fn LensesMode() -> impl IntoView {
             left=view! {
                 <Suspense fallback=move || view! { <p class="pane-empty">"…"</p> }>
                     {move || {
-                        let names = lenses.get().unwrap_or_default();
+                        let _ = lenses.get();
+                        let names = visible_lenses.get();
                         if names.is_empty() {
-                            return view! { <p class="pane-empty">"(no lenses)"</p> }.into_any();
+                            let empty = empty_list_message(&search.trimmed.get(), "(no lenses)");
+                            return view! { <p class="pane-empty">{empty}</p> }.into_any();
                         }
                         view! {
                             <ul class="panel-list">

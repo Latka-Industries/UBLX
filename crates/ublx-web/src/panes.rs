@@ -3,6 +3,7 @@
 use leptos::prelude::*;
 
 use crate::api::{EntryDetail, format_bytes, format_timestamp_ns};
+use crate::search;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum PaneFocus {
@@ -162,13 +163,19 @@ pub(crate) fn PathsPane(
     selected: Signal<Option<String>>,
     on_select: Callback<String>,
 ) -> impl IntoView {
+    let search_q = Signal::derive(move || search::CatalogSearch::expect().trimmed.get());
+
     view! {
         <div class="paths-pane">
             <div class="panel-scroll">
                 {move || {
                     let rows = paths.get();
                     if rows.is_empty() {
-                        return view! { <p class="pane-empty">"(no contents)"</p> }.into_any();
+                        let empty = search::empty_list_message(
+                            &search_q.get(),
+                            "(no contents)",
+                        );
+                        return view! { <p class="pane-empty">{empty}</p> }.into_any();
                     }
                     view! {
                         <ul class="panel-list">
