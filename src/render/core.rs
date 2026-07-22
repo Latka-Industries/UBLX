@@ -541,7 +541,8 @@ fn draw_main_tabs(
     );
 }
 
-/// Status line: Last Snapshot powerline node, or catalog search (same popup look as find) in that slot.
+/// Status line: Last Snapshot powerline node, or catalog search (same popup look as find) in that slot,
+/// plus a right-aligned `? — Help` chip (display-only; keybinding opens the overlay).
 /// Esc clears search and the snapshot node returns.
 pub fn draw_status_line(
     f: &mut Frame,
@@ -552,6 +553,14 @@ pub fn draw_status_line(
     chord_mode: bool,
     transparent_page_chrome: bool,
 ) {
+    use unicode_width::UnicodeWidthStr;
+
+    let help_label = UI_STRINGS.search.help_chip;
+    let help_width = u16::try_from(UnicodeWidthStr::width(help_label).saturating_add(4))
+        .unwrap_or(u16::MAX)
+        .min(area.width);
+    let chunks = Layout::horizontal([Constraint::Min(0), Constraint::Length(help_width)]).split(area);
+
     let search_replaces_snapshot = search_active || !search_query.trim().is_empty();
     let mut spans: Vec<Span<'static>> = Vec::new();
     if let Some(ns) = last_snapshot_ns
@@ -575,6 +584,12 @@ pub fn draw_status_line(
     ) {
         spans.extend(popup);
     }
-    let line = Line::from(spans);
-    f.render_widget(Paragraph::new(line), area);
+    f.render_widget(Paragraph::new(Line::from(spans)), chunks[0]);
+
+    let help_spans = layout::style::status_node_spans(
+        help_label,
+        chord_mode,
+        transparent_page_chrome,
+    );
+    f.render_widget(Paragraph::new(Line::from(help_spans)), chunks[1]);
 }
