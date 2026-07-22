@@ -14,6 +14,7 @@ use crate::theme::{ThemeCssView, apply_theme_css};
 enum FocusedOption {
     Bool(String),
     Theme,
+    TypedColumnTables,
     LayoutLeft,
     LayoutMiddle,
     LayoutRight,
@@ -29,10 +30,21 @@ impl FocusedOption {
                 .map(|b| b.description.as_str())
                 .unwrap_or("Settings option."),
             Self::Theme => "Active color palette (written to this scope's ublx.toml).",
+            Self::TypedColumnTables => {
+                "none: hide String/Number/… column tables in Metadata; abbrev: cap tables longer than 20 rows to 20 rows; full: show all metadata"
+            }
             Self::LayoutLeft => "Left pane width percentage (categories). Sum must be 100.",
             Self::LayoutMiddle => "Middle pane width percentage (contents). Sum must be 100.",
             Self::LayoutRight => "Right pane width percentage (preview). Sum must be 100.",
         }
+    }
+}
+
+fn cycle_typed_column_tables(current: &str) -> &'static str {
+    match current {
+        "none" => "abbrev",
+        "abbrev" => "full",
+        _ => "none",
     }
 }
 
@@ -271,6 +283,42 @@ pub(crate) fn SettingsMode() -> impl IntoView {
                                                     })
                                                     .collect_view()}
                                             </select>
+                                        </li>
+                                        <li
+                                            class=move || {
+                                                if focus.get() == Some(FocusedOption::TypedColumnTables)
+                                                {
+                                                    "settings-inline-row settings-inline-row--selected"
+                                                } else {
+                                                    "settings-inline-row"
+                                                }
+                                            }
+                                            on:mousedown=move |_| {
+                                                set_focus.set(Some(FocusedOption::TypedColumnTables));
+                                            }
+                                            on:click=move |_| {
+                                                let cur = view_sig
+                                                    .get()
+                                                    .map(|v| v.typed_column_tables.clone())
+                                                    .unwrap_or_else(|| "abbrev".into());
+                                                let next = cycle_typed_column_tables(&cur);
+                                                apply.run(SettingsPatch {
+                                                    typed_column_tables: Some(next.into()),
+                                                    ..Default::default()
+                                                });
+                                            }
+                                        >
+                                            <span class="settings-inline-row__label">
+                                                "typed_column_tables"
+                                            </span>
+                                            <span class="settings-inline-row__value">
+                                                {move || {
+                                                    view_sig
+                                                        .get()
+                                                        .map(|v| v.typed_column_tables.clone())
+                                                        .unwrap_or_else(|| "abbrev".into())
+                                                }}
+                                            </span>
                                         </li>
                                         <li class="settings-divider"/>
                                         {layout_row(

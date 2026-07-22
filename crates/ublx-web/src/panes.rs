@@ -7,6 +7,7 @@ use web_sys::{ScrollIntoViewOptions, ScrollLogicalPosition};
 
 use crate::api::{EntryDetail, format_bytes, format_timestamp_ns};
 use crate::focus::{PaneFocus, UiNav, install_list_nav, string_list_nav};
+use crate::kv_tables::KvTables;
 use crate::nav::MainMode;
 use crate::search;
 use crate::sort::ContentSortCtx;
@@ -415,6 +416,8 @@ pub(crate) fn EntryRightPane(detail: Signal<Option<EntryDetail>>) -> impl IntoVi
                     let templates = d.templates.clone();
                     let metadata = d.metadata.clone();
                     let writing = d.writing.clone();
+                    let metadata_tables = d.metadata_tables.clone();
+                    let writing_tables = d.writing_tables.clone();
                     let show_templates = d.has_templates();
                     let show_metadata = d.has_metadata();
                     let show_writing = d.has_writing();
@@ -458,12 +461,32 @@ pub(crate) fn EntryRightPane(detail: Signal<Option<EntryDetail>>) -> impl IntoVi
                                 RightTab::Templates => view! {
                                     <pre class="detail-pre">{templates.clone()}</pre>
                                 }.into_any(),
-                                RightTab::Metadata => view! {
-                                    <pre class="detail-pre">{metadata.clone().unwrap_or_default()}</pre>
-                                }.into_any(),
-                                RightTab::Writing => view! {
-                                    <pre class="detail-pre">{writing.clone().unwrap_or_default()}</pre>
-                                }.into_any(),
+                                RightTab::Metadata => {
+                                    if !metadata_tables.is_empty() {
+                                        view! { <KvTables sections=metadata_tables.clone()/> }
+                                            .into_any()
+                                    } else {
+                                        view! {
+                                            <pre class="detail-pre">
+                                                {metadata.clone().unwrap_or_default()}
+                                            </pre>
+                                        }
+                                        .into_any()
+                                    }
+                                }
+                                RightTab::Writing => {
+                                    if !writing_tables.is_empty() {
+                                        view! { <KvTables sections=writing_tables.clone()/> }
+                                            .into_any()
+                                    } else {
+                                        view! {
+                                            <pre class="detail-pre">
+                                                {writing.clone().unwrap_or_default()}
+                                            </pre>
+                                        }
+                                        .into_any()
+                                    }
+                                }
                             }}
                         </div>
                         <Show when=move || tab.get() == RightTab::Viewer>

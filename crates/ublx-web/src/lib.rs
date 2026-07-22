@@ -10,6 +10,7 @@ mod api;
 mod focus;
 mod help;
 mod keys;
+mod kv_tables;
 mod modes;
 mod nav;
 mod panes;

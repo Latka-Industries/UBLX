@@ -61,8 +61,9 @@ Notes:
 - `GET /categories` — exact category strings for `?category=` (case-sensitive, e.g. `Code` not `code`)
 - `GET /delta?type=` — wire values `added` | `mod` | `removed` (`modified` accepted as alias for `mod`)
 - `GET /duplicates` — `{ mode: "hash"|"name_size", groups: [{ id, label, paths }] }` (read-only; no on-demand blake3 fill)
-- `GET /settings/{scope}` — `scope` is `global`|`local`; returns path, exists, live `toml` text, bools, layout, theme list, `bg_opacity`, and `css` (effective palette → HSL tokens)
-- `PATCH /settings/{scope}` — structured JSON fields only (no raw TOML body); response is the refreshed view (includes updated `css`)
+- `GET /entries/{*path}?zahir=1` — entry detail; when zahir is set, also `metadata_tables` / `writing_tables` (host-parsed KV / column-stat sections; honors effective `typed_column_tables`)
+- `GET /settings/{scope}` — `scope` is `global`|`local`; returns path, exists, live `toml` text, bools, layout, theme list, `bg_opacity`, `typed_column_tables` (`none`|`abbrev`|`full`), and `css` (effective palette → HSL tokens)
+- `PATCH /settings/{scope}` — structured JSON fields only (no raw TOML body); response is the refreshed view (includes updated `css` / `typed_column_tables`)
 
 Hard nefax failures in the orchestrator can still process-exit (same as TUI on-demand snapshot). Prefer panza’s `GET /health` for liveness only.
 
