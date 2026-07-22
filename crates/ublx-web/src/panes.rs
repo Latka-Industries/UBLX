@@ -1,6 +1,9 @@
 //! Bordered 3-pane layout (ratatui `Block`-style) and right-pane tabs.
 
 use leptos::prelude::*;
+use wasm_bindgen::JsCast;
+use wasm_bindgen::closure::Closure;
+use web_sys::{ScrollIntoViewOptions, ScrollLogicalPosition};
 
 use crate::api::{EntryDetail, format_bytes, format_timestamp_ns};
 use crate::focus::{PaneFocus, UiNav, install_list_nav, string_list_nav};
@@ -175,6 +178,30 @@ fn usize_digit_width(n: usize) -> usize {
     if n == 0 { 1 } else { n.ilog10() as usize + 1 }
 }
 
+/// After sort reorders the list, keep the highlighted row on-screen (TUI `sort_anchor_path`).
+fn scroll_selected_row_into_view(scroll: &web_sys::HtmlElement) {
+    let Ok(Some(row)) = scroll.query_selector(".panel-row--selected") else {
+        return;
+    };
+    let Ok(html) = row.dyn_into::<web_sys::HtmlElement>() else {
+        return;
+    };
+    let opts = ScrollIntoViewOptions::new();
+    opts.set_block(ScrollLogicalPosition::Nearest);
+    opts.set_inline(ScrollLogicalPosition::Nearest);
+    html.scroll_into_view_with_scroll_into_view_options(&opts);
+}
+
+fn schedule_scroll_selected_into_view(scroll: web_sys::HtmlElement) {
+    let Some(window) = web_sys::window() else {
+        return;
+    };
+    let cb = Closure::once_into_js(move || {
+        scroll_selected_row_into_view(&scroll);
+    });
+    let _ = window.request_animation_frame(cb.as_ref().unchecked_ref());
+}
+
 /// Middle-pane path list with **right-aligned** sort (when TUI has it) + `current/total`
 /// (TUI: `title_bottom` via [`src/render/panes/middle.rs`](../../../../src/render/panes/middle.rs)).
 /// Used by Snapshot / Delta / Lenses / Duplicates.
@@ -212,10 +239,24 @@ pub(crate) fn PathsPane(
     install_list_nav(nav.middle, string_list_nav(keys, bridge.into(), set_bridge));
 
     let sort_label = Signal::derive(move || sort_ctx.sort.get().node_text(main_mode));
+    let scroll_ref = NodeRef::<leptos::html::Div>::new();
+
+    // TUI `sort_anchor_path`: selection stays on the same path; scroll the viewport to it.
+    Effect::new(move |_| {
+        let _ = sort_ctx.sort.get();
+        let _ = paths.get();
+        if selected.get_untracked().is_none() {
+            return;
+        }
+        let Some(scroll) = scroll_ref.get() else {
+            return;
+        };
+        schedule_scroll_selected_into_view(scroll.into());
+    });
 
     view! {
         <div class="paths-pane">
-            <div class="panel-scroll">
+            <div class="panel-scroll" node_ref=scroll_ref>
                 <Show
                     when=move || paths.get().is_empty()
                     fallback=move || {
