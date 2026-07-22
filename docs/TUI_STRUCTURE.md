@@ -167,27 +167,34 @@ Right pane is not a list-focus target. Focused pane: focused border + active tit
 
 ---
 
-## Status / overlays (port later)
+## Status / overlays
 
 | Surface | Slot | Notes |
 | ------- | ---- | ----- |
-| Catalog search (`/`) | **Status** (replaces Last Snapshot) | Filters categories + contents |
-| Viewer find (Shift+S) | Right `title_bottom` | Literal find in right content |
-| Help / theme / UBLX switch / Command Mode / space menus / toasts | Overlays | — |
+| Catalog search (`/`) | **Status** (replaces Last Snapshot) | Filters categories + contents — **web: landed** |
+| Viewer find (Shift+S) | Right `title_bottom` | Literal find in right content — **web: mini-PR** |
+| Help / theme selector / UBLX switch / Command Mode / space menus / toasts | Overlays | Theme tokens = MVP; others follow |
 
 ---
 
 ## Web parity checklist
 
-| Target | TUI truth | Web must match |
-| ------ | --------- | -------------- |
-| Middle counter | `title_bottom`, **right-aligned** `n/N` node | `PathsPane` footer → **`justify-content: flex-end`** (not left) |
-| Middle sort | Optional node **left of** counter (Snapshot / Dupes / Delta) | Later |
-| Right Viewer meta | size + mtime **right** | `right-pane-footer` already end-aligned |
-| Status | Last Snapshot **left** | Shell footer |
-| Settings | TUI 2-pane + editable-feeling TOML buffer | Web: controls + read-only live TOML |
-| Embedded ship | — | `StaticMount::Embedded` later |
-| Catalog search | status strip | wired (`/` / Esc / Enter; Skim fuzzy) | — |
+| Target | TUI truth | Web today | Mini-PR (see [`WEB_UI.md`](WEB_UI.md)) |
+| ------ | --------- | --------- | -------------------------------------- |
+| Keyboard / focus | arrows, hjkl, digits, pane + right-pane keys | mostly mouse | **#1** hotkeys |
+| Middle counter | `title_bottom` **RIGHT** `n/N` | PathsPane end-aligned | — |
+| Middle sort | node **left of** counter | missing | **#3** |
+| Catalog search | status strip | landed | — |
+| Metadata / Writing | pretty KV + column tables | thin / JSON-ish | **#4** |
+| Viewer markdown | full md pipeline | stub | **#5** |
+| Viewer code | syntect | stub | **#6** |
+| Viewer tables/CSV | pretty / csv | stub | **#7** |
+| Viewer images | raster / svg | stub | **#8** |
+| Viewer PDF/video | optional tools | stub | **#9** |
+| Viewer find | Shift+S strip | missing | **#10** |
+| Theme | Palette live | hardcoded CSS | **#2** |
+| Settings | controls + TOML | landed (no bg_opacity control) | — |
+| Embedded ship | one binary | Dir / `UBLX_WEB_DIST` | **#12** |
 
 ---
 

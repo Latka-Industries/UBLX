@@ -1,6 +1,6 @@
 # Embedded web UI for `ublx serve` (THI-157 / v0.2.0)
 
-Design note for the optional catalog browser. Stack and packaging are locked below. **First-pass shell** lives on `dev` (`crates/ublx-web/`: chrome + Snapshot categories/entries). Port the remaining modes against the TUI map in [`TUI_STRUCTURE.md`](TUI_STRUCTURE.md).
+Design note for the optional catalog browser. Stack and packaging are locked below. Layout / node placement truth is [`TUI_STRUCTURE.md`](TUI_STRUCTURE.md). Work lands as **mini-PRs onto long-lived `dev`**, then a fat PR `dev` → `main` at **v0.2.0**.
 
 **Linear:** [THI-157](https://linear.app/thicclatka/issue/THI-157/web-ui-leptos-feature-flagged-for-ublx-serve-v020)  
 **Depends on:** [THI-156](https://linear.app/thicclatka/issue/THI-156/ublx-serve-local-http-api-over-ublx) (Done — JSON API + panza)  
@@ -10,7 +10,7 @@ Design note for the optional catalog browser. Stack and packaging are locked bel
 
 ## Goal
 
-Optional **embedded catalog browser** for `ublx serve`: browse the `.ublx` catalog in a browser with UBLX theme personality — not a generic SaaS dashboard. All-Rust stack so a **feature-flagged build can ship one binary** (API + UI).
+Optional **embedded catalog browser** for `ublx serve`: the TUI experience in a browser — same chrome, focus model, hotkeys, viewers, and theme personality — not a thin dashboard over JSON.
 
 Default crates.io / Homebrew installs stay **API-only** (`StaticMount::None`). The UI is opt-in via Cargo feature **`ui`**.
 
@@ -25,7 +25,8 @@ Default crates.io / Homebrew installs stay **API-only** (`StaticMount::None`). T
 | Component library | **[leptos-shadcn-ui](https://github.com/cloud-shuttle/leptos-shadcn-ui)** | Real widgets (table, tabs, input, …) for Leptos 0.8+; no hand-rolled CSS kit |
 | HTTP shell | **panza** only | No second bind/health/static stack |
 | Static mount | `StaticMount::Embedded` when `ui`; `None` otherwise | panza already SPA-falls-back to `index.html` |
-| Data path | Same-origin **JSON API** from THI-156 | UI is a client of `/entries`, `/delta`, … — not Leptos server functions |
+| Data path | Same-origin **JSON API** from THI-156 (+ small preview routes as needed) | UI is a client of serve — not Leptos server functions |
+| Interaction | Keyboard-first: **arrows + TUI hotkeys** (see keymap) | Mouse remains secondary; parity with TUI |
 | Not chosen | Svelte / Vite / Next as the app host; egui-as-web; Thaw; Leptonic | Host stays Leptos CSR + panza; shadcn-ui is the widget layer |
 
 ### CSR vs SSR
@@ -36,7 +37,7 @@ Prefer **CSR WASM + embed**, not full SSR / `cargo-leptos` dual-compile of the `
 - Localhost catalog browser does not need SEO or first-paint HTML from Rust.
 - UI talks to existing routes with `fetch` — matches “same-origin JSON API.”
 
-Dev loop may use `StaticMount::Dir("…/dist")` so assets rebuild without re-embedding every tweak.
+Dev loop may use `StaticMount::Dir("…/dist")` / `UBLX_WEB_DIST` so assets rebuild without re-embedding every tweak. Shipping builds use **Embedded**.
 
 ---
 
@@ -53,49 +54,48 @@ Rules:
 - Default binary includes `ublx serve` **API**; **no** Leptos / WASM deps.
 - `--features ui` enables embedded assets and switches serve to `StaticMount::Embedded`.
 - Do **not** hide API-only serve behind `ui`.
-- Suggested layout: workspace crate **`crates/ublx-web/`** (wasm32 CSR app). Host `ublx` depends on it only under `ui` for asset embedding.
+- Workspace crate **`crates/ublx-web/`** (wasm32 CSR). Host `ublx` depends on it only under `ui` for asset embedding.
 
-### Build story (to document when implemented)
+### Build story
 
-1. Build CSR assets (Trunk or equivalent) → `dist/` (`index.html` + WASM/JS).
-2. `cargo build --features ui` embeds `dist/` into the binary.
-3. Optional mise / script wraps both steps.
-
-Default `cargo build` (no `ui`) stays a single native compile.
+1. Build CSR assets (`./crates/ublx-web/build.sh` / `mise run web`) → `dist/`.
+2. `cargo build --features ui` embeds `dist/` into the binary (**Embedded** — still TODO).
+3. Until then: Dir mount + `UBLX_WEB_DIST`.
 
 ---
 
 ## Components & layout
 
-**UI kit:** [leptos-shadcn-ui](https://github.com/cloud-shuttle/leptos-shadcn-ui) (Leptos 0.8+). Prefer published component crates over inventing primitives.
+**UI kit:** [leptos-shadcn-ui](https://github.com/cloud-shuttle/leptos-shadcn-ui). Prefer published components over inventing primitives.
 
-| Need | Likely pieces |
-| ---- | ------------- |
-| Mode chrome | Tabs via [`nav`](../crates/ublx-web/src/nav.rs) (`MainMode` signal + optional `/?mode=`) |
-| Entries | Table or dense list + Input / Select for filters |
-| Detail | Card or aside panel; preformatted Zahir JSON |
-| Routing | Stay on `/`; never use API path segments (`/delta`, `/lenses`, …) as UI pages — see `RESERVED_API_PATH_SEGMENTS` |
+| Need | Pieces |
+| ---- | ------ |
+| Mode chrome | Tabs via [`nav`](../crates/ublx-web/src/nav.rs) (`MainMode` + optional `/?mode=`) |
+| Lists | Dense path lists + focus + `n/N` (right-aligned) |
+| Right pane | Viewer / Templates / Metadata / Writing — full TUI content, not JSON dumps |
+| Routing | Stay on `/`; never use API path segments as UI pages |
 
-**TUI → web:** Mirror TUI chrome (tabs, path gap, 3-pane boxes, Last Snapshot). Full layout roles are in [`TUI_STRUCTURE.md`](TUI_STRUCTURE.md) — prefer that over inventing a dashboard layout.
+**TUI → web:** Mirror chrome and **placement** from [`TUI_STRUCTURE.md`](TUI_STRUCTURE.md).
 
 | TUI | Web |
 | --- | --- |
 | Main tabs + brand | In-app mode tabs + `UBLX` |
 | Indexed root gap | Project path under tabs |
 | Categories / Contents / Right | 3-pane shell (`ThreePane`) |
-| Delta / Lenses / Duplicates | Same 3-pane roles per mode |
-| Settings | Scope + **button/control rows** + live read-only TOML (no text editor) |
-| Theme / brand | CSS tokens from `Palette` |
-| File viewers (md/pdf/image) | Later; start with text / Zahir / meta |
+| Arrow / hjkl / digit / pane hotkeys | Same actions in browser (ignore when typing in inputs) |
+| Metadata / Writing tables | Pretty KV / column-stat tables (TUI renderers’ rules) |
+| Markdown / code / image / … | Ported viewers in the Viewer tab |
+| Settings | Scope · controls · live read-only TOML (no TOML text editor) |
+| Theme | CSS tokens from `Palette` |
 
 ---
 
 ## Theming
 
-Map TUI [`Palette`](../src/themes/mod.rs) into **leptos-shadcn-ui / CSS theme tokens** (same roles as below). Theme switcher swaps token sets — do not hardcode a generic purple SaaS skin as the product look.
+Map TUI [`Palette`](../src/themes/mod.rs) into CSS / shadcn tokens. Settings `theme=` writes must change the live token set.
 
-| Token role (proposed) | `Palette` field |
-| --------------------- | --------------- |
+| Token role | `Palette` field |
+| ---------- | --------------- |
 | background / page | `background` |
 | foreground / text | `text` |
 | focus / ring / accent | `focused_border` |
@@ -107,49 +107,76 @@ Map TUI [`Palette`](../src/themes/mod.rs) into **leptos-shadcn-ui / CSS theme to
 | delta added / mod / removed | `delta_*` |
 | brand | `title_brand` |
 
-Reuse hex helpers under `themes::color_utils` (`color_to_hex6` / `rgb_to_hex6`) when generating tokens.
-
-**MVP themes:** at least default dark (**Oblivion Ink**) + one light. Full palette parity can follow.
-
-If shadcn-ui’s default toolchain expects Tailwind utilities for layout, that is OK **as a styling layer under Leptos** — the app host is still Leptos CSR + panza, not a Vite/Svelte frontend.
+Reuse `themes::color_utils` (`color_to_hex6` / `rgb_to_hex6`). **MVP:** full shipped palette list usable from Settings (not only Oblivion Ink + one light).
 
 ---
 
-## MVP UI surface
+## MVP definition (v0.2.0 Done)
 
-Catalog browser that **looks like the TUI**. Dense, path-first. Skip rich file viewers (md/pdf/image) for Done; text / Zahir / meta is enough.
+**Not** “JSON browser with tabs.” **Yes** TUI-grade browse:
 
-**Landed (first pass on `dev`):**
+| Area | Required for Done |
+| ---- | ----------------- |
+| Chrome | Tabs, path gap, 3-pane, Last Snapshot / catalog search, Settings |
+| Keyboard | Arrows + TUI hotkeys for focus, list move, mode switch, right-pane tabs, sort, search, find (where applicable) — see [`src/ui/keymap.rs`](../src/ui/keymap.rs) |
+| Lists | Snapshot / Delta / Lenses / Duplicates with `n/N` **bottom-right**; middle sort node where TUI has it |
+| Right pane | Viewer body + Templates / Metadata / Writing |
+| Metadata / Writing | Pretty tables (KV + typed column stats), not raw pretty-JSON only |
+| Viewers | Markdown, syntect/code, images, tables/CSV, and the other TUI viewer families that do not need a local GUI tool; PDF/video via same optional-tool story or honest fallback |
+| Theme | `Palette` → CSS tokens; Settings theme control applies them |
+| Ship | `StaticMount::Embedded` for `--features ui` |
+
+Mouse click remains supported; keyboard is first-class.
+
+**Explicitly after MVP (still fine as follow-ons on `dev`):** Command Mode overlay, space menus / multiselect bulk, enhance-from-UI, fullscreen viewer polish, root switcher / snapshot trigger / doctor surfaces — unless a mini-PR lands them early.
+
+---
+
+## Landed on `dev` (shell)
 
 - [x] App shell: main tabs, brand, project path, Last Snapshot footer
-- [x] Snapshot: Categories + Contents from `/categories` / `/entries`; right-pane tab chrome
-- [x] Snapshot right: `/entries/{path}?zahir=1` → Viewer summary + Templates / Metadata / Writing tabs (hide when empty); disk preview still API-limited
-- [x] Delta: Added / Modified / Removed → paths (timestamp groups) → Snapshot overview from `/delta`
-- [x] Lenses: lens names → member paths → entry detail (`/lenses`, `/lenses/{name}`, Zahir detail)
-- [x] Duplicates: groups → member paths → detail (`GET /duplicates`)
-- [x] Settings: Global/Local + toggles/steppers/theme + live read-only TOML (`GET`/`PATCH /settings/{scope}`)
-- [x] Snapshot Contents `n/total` on middle pane **bottom-right** (TUI `title_bottom` / `PathsPane`)
-- [x] Catalog search: status strip replaces Last Snapshot; Skim fuzzy on Snapshot / Delta / Lenses / Duplicates
-- [x] Feature `ui` + `StaticMount::Dir` / `UBLX_WEB_DIST` (Embedded still TODO)
-
-**Next fill-in (see [`TUI_STRUCTURE.md`](TUI_STRUCTURE.md) checklist):**
-
-- [ ] Theme switcher from `Palette` tokens
-- [ ] `StaticMount::Embedded` for shipping builds
-
-Nice-to-have after MVP: root switcher, snapshot trigger, health/doctor surface, rich viewers.
+- [x] Snapshot / Delta / Lenses / Duplicates / Settings modes (API-backed)
+- [x] Right-pane tab chrome + Zahir section split (Templates / Metadata / Writing) — **content still thin**
+- [x] Contents `n/N` bottom-right (`PathsPane`)
+- [x] Catalog search (`/` strip + Skim fuzzy)
+- [x] Settings controls + live read-only TOML; `GET`/`PATCH /settings/{scope}`; `GET /duplicates`
+- [x] Feature `ui` + Dir / `UBLX_WEB_DIST` (Embedded still open)
 
 ---
 
-## Serve wiring (sketch)
+## Mini-PR plan onto `dev`
 
-Today (`src/cli/serve.rs`):
+One concern per PR. Order is dependency-aware; titles are suggestions.
 
-```rust
-panza_run(..., api, StaticMount::None)
-```
+| # | PR onto `dev` | Delivers | Notes / anchors |
+| - | ------------- | -------- | --------------- |
+| **1** | **Keyboard focus + hotkeys** | Arrow keys, `hjkl`, Tab/pane focus (`h`/`l`), list top/bottom, mode digits + `~`, right-pane `v`/`t`/`m`/`w`, sort `s`, search `/` already present — ignore chords when typing in inputs | Port actions from [`keymap.rs`](../src/ui/keymap.rs); shared focus store in shell |
+| **2** | **Palette → CSS tokens** | Generate/apply theme CSS variables from `Palette`; Settings theme dropdown switches live look | [`themes/`](../src/themes/); WEB_UI token table above |
+| **3** | **Middle sort node** | Sort control **left of** `n/N` on Snapshot / Dupes / Delta (TUI `title_bottom` cluster) | [`middle.rs`](../src/render/panes/middle.rs) `sort_node_text` / `line_for` |
+| **4** | **Pretty Metadata + Writing** | Port KV / column-stat table rendering into Metadata & Writing tabs (abbrev/full rules) | [`render/kv_tables/`](../src/render/kv_tables/); Settings `typed_column_tables` |
+| **5** | **Markdown viewer** | Viewer tab renders markdown like TUI (flow, tables, code fences) | [`render/viewers/markdown/`](../src/render/viewers/markdown/); needs file/preview API if not already |
+| **6** | **Code / syntect viewer** | Syntax-highlighted text for code categories | [`syntect_text`](../src/render/viewers/syntect_text.rs) |
+| **7** | **Tables / CSV (+ misc text)** | Tabular + plain text fallbacks in Viewer | [`csv_handler`](../src/render/viewers/csv_handler.rs), pretty tables |
+| **8** | **Images (and covers)** | Raster / SVG preview in Viewer | [`viewers/images/`](../src/render/viewers/images/), `svg_preview` |
+| **9** | **PDF / video / tool-backed** | Optional-tool previews or clear “tool missing” UI matching TUI honesty | [`async_tools`](../src/render/viewers/async_tools.rs), PDF/video modules |
+| **10** | **Viewer find** | Shift+S find strip on right `title_bottom`; `n`/`N` next/prev | TUI viewer find; catalog `/` already landed |
+| **11** | **Preview / file body API** | Serve routes to stream or page file bytes / rendered slices the viewers need (if not covered by existing entry detail) | Extend [`serve.rs`](../src/cli/serve.rs) / `catalog_read` as required by PRs 5–9 — may land **earlier** as a prerequisite PR if blocked |
+| **12** | **`StaticMount::Embedded`** | Ship `--features ui` as one binary; Dir remains for `mise run web` | panza `Embedded`; build.sh → embed |
 
-With `ui`:
+**Ops / chrome follow-ups** (separate PRs after or interleaved when small):
+
+| PR | Delivers |
+| -- | -------- |
+| Root switcher | UI for `GET`/`PUT /roots/current` |
+| Snapshot trigger | UI for `POST`/`GET /snapshot` |
+| Doctor / health surface | `GET /doctor` + panza health |
+| Help overlay | Mode-aware `?` help |
+
+Do **not** expand a mini-PR into “finish the whole Viewer stack” — keep each PR reviewable.
+
+---
+
+## Serve wiring
 
 ```rust
 #[cfg(feature = "ui")]
@@ -160,25 +187,26 @@ let mount = StaticMount::None;
 panza_run(..., api, mount)
 ```
 
-API routes stay registered on the host router and take precedence over the static fallback.
+API routes stay on the host router and take precedence over the static SPA fallback.
 
 ---
 
-## Out of scope
+## Out of scope (product)
 
-- Svelte / Vite / Next as the **application** host (Tailwind under leptos-shadcn-ui is fine if required)
+- Svelte / Vite / Next as the **application** host (Tailwind under leptos-shadcn-ui is fine)
 - Hand-rolled primitive kit instead of leptos-shadcn-ui
 - Thaw / Leptonic as the primary widget layer
 - Native Rust GUI (egui/iced) as the primary web surface
 - Cloud multi-tenant hosting
-- TUI viewer parity (previews, enhance, settings editor)
-- Reimplementing clap serve / health / static (panza / THI-165)
+- Reimplementing clap serve / health / static (panza)
+
+**In scope for v0.2.0 MVP:** keyboard parity, pretty Metadata/Writing, and the viewer families listed above — not “JSON in a `<pre>` forever.”
 
 ---
 
 ## Done when
 
-Feature-enabled `ublx` can `serve` and browse entries / delta / lenses / health in-browser with at least one real UBLX theme via CSS variables; default (no `ui`) build still has API-only `serve`. Shipped as **v0.2.0**.
+Feature-enabled `ublx serve` is a **keyboard-usable TUI-shaped browser**: modes, search, hotkeys, pretty Zahir tables, and real Viewer content (md/code/tables/images/…); themes from `Palette`; Embedded ship path works. Default (no `ui`) build stays API-only. Shipped as **v0.2.0**.
 
 ---
 
@@ -187,4 +215,4 @@ Feature-enabled `ublx` can `serve` and browse entries / delta / lenses / health 
 - TUI layout map (port reference): [`TUI_STRUCTURE.md`](TUI_STRUCTURE.md)
 - In-repo CLI notes: [`src/cli/README.md`](../src/cli/README.md)
 - Roadmap: [`docs/ROADMAP.md`](ROADMAP.md)
-- Public CLI (API today): [ublx.dev CLI — serve](https://ublx.dev/cli#ublx-serve) (web UI section when published)
+- Public CLI: [ublx.dev CLI — serve](https://ublx.dev/cli#ublx-serve)
