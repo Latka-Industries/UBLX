@@ -1,6 +1,6 @@
 # Embedded web UI for `ublx serve` (THI-157 / v0.2.0)
 
-Design note for the optional catalog browser. Implementation has not started; this locks stack and packaging so work can proceed without re-litigating the shape.
+Design note for the optional catalog browser. Stack and packaging are locked below. **First-pass shell** lives on `dev` (`crates/ublx-web/`: chrome + Snapshot categories/entries). Port the remaining modes against the TUI map in [`TUI_STRUCTURE.md`](TUI_STRUCTURE.md).
 
 **Linear:** [THI-157](https://linear.app/thicclatka/issue/THI-157/web-ui-leptos-feature-flagged-for-ublx-serve-v020)  
 **Depends on:** [THI-156](https://linear.app/thicclatka/issue/THI-156/ublx-serve-local-http-api-over-ublx) (Done — JSON API + panza)  
@@ -71,20 +71,22 @@ Default `cargo build` (no `ui`) stays a single native compile.
 
 | Need | Likely pieces |
 | ---- | ------------- |
-| Mode chrome | Tabs / navigation from shadcn-ui |
+| Mode chrome | Tabs via [`nav`](../crates/ublx-web/src/nav.rs) (`MainMode` signal + optional `/?mode=`) |
 | Entries | Table or dense list + Input / Select for filters |
 | Detail | Card or aside panel; preformatted Zahir JSON |
-| Routing | `leptos_router` (`/`, `/delta`, `/lenses`, `/health`) |
+| Routing | Stay on `/`; never use API path segments (`/delta`, `/lenses`, …) as UI pages — see `RESERVED_API_PATH_SEGMENTS` |
 
-**TUI → web (roles, not a 3-pane clone):**
+**TUI → web:** Mirror TUI chrome (tabs, path gap, 3-pane boxes, Last Snapshot). Full layout roles are in [`TUI_STRUCTURE.md`](TUI_STRUCTURE.md) — prefer that over inventing a dashboard layout.
 
-| TUI | Web MVP |
-| --- | ------- |
-| Snapshot list + selection | Entries list/table + detail |
-| Categories left rail | Filter controls (not a third column) |
-| Delta / Lenses tabs | Router modes |
-| Theme / brand | shadcn theme tokens fed from `Palette` |
-| Right-pane Viewer | Skip in this issue |
+| TUI | Web |
+| --- | --- |
+| Main tabs + brand | In-app mode tabs + `UBLX` |
+| Indexed root gap | Project path under tabs |
+| Categories / Contents / Right | 3-pane shell (`ThreePane`) |
+| Delta / Lenses / Duplicates | Same 3-pane roles per mode |
+| Settings | Scope + **button/control rows** + live read-only TOML (no text editor) |
+| Theme / brand | CSS tokens from `Palette` |
+| File viewers (md/pdf/image) | Later; start with text / Zahir / meta |
 
 ---
 
@@ -115,16 +117,27 @@ If shadcn-ui’s default toolchain expects Tailwind utilities for layout, that i
 
 ## MVP UI surface
 
-Catalog browser — **not** a full TUI port. Dense, path-first (list + detail). Skip file viewers (md/pdf/image) in this issue.
+Catalog browser that **looks like the TUI**. Dense, path-first. Skip rich file viewers (md/pdf/image) for Done; text / Zahir / meta is enough.
 
-- [ ] App shell (shadcn-ui): theme switcher; connection to local serve (same-origin when embedded)
-- [ ] **Entries:** path / category / size; filter (category, size, path text); select row
-- [ ] **Detail:** selected entry; optional Zahir JSON (`?zahir=1`)
-- [ ] **Delta:** added / mod / removed
-- [ ] **Lenses:** list + member paths
-- [ ] **Health:** doctor-ish summary from `/health` (and optionally `/doctor`)
+**Landed (first pass on `dev`):**
 
-Nice-to-have after MVP (not required for Done): root switcher, snapshot trigger, more themes, viewers.
+- [x] App shell: main tabs, brand, project path, Last Snapshot footer
+- [x] Snapshot: Categories + Contents from `/categories` / `/entries`; right-pane tab chrome
+- [x] Snapshot right: `/entries/{path}?zahir=1` → Viewer summary + Templates / Metadata / Writing tabs (hide when empty); disk preview still API-limited
+- [x] Delta: Added / Modified / Removed → paths (timestamp groups) → Snapshot overview from `/delta`
+- [x] Lenses: lens names → member paths → entry detail (`/lenses`, `/lenses/{name}`, Zahir detail)
+- [x] Duplicates: groups → member paths → detail (`GET /duplicates`)
+- [x] Settings: Global/Local + toggles/steppers/theme + live read-only TOML (`GET`/`PATCH /settings/{scope}`)
+- [x] Snapshot Contents `n/total` on middle pane **bottom-right** (TUI `title_bottom` / `PathsPane`)
+- [x] Feature `ui` + `StaticMount::Dir` / `UBLX_WEB_DIST` (Embedded still TODO)
+
+**Next fill-in (see [`TUI_STRUCTURE.md`](TUI_STRUCTURE.md) checklist):**
+
+- [ ] Catalog search
+- [ ] Theme switcher from `Palette` tokens
+- [ ] `StaticMount::Embedded` for shipping builds
+
+Nice-to-have after MVP: root switcher, snapshot trigger, health/doctor surface, rich viewers.
 
 ---
 
@@ -171,6 +184,7 @@ Feature-enabled `ublx` can `serve` and browse entries / delta / lenses / health 
 
 ## Related docs
 
+- TUI layout map (port reference): [`TUI_STRUCTURE.md`](TUI_STRUCTURE.md)
 - In-repo CLI notes: [`src/cli/README.md`](../src/cli/README.md)
 - Roadmap: [`docs/ROADMAP.md`](ROADMAP.md)
 - Public CLI (API today): [ublx.dev CLI — serve](https://ublx.dev/cli#ublx-serve) (web UI section when published)

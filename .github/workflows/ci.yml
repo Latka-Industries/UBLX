@@ -2,12 +2,12 @@ name: Build
 
 on:
   push:
-    branches: [main, master]
+    branches: [main, master, dev]
     paths-ignore:
       - "**/*.md"
       - "docs/**"
   pull_request:
-    branches: [main, master]
+    branches: [main, master, dev]
     paths-ignore:
       - "**/*.md"
       - "docs/**"

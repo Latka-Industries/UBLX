@@ -4,12 +4,13 @@ Leptos CSR + [leptos-shadcn-ui](https://github.com/cloud-shuttle/leptos-shadcn-u
 
 ## Layout
 
-| Module    | Role                                              |
-| --------- | ------------------------------------------------- |
-| `api`     | Same-origin JSON client + catalog types           |
-| `shell`   | Tabs, project path, Last Snapshot footer          |
-| `panes`   | 3-pane boxes, list rows, right-pane tabs          |
-| `modes/*` | Snapshot / Lenses / Delta / Duplicates / Settings |
+| Module    | Role                                                                  |
+| --------- | --------------------------------------------------------------------- |
+| `api`     | Same-origin JSON client + catalog types                               |
+| `nav`     | `MainMode` tabs + `/?mode=` (never UI-navigate to `/delta`, …)        |
+| `shell`   | Tabs, project path, Last Snapshot footer                              |
+| `panes`   | 3-pane boxes, list rows, right-pane tabs                              |
+| `modes/*` | Snapshot / Lenses / Delta / Duplicates / Settings                     |
 
 ## Build (wasm-bindgen — no trunk)
 

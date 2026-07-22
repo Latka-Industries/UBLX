@@ -3,12 +3,12 @@ name: UBLX Web
 
 on:
   push:
-    branches: [main, master]
+    branches: [main, master, dev]
     paths:
       - "crates/ublx-web/**"
       - ".github/workflows/ublx-web.yml"
   pull_request:
-    branches: [main, master]
+    branches: [main, master, dev]
     paths:
       - "crates/ublx-web/**"
       - ".github/workflows/ublx-web.yml"

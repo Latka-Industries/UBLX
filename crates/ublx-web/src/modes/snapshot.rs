@@ -2,8 +2,8 @@
 
 use leptos::prelude::*;
 
-use crate::api::{get_json, EntryRow};
-use crate::panes::{PanelRow, RightPaneShell, ThreePane};
+use crate::api::{EntryRow, fetch_entry_detail, get_json};
+use crate::panes::{EntryRightPane, PanelRow, PathsPane, ThreePane};
 
 #[component]
 pub(crate) fn SnapshotMode() -> impl IntoView {
@@ -24,6 +24,25 @@ pub(crate) fn SnapshotMode() -> impl IntoView {
         }
     });
     let (selected_path, set_selected_path) = signal::<Option<String>>(None);
+    let detail = LocalResource::new(move || {
+        let path = selected_path.get();
+        async move {
+            match path {
+                Some(p) => fetch_entry_detail(&p).await.ok(),
+                None => None,
+            }
+        }
+    });
+    let detail_signal = Signal::derive(move || detail.get().flatten());
+
+    let paths = Signal::derive(move || {
+        entries
+            .get()
+            .unwrap_or_default()
+            .into_iter()
+            .map(|r| (r.path.clone(), r.path))
+            .collect::<Vec<_>>()
+    });
 
     view! {
         <ThreePane
@@ -71,40 +90,29 @@ pub(crate) fn SnapshotMode() -> impl IntoView {
             .into_any()
             middle=view! {
                 <Suspense fallback=move || view! { <p class="pane-empty">"…"</p> }>
-                    {move || {
-                        let rows = entries.get().unwrap_or_default();
-                        if rows.is_empty() {
-                            return view! { <p class="pane-empty">"(no contents)"</p> }.into_any();
-                        }
-                        view! {
-                            <ul class="panel-list">
-                                {rows
-                                    .into_iter()
-                                    .map(|r| {
-                                        let path = r.path.clone();
-                                        let pick = r.path.clone();
-                                        view! {
-                                            <PanelRow
-                                                label=path.clone()
-                                                selected=Signal::derive({
-                                                    let path = path.clone();
-                                                    move || selected_path.get().as_ref() == Some(&path)
-                                                })
-                                                on_select=Callback::new(move |_| {
-                                                    set_selected_path.set(Some(pick.clone()));
-                                                })
-                                            />
-                                        }
-                                    })
-                                    .collect_view()}
-                            </ul>
-                        }
-                        .into_any()
-                    }}
+                    <PathsPane
+                        paths=paths
+                        selected=selected_path.into()
+                        on_select=Callback::new(move |p| set_selected_path.set(Some(p)))
+                    />
                 </Suspense>
             }
             .into_any()
-            right=view! { <RightPaneShell/> }.into_any()
+            right=view! {
+                <Suspense fallback=move || {
+                    view! {
+                        <div class="right-pane">
+                            <div class="panel-titlebar">
+                                <span class="tab-node tab-node--active tab-node--sm">"Viewer"</span>
+                            </div>
+                            <div class="panel-pad pane-empty">"…"</div>
+                        </div>
+                    }
+                }>
+                    <EntryRightPane detail=detail_signal/>
+                </Suspense>
+            }
+            .into_any()
         />
     }
 }

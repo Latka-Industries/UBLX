@@ -8,11 +8,11 @@
 
 mod api;
 mod modes;
+mod nav;
 mod panes;
 mod shell;
 
 use leptos::prelude::*;
-use leptos_router::components::Router;
 use wasm_bindgen::prelude::wasm_bindgen;
 
 use crate::api::load_catalog_flags;
@@ -31,17 +31,15 @@ fn App() -> impl IntoView {
     let catalog = LocalResource::new(load_catalog_flags);
 
     view! {
-        <Router>
-            <div class="tui-shell">
-                <Suspense fallback=move || {
-                    view! { <p class="shell-loading">"Connecting to ublx serve…"</p> }
-                }>
-                    {move || match catalog.get() {
-                        None => view! { <p class="shell-loading">"…"</p> }.into_any(),
-                        Some(flags) => view! { <Shell flags=flags/> }.into_any(),
-                    }}
-                </Suspense>
-            </div>
-        </Router>
+        <div class="tui-shell">
+            <Suspense fallback=move || {
+                view! { <p class="shell-loading">"Connecting to ublx serve…"</p> }
+            }>
+                {move || match catalog.get() {
+                    None => view! { <p class="shell-loading">"…"</p> }.into_any(),
+                    Some(flags) => view! { <Shell flags=flags/> }.into_any(),
+                }}
+            </Suspense>
+        </div>
     }
 }
