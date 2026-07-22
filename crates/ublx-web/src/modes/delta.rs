@@ -4,8 +4,10 @@ use leptos::prelude::*;
 
 use crate::api::{DeltaKind, DeltaRow, fetch_delta_catalog, format_timestamp_ns};
 use crate::focus::{ListNav, UiNav, install_list_nav};
+use crate::nav::MainMode;
 use crate::panes::{OverviewRightPane, PathsPane, ThreePane};
 use crate::search::{CatalogSearch, fuzzy_matches_field};
+use crate::sort::{ContentSortCtx, sort_delta_rows};
 
 #[component]
 pub(crate) fn DeltaMode() -> impl IntoView {
@@ -16,6 +18,7 @@ pub(crate) fn DeltaMode() -> impl IntoView {
     let overview = Signal::derive(move || catalog.get().unwrap_or_default().overview_text());
 
     let search = CatalogSearch::expect();
+    let sort_ctx = ContentSortCtx::expect();
     let paths = Signal::derive(move || {
         let cat = catalog.get().unwrap_or_default();
         let rows = cat.rows_for(kind.get());
@@ -27,7 +30,15 @@ pub(crate) fn DeltaMode() -> impl IntoView {
                 .filter(|r| fuzzy_matches_field(&r.path, &q))
                 .collect()
         };
-        display_paths(&kept)
+        let mut timed: Vec<(i64, String)> = kept
+            .into_iter()
+            .map(|r| (r.created_ns, r.path.clone()))
+            .collect();
+        // When searching, keep encounter order from filter; idle applies Time ↕ like TUI.
+        if q.trim().is_empty() {
+            sort_delta_rows(&mut timed, sort_ctx.sort.get());
+        }
+        display_paths_timed(&timed)
     });
 
     let nav = UiNav::expect();
@@ -109,6 +120,7 @@ pub(crate) fn DeltaMode() -> impl IntoView {
             middle=view! {
                 <Suspense fallback=move || view! { <p class="pane-empty">"…"</p> }>
                     <PathsPane
+                        main_mode=MainMode::Delta
                         paths=paths
                         selected=selected_path.into()
                         on_select=Callback::new(move |p| set_selected_path.set(Some(p)))
@@ -139,18 +151,15 @@ pub(crate) fn DeltaMode() -> impl IntoView {
 
 /// Path rows for the middle pane: timestamp headers + indented paths (TUI-shaped).
 /// Keys for path rows are `created_ns\0path`; header rows use an empty key.
-fn display_paths(rows: &[&DeltaRow]) -> Vec<(String, String)> {
+fn display_paths_timed(rows: &[(i64, String)]) -> Vec<(String, String)> {
     let mut out = Vec::new();
     let mut current_ns: Option<i64> = None;
-    for r in rows {
-        if current_ns != Some(r.created_ns) {
-            current_ns = Some(r.created_ns);
-            out.push((format_timestamp_ns(r.created_ns), String::new()));
+    for (ns, path) in rows {
+        if current_ns != Some(*ns) {
+            current_ns = Some(*ns);
+            out.push((format_timestamp_ns(*ns), String::new()));
         }
-        out.push((
-            format!("  {}", r.path),
-            format!("{}\0{}", r.created_ns, r.path),
-        ));
+        out.push((format!("  {path}"), format!("{ns}\0{path}")));
     }
     out
 }

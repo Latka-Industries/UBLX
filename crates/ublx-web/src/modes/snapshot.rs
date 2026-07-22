@@ -1,11 +1,24 @@
 //! Snapshot mode: categories · contents · right pane (+ catalog search filter).
 
+use std::sync::Arc;
+
 use leptos::prelude::*;
 
 use crate::api::{EntryRow, fetch_entry_detail, get_json};
 use crate::focus::{UiNav, install_list_nav, string_list_nav};
+use crate::nav::MainMode;
 use crate::panes::{EntryRightPane, PanelRow, PathsPane, ThreePane};
 use crate::search::{CatalogSearch, filter_categories, filter_snapshot_paths, path_rows};
+use crate::sort::{ContentSortCtx, sort_snapshot_rows};
+
+/// Path + category + sort fields only (drop zahir payload from the sort hot path).
+#[derive(Clone, PartialEq, Eq)]
+struct SlimEntry {
+    path: String,
+    category: String,
+    size: u64,
+    mtime_ns: Option<i64>,
+}
 
 #[component]
 pub(crate) fn SnapshotMode() -> impl IntoView {
@@ -34,14 +47,31 @@ pub(crate) fn SnapshotMode() -> impl IntoView {
     });
     let detail_signal = Signal::derive(move || detail.get().flatten());
 
-    let row_pairs = Signal::derive(move || {
-        entries
-            .get()
-            .unwrap_or_default()
-            .into_iter()
-            .map(|r| (r.path, r.category))
+    // Rebuild only when `/entries` reloads — sort cycles reuse this Arc.
+    let slim = Memo::new(move |_| {
+        Arc::new(
+            entries
+                .get()
+                .unwrap_or_default()
+                .into_iter()
+                .map(|r| SlimEntry {
+                    path: r.path,
+                    category: r.category,
+                    size: r.size,
+                    mtime_ns: r.mtime_ns,
+                })
+                .collect::<Vec<_>>(),
+        )
+    });
+
+    let row_pairs = Memo::new(move |_| {
+        slim.get()
+            .iter()
+            .map(|r| (r.path.clone(), r.category.clone()))
             .collect::<Vec<_>>()
     });
+
+    let sort_ctx = ContentSortCtx::expect();
 
     let visible_cats = Signal::derive(move || {
         let cats = categories.get().unwrap_or_default();
@@ -63,11 +93,26 @@ pub(crate) fn SnapshotMode() -> impl IntoView {
         }
     });
 
-    let paths = Signal::derive(move || {
-        let rows = row_pairs.get();
+    let paths = Memo::new(move |_| {
+        let all = slim.get();
         let cat = selected_cat.get();
         let q = search.trimmed.get();
-        path_rows(filter_snapshot_paths(&rows, cat.as_deref(), &q))
+        let sort = sort_ctx.sort.get();
+        // Active search keeps score ordering (same as current web filter); idle uses TUI content sort.
+        if !q.trim().is_empty() {
+            let pairs: Vec<(String, String)> = all
+                .iter()
+                .map(|r| (r.path.clone(), r.category.clone()))
+                .collect();
+            return path_rows(filter_snapshot_paths(&pairs, cat.as_deref(), &q));
+        }
+        let mut rows: Vec<(String, u64, Option<i64>)> = all
+            .iter()
+            .filter(|r| cat.as_ref().is_none_or(|c| &r.category == c))
+            .map(|r| (r.path.clone(), r.size, r.mtime_ns))
+            .collect();
+        sort_snapshot_rows(&mut rows, sort);
+        path_rows(rows.into_iter().map(|(p, _, _)| p))
     });
 
     Effect::new(move |_| {
@@ -152,7 +197,8 @@ pub(crate) fn SnapshotMode() -> impl IntoView {
             middle=view! {
                 <Suspense fallback=move || view! { <p class="pane-empty">"…"</p> }>
                     <PathsPane
-                        paths=paths
+                        main_mode=MainMode::Snapshot
+                        paths=paths.into()
                         selected=selected_path.into()
                         on_select=Callback::new(move |p| set_selected_path.set(Some(p)))
                     />

@@ -52,6 +52,30 @@ body > * {
   height: 100%;
 }
 
+/* —— boot (before chrome grid) —— */
+.shell-boot {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: calc(100% - 14px);
+  min-height: calc(100vh - 14px);
+  margin: 7px;
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+}
+
+.shell-loading {
+  margin: 0;
+  padding: 1.5rem;
+  color: hsl(var(--muted-foreground));
+  font-size: 1.75rem;
+  overflow: visible;
+  white-space: normal;
+  word-break: normal;
+  text-align: center;
+}
+
 /* —— shell: header · body · footer —— */
 .tui-shell {
   display: grid;
@@ -63,11 +87,6 @@ body > * {
   margin: 7px;
   background: hsl(var(--background));
   color: hsl(var(--foreground));
-}
-
-.shell-loading {
-  padding: 1.5rem;
-  color: hsl(var(--muted-foreground));
 }
 
 .main-chrome {
@@ -502,6 +521,12 @@ button.tab-node {
 
 .pane-footer .status-node {
   font-size: 0.8rem;
+}
+
+.pane-footer .status-node--counter {
+  font-variant-numeric: tabular-nums;
+  white-space: pre;
+  font-family: ui-monospace, "Cascadia Code", "SF Mono", Menlo, monospace;
 }
 
 .panel-heading {

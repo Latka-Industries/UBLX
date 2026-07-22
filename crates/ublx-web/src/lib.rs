@@ -15,6 +15,7 @@ mod nav;
 mod panes;
 mod search;
 mod shell;
+mod sort;
 mod theme;
 
 use leptos::prelude::*;
@@ -51,15 +52,29 @@ fn App() -> impl IntoView {
     });
 
     view! {
-        <div class="tui-shell">
-            <Suspense fallback=move || {
-                view! { <p class="shell-loading">"Connecting to ublx serve…"</p> }
-            }>
-                {move || match catalog.get() {
-                    None => view! { <p class="shell-loading">"…"</p> }.into_any(),
-                    Some(flags) => view! { <Shell flags=flags/> }.into_any(),
-                }}
-            </Suspense>
-        </div>
+        <Suspense fallback=move || {
+            view! {
+                <div class="shell-boot">
+                    <p class="shell-loading">"Connecting to UBLX…"</p>
+                </div>
+            }
+        }>
+            {move || match catalog.get() {
+                None => {
+                    view! {
+                        <div class="shell-boot">
+                            <p class="shell-loading">"…"</p>
+                        </div>
+                    }
+                    .into_any()
+                }
+                Some(flags) => view! {
+                    <div class="tui-shell">
+                        <Shell flags=flags/>
+                    </div>
+                }
+                .into_any(),
+            }}
+        </Suspense>
     }
 }

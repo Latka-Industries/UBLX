@@ -187,7 +187,7 @@ Right pane is not a list-focus target. Focused pane: focused border + active tit
 | Help overlay | `?` mode-aware | landed | **#2** |
 | Theme | `ThemeStyles` + `Palette` (same fg/bg pairs) | live CSS tokens | **#3** |
 | Middle counter | `title_bottom` **RIGHT** `n/N` | PathsPane end-aligned | — |
-| Middle sort | node **left of** counter | missing | **#4** |
+| Middle sort | node **left of** counter + `s` | landed | **#4** |
 | Catalog search | status strip | landed | — |
 | Metadata / Writing | pretty KV + column tables | thin / JSON-ish | **#5** |
 | Viewer markdown | full md pipeline | stub | **#6** |

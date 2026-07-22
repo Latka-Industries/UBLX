@@ -11,12 +11,14 @@ use crate::keys::{WebAction, action_from_keydown, typing_in_form_field};
 use crate::modes::{DeltaMode, DuplicatesMode, LensesMode, SettingsMode, SnapshotMode};
 use crate::nav::{MainMode, clamp_mode_to_visible, select_mode, use_main_mode};
 use crate::search::{CatalogSearch, SEARCH_LABEL};
+use crate::sort::ContentSortCtx;
 
 #[component]
 pub(crate) fn Shell(flags: CatalogFlags) -> impl IntoView {
     let flags = StoredValue::new(flags);
     let (mode, set_mode) = use_main_mode();
     let search = CatalogSearch::provide();
+    let sort = ContentSortCtx::provide();
     let (nav, tabs) = UiNav::provide();
     let help = HelpOverlay::provide();
 
@@ -44,6 +46,7 @@ pub(crate) fn Shell(flags: CatalogFlags) -> impl IntoView {
             return;
         };
         let search = search;
+        let sort = sort;
         let nav = nav;
         let tabs = tabs;
         let mode = mode;
@@ -63,6 +66,7 @@ pub(crate) fn Shell(flags: CatalogFlags) -> impl IntoView {
                 action,
                 KeybusCtx {
                     search,
+                    sort,
                     nav,
                     tabs,
                     mode,
@@ -122,6 +126,7 @@ pub(crate) fn Shell(flags: CatalogFlags) -> impl IntoView {
 #[derive(Clone, Copy)]
 struct KeybusCtx {
     search: CatalogSearch,
+    sort: ContentSortCtx,
     nav: UiNav,
     tabs: RightTabBus,
     mode: ReadSignal<MainMode>,
@@ -139,6 +144,7 @@ fn dispatch_action(action: WebAction, ctx: KeybusCtx) {
         WebAction::HelpSectionPrev => ctx.help.cycle_section(ctx.mode.get_untracked(), -1),
         WebAction::HelpAbsorb => {}
         WebAction::SearchStart => ctx.search.start(),
+        WebAction::CycleContentSort => ctx.sort.cycle(ctx.mode.get_untracked()),
         WebAction::MainMode(m) => {
             if m.is_visible(f.has_lenses, f.has_delta, f.has_duplicates) {
                 select_mode(ctx.set_mode, m);
