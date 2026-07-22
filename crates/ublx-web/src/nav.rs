@@ -36,6 +36,22 @@ impl MainMode {
         }
     }
 
+    /// Hotkey digit — matches TUI `UblxTabNumber::DEFAULT`.
+    pub(crate) fn digit(self) -> u8 {
+        match self {
+            Self::Snapshot => 1,
+            Self::Lenses => 2,
+            Self::Delta => 7,
+            Self::Duplicates => 8,
+            Self::Settings => 9,
+        }
+    }
+
+    /// Tab bar title with digit hint, e.g. `Settings (9)`.
+    pub(crate) fn tab_title(self) -> String {
+        format!("{} ({})", self.label(), self.digit())
+    }
+
     /// Query value for `/?mode=…` (never a path segment).
     pub(crate) fn query_value(self) -> &'static str {
         match self {

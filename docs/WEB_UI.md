@@ -141,6 +141,7 @@ Mouse click remains supported; keyboard is first-class.
 - [x] Catalog search (`/` strip + Skim fuzzy)
 - [x] Settings controls + live read-only TOML; `GET`/`PATCH /settings/{scope}`; `GET /duplicates`
 - [x] Feature `ui` + Dir / `UBLX_WEB_DIST` (Embedded still open)
+- [ ] Keyboard focus + hotkeys (branch `thi-157-web-hotkeys` → `dev`) — digits/`~`/hjkl/arrows/g`G`/Tab/`vtmw`/Shift+Tab; sort `s` waits on PR **#3**
 
 ---
 
@@ -150,7 +151,7 @@ One concern per PR. Order is dependency-aware; titles are suggestions.
 
 | # | PR onto `dev` | Delivers | Notes / anchors |
 | - | ------------- | -------- | --------------- |
-| **1** | **Keyboard focus + hotkeys** | Arrow keys, `hjkl`, Tab/pane focus (`h`/`l`), list top/bottom, mode digits + `~`, right-pane `v`/`t`/`m`/`w`, sort `s`, search `/` already present — ignore chords when typing in inputs | Port actions from [`keymap.rs`](../src/ui/keymap.rs); shared focus store in shell |
+| **1** | **Keyboard focus + hotkeys** | Arrow keys, `hjkl`, Tab/pane focus (`h`/`l`), list top/bottom, mode digits + `~`, right-pane `v`/`t`/`m`/`w`, search `/` — ignore chords when typing in inputs | [`keys.rs`](../crates/ublx-web/src/keys.rs) + [`focus.rs`](../crates/ublx-web/src/focus.rs); sort `s` with PR **#3** |
 | **2** | **Palette → CSS tokens** | Generate/apply theme CSS variables from `Palette`; Settings theme dropdown switches live look | [`themes/`](../src/themes/); WEB_UI token table above |
 | **3** | **Middle sort node** | Sort control **left of** `n/N` on Snapshot / Dupes / Delta (TUI `title_bottom` cluster) | [`middle.rs`](../src/render/panes/middle.rs) `sort_node_text` / `line_for` |
 | **4** | **Pretty Metadata + Writing** | Port KV / column-stat table rendering into Metadata & Writing tabs (abbrev/full rules) | [`render/kv_tables/`](../src/render/kv_tables/); Settings `typed_column_tables` |

@@ -3,6 +3,7 @@
 use leptos::prelude::*;
 
 use crate::api::{fetch_duplicates, fetch_entry_detail};
+use crate::focus::{UiNav, id_list_nav, install_list_nav};
 use crate::panes::{EntryRightPane, PanelRow, PathsPane, ThreePane};
 use crate::search::{
     CatalogSearch, empty_list_message, filter_paths, fuzzy_matches_field, path_rows,
@@ -67,6 +68,27 @@ pub(crate) fn DuplicatesMode() -> impl IntoView {
         }
     });
     let detail_signal = Signal::derive(move || detail.get().flatten());
+
+    let nav = UiNav::expect();
+    let group_ids = Signal::derive(move || {
+        visible_groups
+            .get()
+            .into_iter()
+            .map(|g| g.id)
+            .collect::<Vec<_>>()
+    });
+    let (id_nav, set_id_nav) = signal(selected_id.get_untracked());
+    Effect::new(move |_| {
+        set_id_nav.set(selected_id.get());
+    });
+    Effect::new(move |_| {
+        let b = id_nav.get();
+        if b != selected_id.get_untracked() {
+            set_selected_id.set(b);
+            set_selected_path.set(None);
+        }
+    });
+    install_list_nav(nav.left, id_list_nav(group_ids, id_nav.into(), set_id_nav));
 
     view! {
         <ThreePane

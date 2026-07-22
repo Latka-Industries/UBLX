@@ -3,6 +3,7 @@
 use leptos::prelude::*;
 
 use crate::api::{EntryRow, fetch_entry_detail, get_json};
+use crate::focus::{UiNav, install_list_nav, string_list_nav};
 use crate::panes::{EntryRightPane, PanelRow, PathsPane, ThreePane};
 use crate::search::{CatalogSearch, filter_categories, filter_snapshot_paths, path_rows};
 
@@ -77,6 +78,30 @@ pub(crate) fn SnapshotMode() -> impl IntoView {
             set_selected_path.set(None);
         }
     });
+
+    // Left pane: All + categories (empty string key = All).
+    let nav = UiNav::expect();
+    let cat_keys = Signal::derive(move || {
+        let mut keys = vec![String::new()];
+        keys.extend(visible_cats.get());
+        keys
+    });
+    let (cat_nav, set_cat_nav) = signal(Some(selected_cat.get_untracked().unwrap_or_default()));
+    Effect::new(move |_| {
+        set_cat_nav.set(Some(selected_cat.get().unwrap_or_default()));
+    });
+    Effect::new(move |_| {
+        let raw = cat_nav.get().unwrap_or_default();
+        let next = if raw.is_empty() { None } else { Some(raw) };
+        if next != selected_cat.get_untracked() {
+            set_selected_cat.set(next);
+            set_selected_path.set(None);
+        }
+    });
+    install_list_nav(
+        nav.left,
+        string_list_nav(cat_keys, cat_nav.into(), set_cat_nav),
+    );
 
     view! {
         <ThreePane
