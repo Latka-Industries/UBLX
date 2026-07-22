@@ -1,7 +1,8 @@
 name: Build
 
 # Native ublx only (fmt / clippy / test / MSRV). Web WASM is `.github/workflows/ublx-web.yml`.
-# Skip docs, Formula, .ublx.toml, ublx-web-only PRs, etc. — those do not need NetCDF + 3 OS.
+# Do **not** list Cargo.lock: web-only deps (crates/ublx-web) bump the workspace lockfile and
+# would otherwise fire this NetCDF matrix. Native dep intent is root `Cargo.toml`.
 on:
   push:
     branches: [main, master, dev]
@@ -9,7 +10,6 @@ on:
       - "src/**"
       - "tests/**"
       - "Cargo.toml"
-      - "Cargo.lock"
       # Keep CI self-testing when the workflow or Windows dep scripts change.
       - ".github/workflows/ci.yml"
       - ".github/scripts/ci-deps-windows-*"
@@ -19,7 +19,6 @@ on:
       - "src/**"
       - "tests/**"
       - "Cargo.toml"
-      - "Cargo.lock"
       - ".github/workflows/ci.yml"
       - ".github/scripts/ci-deps-windows-*"
 
