@@ -10,7 +10,7 @@ use crate::cli::catalog_read::{
 use crate::cli::output::{emit_json, emit_string_list};
 use crate::cli::remote::{encode_entry_path, get_json, path_with_query, resolve_base};
 use crate::cli_parser::QueryCli;
-use crate::utils::format_bytes;
+use crate::utils::{format_bytes, format_timestamp_ns};
 
 /// Run `ublx query` against the local catalog for `DIR`, or a remote `ublx serve` when `--url` is set.
 ///
@@ -172,6 +172,9 @@ fn emit_entry_detail(row: &EntryRow, include_zahir: bool, json: bool) -> Result<
         println!("path:     {}", row.path);
         println!("category: {}", row.category);
         println!("size:     {} ({})", row.size, format_bytes(row.size));
+        if let Some(ns) = row.mtime_ns {
+            println!("mtime:    {}", format_timestamp_ns(ns));
+        }
         if include_zahir {
             match row.zahir {
                 Some(ref v) => {

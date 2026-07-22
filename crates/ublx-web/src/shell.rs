@@ -1,20 +1,31 @@
 //! App chrome: main tabs, project path, Last Snapshot footer.
 
 use leptos::prelude::*;
-use leptos_router::components::{A, Route, Routes};
-use leptos_router::hooks::use_location;
-use leptos_router::path;
 
-use crate::api::{format_timestamp_ns, CatalogFlags};
+use crate::api::{CatalogFlags, format_timestamp_ns};
 use crate::modes::{DeltaMode, DuplicatesMode, LensesMode, SettingsMode, SnapshotMode};
+use crate::nav::{MainMode, clamp_mode_to_visible, select_mode, use_main_mode};
 
 #[component]
 pub(crate) fn Shell(flags: CatalogFlags) -> impl IntoView {
     let flags = StoredValue::new(flags);
+    let (mode, set_mode) = use_main_mode();
+
+    // Deep-link may name a tab that is hidden for this catalog — fall back to Snapshot.
+    Effect::new(move |_| {
+        let f = flags.get_value();
+        let clamped =
+            clamp_mode_to_visible(mode.get(), f.has_lenses, f.has_delta, f.has_duplicates);
+        if clamped != mode.get_untracked() {
+            select_mode(set_mode, clamped);
+        }
+    });
 
     view! {
         <header class="main-chrome">
             <MainTabBar
+                mode=mode
+                set_mode=set_mode
                 has_lenses=Signal::derive(move || flags.get_value().has_lenses)
                 has_delta=Signal::derive(move || flags.get_value().has_delta)
                 has_duplicates=Signal::derive(move || flags.get_value().has_duplicates)
@@ -35,16 +46,13 @@ pub(crate) fn Shell(flags: CatalogFlags) -> impl IntoView {
         </div>
 
         <main class="mode-body">
-            <Routes fallback=|| {
-                view! { <p class="pane-empty">"Not found"</p> }
-            }>
-                <Route path=path!("/") view=SnapshotMode/>
-                <Route path=path!("/snapshot") view=SnapshotMode/>
-                <Route path=path!("/lenses") view=LensesMode/>
-                <Route path=path!("/delta") view=DeltaMode/>
-                <Route path=path!("/duplicates") view=DuplicatesMode/>
-                <Route path=path!("/settings") view=SettingsMode/>
-            </Routes>
+            {move || match mode.get() {
+                MainMode::Snapshot => view! { <SnapshotMode/> }.into_any(),
+                MainMode::Lenses => view! { <LensesMode/> }.into_any(),
+                MainMode::Delta => view! { <DeltaMode/> }.into_any(),
+                MainMode::Duplicates => view! { <DuplicatesMode/> }.into_any(),
+                MainMode::Settings => view! { <SettingsMode/> }.into_any(),
+            }}
         </main>
 
         <footer class="status-chrome">
@@ -55,49 +63,51 @@ pub(crate) fn Shell(flags: CatalogFlags) -> impl IntoView {
 
 #[component]
 fn MainTabBar(
+    mode: ReadSignal<MainMode>,
+    set_mode: WriteSignal<MainMode>,
     has_lenses: Signal<bool>,
     has_delta: Signal<bool>,
     has_duplicates: Signal<bool>,
 ) -> impl IntoView {
     view! {
         <nav class="main-tabs" aria-label="Main modes">
-            <TabLink href="/" exact=true>"Snapshot"</TabLink>
-            <Show when=move || has_lenses.get()>
-                <TabLink href="/lenses">"Lenses"</TabLink>
-            </Show>
-            <Show when=move || has_delta.get()>
-                <TabLink href="/delta">"Delta"</TabLink>
-            </Show>
-            <Show when=move || has_duplicates.get()>
-                <TabLink href="/duplicates">"Duplicates"</TabLink>
-            </Show>
-            <TabLink href="/settings">"Settings"</TabLink>
+            {MainMode::ALL
+                .into_iter()
+                .map(|m| {
+                    let visible = Signal::derive(move || {
+                        m.is_visible(has_lenses.get(), has_delta.get(), has_duplicates.get())
+                    });
+                    view! {
+                        <Show when=move || visible.get()>
+                            <TabBtn
+                                label=m.label()
+                                active=Signal::derive(move || mode.get() == m)
+                                on_click=Callback::new(move |_| select_mode(set_mode, m))
+                            />
+                        </Show>
+                    }
+                })
+                .collect_view()}
         </nav>
     }
 }
 
 #[component]
-fn TabLink(href: &'static str, #[prop(optional)] exact: bool, children: Children) -> impl IntoView {
-    let location = use_location();
-    let active = Signal::derive(move || {
-        let path = location.pathname.get();
-        if exact {
-            path == "/" || path == "/snapshot"
-        } else {
-            path == href || path.starts_with(&format!("{href}/"))
-        }
-    });
-
+fn TabBtn(label: &'static str, active: Signal<bool>, on_click: Callback<()>) -> impl IntoView {
     view! {
-        <A href=href>
-            <span
-                class=move || {
-                    if active.get() { "tab-node tab-node--active" } else { "tab-node" }
+        <button
+            type="button"
+            class=move || {
+                if active.get() {
+                    "tab-node tab-node--active"
+                } else {
+                    "tab-node"
                 }
-            >
-                {children()}
-            </span>
-        </A>
+            }
+            on:click=move |_| on_click.run(())
+        >
+            {label}
+        </button>
     }
 }
 

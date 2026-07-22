@@ -29,7 +29,7 @@ Track work in GitHub Issues — **parent** issues by category, **sub-issues** fo
 | `ublx doctor` | Done (THI-154) | PASS/WARN/FAIL; `--fix`; blocked while snapshot writing unless `--force` |
 | `ublx serve` | Done (THI-156 / v0.1.13) | Local HTTP API via panza (`StaticMount::None`) |
 | Remote `--url` / `UBLX_URL` | Done (THI-167 / v0.1.14) | `query` / `doctor` against a running serve |
-| Web UI for serve | Backlog (THI-157 / v0.2.0) | Leptos CSR + **leptos-shadcn-ui**, Cargo feature **`ui`**, panza embed — see [WEB_UI.md](WEB_UI.md) |
+| Web UI for serve | In progress (THI-157 / v0.2.0) | First-pass shell on `dev`; fill modes next — [WEB_UI.md](WEB_UI.md), [TUI_STRUCTURE.md](TUI_STRUCTURE.md) |
 | Crate split (catalog vs TUI) | Backlog (THI-155) | Faster compiles for CLI iteration |
 
 Parent: [THI-151](https://linear.app/thicclatka/issue/THI-151).

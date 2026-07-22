@@ -17,10 +17,11 @@ use serde::{Deserialize, Serialize};
 use crate::app::tokio_rt;
 use crate::cli::catalog::open_catalog_for_read;
 use crate::cli::catalog_read::{
-    EntryListFilter, entry_detail, is_not_found, list_categories, list_delta, list_entries,
-    list_lens_entries, list_lens_names,
+    EntryListFilter, entry_detail, is_not_found, list_categories, list_delta, list_duplicates,
+    list_entries, list_lens_entries, list_lens_names,
 };
 use crate::cli::doctor;
+use crate::cli::settings_api::{self, SettingsPatch};
 use crate::cli_parser::ServeCli;
 use crate::config::{UblxPaths, all_indexed_roots_alphabetical, record_prior_root_selected};
 use crate::handlers::run_snap_pipeline_from_dir_db;
@@ -28,6 +29,8 @@ use crate::handlers::run_snap_pipeline_from_dir_db;
 /// Live catalog for one serve process — switchable via `/roots/current`.
 struct ServeCatalog {
     dir: PathBuf,
+    /// Catalog file actually opened (for duplicate load and reopen).
+    read_path: PathBuf,
     conn: Connection,
 }
 
@@ -113,6 +116,7 @@ pub fn run(args: &ServeCli) -> Result<(), anyhow::Error> {
     let state: AppState = Arc::new(Mutex::new(AppStateInner {
         catalog: ServeCatalog {
             dir: handle.paths.dir,
+            read_path: handle.read_path,
             conn: handle.conn,
         },
         snapshot: SnapshotJob::idle(),
@@ -130,8 +134,13 @@ pub fn run(args: &ServeCli) -> Result<(), anyhow::Error> {
         .route("/entries", get(get_entries))
         .route("/entries/{*path}", get(get_entry))
         .route("/delta", get(get_delta))
+        .route("/duplicates", get(get_duplicates))
         .route("/lenses", get(get_lenses))
         .route("/lenses/{name}", get(get_lens))
+        .route(
+            "/settings/{scope}",
+            get(get_settings).patch(patch_settings_route),
+        )
         .with_state(state);
 
     tokio_rt::runtime().block_on(panza_run(
@@ -282,6 +291,7 @@ async fn put_current_root(
         ApiError::from(e)
     })?;
     let new_dir = handle.paths.dir;
+    let new_read_path = handle.read_path;
     let new_conn = handle.conn;
     with_inner(&state, |inner| {
         if same_dir(&inner.catalog.dir, &new_dir) {
@@ -289,6 +299,7 @@ async fn put_current_root(
         } else {
             let prev = inner.catalog.dir.display().to_string();
             inner.catalog.dir.clone_from(&new_dir);
+            inner.catalog.read_path = new_read_path;
             inner.catalog.conn = new_conn;
             let _ = record_prior_root_selected(&new_dir);
             info!("serve root switched: {prev} -> {}", new_dir.display());
@@ -364,6 +375,7 @@ fn run_serve_snapshot_job(state: &AppState, dir: &Path, enhance_all: bool) {
             // Only refresh conn if we are still on the same root (switch was blocked while running).
             if same_dir(&inner.catalog.dir, dir) {
                 inner.catalog.conn = handle.conn;
+                inner.catalog.read_path = handle.read_path;
             }
             inner.snapshot.mark_finished(SnapshotState::Done, last);
             info!(
@@ -422,6 +434,14 @@ async fn get_delta(
     })
 }
 
+async fn get_duplicates(State(state): State<AppState>) -> Result<impl IntoResponse, ApiError> {
+    let (dir, read_path) = with_inner(&state, |inner| {
+        Ok((inner.catalog.dir.clone(), inner.catalog.read_path.clone()))
+    })?;
+    let body = list_duplicates(&read_path, &dir).map_err(ApiError::from)?;
+    Ok(Json(body))
+}
+
 async fn get_lenses(State(state): State<AppState>) -> Result<impl IntoResponse, ApiError> {
     with_db(&state, |conn| Ok(Json(list_lens_names(conn)?)))
 }
@@ -433,6 +453,27 @@ async fn get_lens(
     with_db(&state, |conn| {
         json_or_not_found(list_lens_entries(conn, &name))
     })
+}
+
+async fn get_settings(
+    State(state): State<AppState>,
+    AxumPath(scope): AxumPath<String>,
+) -> Result<impl IntoResponse, ApiError> {
+    let dir = current_dir(&state)?;
+    let view = settings_api::get_settings_view(&dir, &scope).map_err(ApiError::bad_request)?;
+    Ok(Json(view))
+}
+
+async fn patch_settings_route(
+    State(state): State<AppState>,
+    AxumPath(scope): AxumPath<String>,
+    Json(patch): Json<SettingsPatch>,
+) -> Result<impl IntoResponse, ApiError> {
+    let dir = current_dir(&state)?;
+    let view =
+        settings_api::patch_settings(&dir, &scope, patch).map_err(ApiError::bad_request)?;
+    info!("serve settings patched: scope={scope} dir={}", dir.display());
+    Ok(Json(view))
 }
 
 fn with_db<T>(
@@ -500,6 +541,13 @@ impl ApiError {
     fn conflict(message: impl Into<String>) -> Self {
         Self {
             status: StatusCode::CONFLICT,
+            message: message.into(),
+        }
+    }
+
+    fn bad_request(message: impl Into<String>) -> Self {
+        Self {
+            status: StatusCode::BAD_REQUEST,
             message: message.into(),
         }
     }
