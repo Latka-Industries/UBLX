@@ -15,12 +15,15 @@ mod nav;
 mod panes;
 mod search;
 mod shell;
+mod theme;
 
 use leptos::prelude::*;
+use leptos::task::spawn_local;
 use wasm_bindgen::prelude::wasm_bindgen;
 
-use crate::api::load_catalog_flags;
+use crate::api::{SettingsScope, fetch_settings, load_catalog_flags};
 use crate::shell::Shell;
+use crate::theme::{ThemeCssView, apply_theme_css};
 
 #[wasm_bindgen(start)]
 pub fn main() {
@@ -33,6 +36,19 @@ pub fn main() {
 #[component]
 fn App() -> impl IntoView {
     let catalog = LocalResource::new(load_catalog_flags);
+
+    // Bootstrap live CSS tokens from effective (merged local) settings.
+    Effect::new(move |_| {
+        spawn_local(async move {
+            if let Ok(v) = fetch_settings(SettingsScope::Local).await {
+                apply_theme_css(&ThemeCssView::from_parts(
+                    v.css.name,
+                    v.css.appearance,
+                    v.css.vars,
+                ));
+            }
+        });
+    });
 
     view! {
         <div class="tui-shell">

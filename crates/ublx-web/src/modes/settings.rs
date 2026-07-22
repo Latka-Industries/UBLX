@@ -8,6 +8,7 @@ use crate::api::{
 };
 use crate::focus::{ListNav, UiNav, install_list_nav};
 use crate::panes::{PanelRow, ThreePane};
+use crate::theme::{ThemeCssView, apply_theme_css};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 enum FocusedOption {
@@ -77,7 +78,7 @@ fn bump_layout(view: &SettingsView, which: FocusedOption, delta: i16) -> Option<
 
 #[component]
 pub(crate) fn SettingsMode() -> impl IntoView {
-    let (scope, set_scope) = signal(SettingsScope::Global);
+    let (scope, set_scope) = signal(SettingsScope::Local);
     let (live, set_live) = signal(None::<SettingsView>);
     let (focus, set_focus) = signal(None::<FocusedOption>);
     let (err, set_err) = signal(None::<String>);
@@ -99,6 +100,11 @@ pub(crate) fn SettingsMode() -> impl IntoView {
         if let Some(res) = loaded.get() {
             match res {
                 Ok(v) => {
+                    apply_theme_css(&ThemeCssView::from_parts(
+                        v.css.name.clone(),
+                        v.css.appearance.clone(),
+                        v.css.vars.clone(),
+                    ));
                     set_live.set(Some(v));
                     set_err.set(None);
                 }
@@ -117,6 +123,11 @@ pub(crate) fn SettingsMode() -> impl IntoView {
         spawn_local(async move {
             match patch_settings(s, &patch).await {
                 Ok(v) => {
+                    apply_theme_css(&ThemeCssView::from_parts(
+                        v.css.name.clone(),
+                        v.css.appearance.clone(),
+                        v.css.vars.clone(),
+                    ));
                     set_live.set(Some(v));
                     set_err.set(None);
                 }

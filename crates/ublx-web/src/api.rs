@@ -333,6 +333,16 @@ pub(crate) struct SettingsLayoutControl {
 }
 
 #[derive(Clone, Debug, Default, Deserialize, PartialEq)]
+pub(crate) struct ThemeCssBody {
+    #[serde(default)]
+    pub name: String,
+    #[serde(default)]
+    pub appearance: String,
+    #[serde(default)]
+    pub vars: std::collections::BTreeMap<String, String>,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, PartialEq)]
 pub(crate) struct SettingsView {
     pub scope: String,
     pub path: String,
@@ -349,6 +359,8 @@ pub(crate) struct SettingsView {
     pub themes: Vec<String>,
     #[serde(default)]
     pub bg_opacity: f32,
+    #[serde(default)]
+    pub css: ThemeCssBody,
 }
 
 #[derive(Clone, Debug, Default, Serialize)]

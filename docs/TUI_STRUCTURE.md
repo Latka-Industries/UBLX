@@ -179,22 +179,25 @@ Right pane is not a list-focus target. Focused pane: focused border + active tit
 
 ## Web parity checklist
 
+**Agents:** the TUI (this doc + [`layout/style`](../src/layout/style/)) is the scaffold. Do not invent web-only color pairings — see **Theming → Hard rule** in [`WEB_UI.md`](WEB_UI.md).
+
 | Target | TUI truth | Web today | Mini-PR (see [`WEB_UI.md`](WEB_UI.md)) |
 | ------ | --------- | --------- | -------------------------------------- |
-| Keyboard / focus | arrows, hjkl, digits, pane + right-pane keys | mostly mouse | **#1** hotkeys |
+| Keyboard / focus | arrows, hjkl, digits, pane + right-pane keys | landed | **#1** |
+| Help overlay | `?` mode-aware | landed | **#2** |
+| Theme | `ThemeStyles` + `Palette` (same fg/bg pairs) | live CSS tokens | **#3** |
 | Middle counter | `title_bottom` **RIGHT** `n/N` | PathsPane end-aligned | — |
-| Middle sort | node **left of** counter | missing | **#3** |
+| Middle sort | node **left of** counter | missing | **#4** |
 | Catalog search | status strip | landed | — |
-| Metadata / Writing | pretty KV + column tables | thin / JSON-ish | **#4** |
-| Viewer markdown | full md pipeline | stub | **#5** |
-| Viewer code | syntect | stub | **#6** |
-| Viewer tables/CSV | pretty / csv | stub | **#7** |
-| Viewer images | raster / svg | stub | **#8** |
-| Viewer PDF/video | optional tools | stub | **#9** |
-| Viewer find | Shift+S strip | missing | **#10** |
-| Theme | Palette live | hardcoded CSS | **#2** |
-| Settings | controls + TOML | landed (no bg_opacity control) | — |
-| Embedded ship | one binary | Dir / `UBLX_WEB_DIST` | **#12** |
+| Metadata / Writing | pretty KV + column tables | thin / JSON-ish | **#5** |
+| Viewer markdown | full md pipeline | stub | **#6** |
+| Viewer code | syntect | stub | **#7** |
+| Viewer tables/CSV | pretty / csv | stub | **#8** |
+| Viewer images | raster / svg | stub | **#9** |
+| Viewer PDF/video | optional tools | stub | **#10** |
+| Viewer find | Shift+S strip | missing | **#11** |
+| Settings | controls + TOML; default **Local** | landed (no bg_opacity control) | — |
+| Embedded ship | one binary | Dir / `UBLX_WEB_DIST` | **#16** |
 
 ---
 
