@@ -504,6 +504,12 @@ button.tab-node {
   font-size: 0.8rem;
 }
 
+.pane-footer .status-node--counter {
+  font-variant-numeric: tabular-nums;
+  white-space: pre;
+  font-family: ui-monospace, "Cascadia Code", "SF Mono", Menlo, monospace;
+}
+
 .panel-heading {
   margin: 0.35rem 0.55rem 0.15rem;
   padding: 0.15rem 0;

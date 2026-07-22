@@ -157,6 +157,24 @@ pub(crate) fn OverviewRightPane(text: Signal<String>) -> impl IntoView {
     }
 }
 
+/// Format `current/total` like TUI `middle::format_selection_counter` — both fields
+/// share a width so the node does not jump when crossing 9→10 or 99→100.
+fn format_selection_counter(current: usize, total: usize) -> String {
+    let w = usize_digit_width(current)
+        .max(usize_digit_width(total))
+        .max(1);
+    if current == 0 && total > 0 {
+        // No selection yet — keep total width stable (em dash fills the current field).
+        format!("{:>w$}/{total:>w$}", "—")
+    } else {
+        format!("{current:>w$}/{total:>w$}")
+    }
+}
+
+fn usize_digit_width(n: usize) -> usize {
+    if n == 0 { 1 } else { n.ilog10() as usize + 1 }
+}
+
 /// Middle-pane path list with **right-aligned** sort (when TUI has it) + `current/total`
 /// (TUI: `title_bottom` via [`src/render/panes/middle.rs`](../../../../src/render/panes/middle.rs)).
 /// Used by Snapshot / Delta / Lenses / Duplicates.
@@ -252,7 +270,7 @@ pub(crate) fn PathsPane(
                         {move || sort_label.get().unwrap_or_default()}
                     </button>
                 </Show>
-                <span class="status-node">
+                <span class="status-node status-node--counter">
                     {move || {
                         let rows = paths.get();
                         let selectable: Vec<_> =
@@ -263,13 +281,7 @@ pub(crate) fn PathsPane(
                             .and_then(|s| selectable.iter().position(|(_, k)| **k == s))
                             .map(|i| i + 1)
                             .unwrap_or(0);
-                        if total == 0 {
-                            "0/0".to_string()
-                        } else if current == 0 {
-                            format!("—/{total}")
-                        } else {
-                            format!("{current}/{total}")
-                        }
+                        format_selection_counter(current, total)
                     }}
                 </span>
             </div>
