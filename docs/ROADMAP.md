@@ -29,7 +29,7 @@ Track work in GitHub Issues — **parent** issues by category, **sub-issues** fo
 | `ublx doctor` | Done (THI-154) | PASS/WARN/FAIL; `--fix`; blocked while snapshot writing unless `--force` |
 | `ublx serve` | Done (THI-156 / v0.1.13) | Local HTTP API via panza (`StaticMount::None`) |
 | Remote `--url` / `UBLX_URL` | Done (THI-167 / v0.1.14) | `query` / `doctor` against a running serve |
-| Web UI for serve | In progress (THI-157 / v0.2.0) | Shell on `dev`; MVP = TUI-grade keyboard + viewers — mini-PR plan in [WEB_UI.md](WEB_UI.md), layout in [TUI_STRUCTURE.md](TUI_STRUCTURE.md) |
+| Web UI for serve | In progress (THI-157 / v0.2.0) | Shell on `dev`; MVP = TUI-grade browse+act (hotkeys, help, multi-select, Space menu, Command Mode, viewers) — mini-PR plan in [WEB_UI.md](WEB_UI.md), layout in [TUI_STRUCTURE.md](TUI_STRUCTURE.md) |
 | Crate split (catalog vs TUI) | Backlog (THI-155) | Faster compiles for CLI iteration |
 
 Parent: [THI-151](https://linear.app/thicclatka/issue/THI-151).
@@ -123,7 +123,7 @@ Engineering notes also live in local `TODO.md` (gitignored); items below are the
 
 ## Suggested sequencing
 
-1. **Optional web UI for serve** — Leptos CSR + `--features ui` (THI-157 / v0.2.0); shell on `dev`; remaining mini-PRs: hotkeys → themes → pretty tables → viewers → Embedded ([WEB_UI.md](WEB_UI.md)).
+1. **Optional web UI for serve** — Leptos CSR + `--features ui` (THI-157 / v0.2.0); shell on `dev`; remaining mini-PRs: themes → tables/viewers → multi-select / Space / Command Mode → Embedded ([WEB_UI.md](WEB_UI.md)).
 2. **Lenses** — notes + export (user-visible, low architectural risk).
 3. **Performance** — memory / large-file hardening (stability for v0.1.x).
 4. **Platform ADR** — plugins / extension contract before Lua, runner, user themes.

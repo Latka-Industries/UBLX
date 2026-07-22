@@ -120,6 +120,7 @@ Reuse `themes::color_utils` (`color_to_hex6` / `rgb_to_hex6`). **MVP:** full shi
 | Chrome | Tabs, path gap, 3-pane, Last Snapshot / catalog search, Settings, mode-aware `?` help overlay |
 | Keyboard | Arrows + TUI hotkeys for focus, list move, mode switch, right-pane tabs, sort, search, find, `?` help (where applicable) — see [`src/ui/keymap.rs`](../src/ui/keymap.rs) |
 | Lists | Snapshot / Delta / Lenses / Duplicates with `n/N` **bottom-right**; middle sort node where TUI has it |
+| Selection / menus | Multi-select (contents), Space quick-actions / context menu, Command Mode overlay — TUI parity for browse+act |
 | Right pane | Viewer body + Templates / Metadata / Writing |
 | Metadata / Writing | Pretty tables (KV + typed column stats), not raw pretty-JSON only |
 | Viewers | Markdown, syntect/code, images, tables/CSV, and the other TUI viewer families that do not need a local GUI tool; PDF/video via same optional-tool story or honest fallback |
@@ -128,7 +129,7 @@ Reuse `themes::color_utils` (`color_to_hex6` / `rgb_to_hex6`). **MVP:** full shi
 
 Mouse click remains supported; keyboard is first-class.
 
-**Explicitly after MVP (still fine as follow-ons on `dev`):** Command Mode overlay, space menus / multiselect bulk, enhance-from-UI, fullscreen viewer polish, root switcher / snapshot trigger / doctor surfaces — unless a mini-PR lands them early.
+**Explicitly after MVP (still fine as follow-ons on `dev`):** enhance-from-UI polish beyond Command/Space paths, fullscreen viewer polish, root switcher / snapshot trigger / doctor surfaces — unless a mini-PR lands them early.
 
 ---
 
@@ -164,7 +165,10 @@ One concern per PR. Order is dependency-aware; titles are suggestions.
 | **10** | **PDF / video / tool-backed** | Optional-tool previews or clear “tool missing” UI matching TUI honesty | [`async_tools`](../src/render/viewers/async_tools.rs), PDF/video modules |
 | **11** | **Viewer find** | Shift+S find strip on right `title_bottom`; `n`/`N` next/prev | TUI viewer find; catalog `/` already landed |
 | **12** | **Preview / file body API** | Serve routes to stream or page file bytes / rendered slices the viewers need (if not covered by existing entry detail) | Extend [`serve.rs`](../src/cli/serve.rs) / `catalog_read` as required by PRs 6–10 — may land **earlier** as a prerequisite PR if blocked |
-| **13** | **`StaticMount::Embedded`** | Ship `--features ui` as one binary; Dir remains for `mise run web` | panza `Embedded`; build.sh → embed |
+| **13** | **Multi-select** | Ctrl+Space enter/exit; Space toggle rows on Snapshot / Lenses contents (not Dupes); selection chrome | [`ui/multiselect.rs`](../src/ui/multiselect.rs) |
+| **14** | **Space / context menu** | Quick-actions popup (open, folder, copy, rename, delete, lens, …) for current / multi selection | [`ui/menus/`](../src/ui/menus/); may need serve-side mutations |
+| **15** | **Command Mode** | Ctrl+a overlay — TUI command palette actions that apply over serve | [`config/command_mode.rs`](../src/config/command_mode.rs), ctrl chord |
+| **16** | **`StaticMount::Embedded`** | Ship `--features ui` as one binary; Dir remains for `mise run web` | panza `Embedded`; build.sh → embed |
 
 **Ops / chrome follow-ups** (separate PRs after or interleaved when small):
 
@@ -202,13 +206,13 @@ API routes stay on the host router and take precedence over the static SPA fallb
 - Cloud multi-tenant hosting
 - Reimplementing clap serve / health / static (panza)
 
-**In scope for v0.2.0 MVP:** keyboard parity, pretty Metadata/Writing, and the viewer families listed above — not “JSON in a `<pre>` forever.”
+**In scope for v0.2.0 MVP:** keyboard parity, multi-select + Space menu + Command Mode, pretty Metadata/Writing, and the viewer families listed above — not “JSON in a `<pre>` forever.”
 
 ---
 
 ## Done when
 
-Feature-enabled `ublx serve` is a **keyboard-usable TUI-shaped browser**: modes, search, hotkeys, pretty Zahir tables, and real Viewer content (md/code/tables/images/…); themes from `Palette`; Embedded ship path works. Default (no `ui`) build stays API-only. Shipped as **v0.2.0**.
+Feature-enabled `ublx serve` is a **keyboard-usable TUI-shaped browser**: modes, search, hotkeys, multi-select / Space actions / Command Mode, pretty Zahir tables, and real Viewer content (md/code/tables/images/…); themes from `Palette`; Embedded ship path works. Default (no `ui`) build stays API-only. Shipped as **v0.2.0**.
 
 ---
 
