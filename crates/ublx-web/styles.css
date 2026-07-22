@@ -50,10 +50,10 @@ body > * {
   display: grid;
   grid-template-rows: auto auto 1fr auto;
   box-sizing: border-box;
-  width: calc(100% - 4px);
-  height: calc(100% - 4px);
-  min-height: calc(100vh - 4px);
-  margin: 2px;
+  width: calc(100% - 12px);
+  height: calc(100% - 12px);
+  min-height: calc(100vh - 12px);
+  margin: 6px;
   background: hsl(var(--background));
   color: hsl(var(--foreground));
 }
