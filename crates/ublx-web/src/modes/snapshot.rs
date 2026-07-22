@@ -4,8 +4,10 @@ use leptos::prelude::*;
 
 use crate::api::{EntryRow, fetch_entry_detail, get_json};
 use crate::focus::{UiNav, install_list_nav, string_list_nav};
+use crate::nav::MainMode;
 use crate::panes::{EntryRightPane, PanelRow, PathsPane, ThreePane};
 use crate::search::{CatalogSearch, filter_categories, filter_snapshot_paths, path_rows};
+use crate::sort::{ContentSortCtx, sort_snapshot_rows};
 
 #[component]
 pub(crate) fn SnapshotMode() -> impl IntoView {
@@ -43,6 +45,8 @@ pub(crate) fn SnapshotMode() -> impl IntoView {
             .collect::<Vec<_>>()
     });
 
+    let sort_ctx = ContentSortCtx::expect();
+
     let visible_cats = Signal::derive(move || {
         let cats = categories.get().unwrap_or_default();
         let rows = row_pairs.get();
@@ -64,10 +68,23 @@ pub(crate) fn SnapshotMode() -> impl IntoView {
     });
 
     let paths = Signal::derive(move || {
-        let rows = row_pairs.get();
+        let all = entries.get().unwrap_or_default();
         let cat = selected_cat.get();
         let q = search.trimmed.get();
-        path_rows(filter_snapshot_paths(&rows, cat.as_deref(), &q))
+        let sort = sort_ctx.sort.get();
+        // Active search keeps score ordering (same as current web filter); idle uses TUI content sort.
+        if !q.trim().is_empty() {
+            let pairs: Vec<(String, String)> =
+                all.into_iter().map(|r| (r.path, r.category)).collect();
+            return path_rows(filter_snapshot_paths(&pairs, cat.as_deref(), &q));
+        }
+        let mut rows: Vec<(String, u64, Option<i64>)> = all
+            .into_iter()
+            .filter(|r| cat.as_ref().is_none_or(|c| &r.category == c))
+            .map(|r| (r.path, r.size, r.mtime_ns))
+            .collect();
+        sort_snapshot_rows(&mut rows, sort);
+        path_rows(rows.into_iter().map(|(p, _, _)| p))
     });
 
     Effect::new(move |_| {
@@ -152,6 +169,7 @@ pub(crate) fn SnapshotMode() -> impl IntoView {
             middle=view! {
                 <Suspense fallback=move || view! { <p class="pane-empty">"…"</p> }>
                     <PathsPane
+                        main_mode=MainMode::Snapshot
                         paths=paths
                         selected=selected_path.into()
                         on_select=Callback::new(move |p| set_selected_path.set(Some(p)))

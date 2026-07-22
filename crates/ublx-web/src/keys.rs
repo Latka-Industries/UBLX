@@ -28,6 +28,8 @@ pub(crate) enum WebAction {
     HelpSectionPrev,
     /// Help is open — consume the key without side effects.
     HelpAbsorb,
+    /// Cycle middle-pane content sort (`s`) — Snapshot / Dupes / Delta.
+    CycleContentSort,
 }
 
 /// Map a keydown to a [`WebAction`]. Returns `None` when the event should pass through.
@@ -127,6 +129,8 @@ pub(crate) fn action_from_keydown(ev: &KeyboardEvent, help_open: bool) -> Option
         }
         "g" if !ctrl && !shift && key == "g" => return Some(WebAction::ListTop),
         "g" if !ctrl && key == "G" => return Some(WebAction::ListBottom),
+        // Plain `s` cycles sort; Shift+S reserved for viewer find (later mini-PR).
+        "s" if !ctrl && !shift && key == "s" => return Some(WebAction::CycleContentSort),
         _ => {}
     }
 

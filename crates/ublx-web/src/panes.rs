@@ -4,7 +4,9 @@ use leptos::prelude::*;
 
 use crate::api::{EntryDetail, format_bytes, format_timestamp_ns};
 use crate::focus::{PaneFocus, UiNav, install_list_nav, string_list_nav};
+use crate::nav::MainMode;
 use crate::search;
+use crate::sort::ContentSortCtx;
 
 /// Shared 3-pane TUI layout — bordered boxes with title nodes.
 /// Pane focus lives in [`UiNav`] (keyboard + click).
@@ -155,17 +157,20 @@ pub(crate) fn OverviewRightPane(text: Signal<String>) -> impl IntoView {
     }
 }
 
-/// Middle-pane path list with **right-aligned** `current/total` footer node
+/// Middle-pane path list with **right-aligned** sort (when TUI has it) + `current/total`
 /// (TUI: `title_bottom` via [`src/render/panes/middle.rs`](../../../../src/render/panes/middle.rs)).
 /// Used by Snapshot / Delta / Lenses / Duplicates.
 /// Rows with an empty key render as non-selectable timestamp headers.
 #[component]
 pub(crate) fn PathsPane(
+    /// Caller mode — drives sort node visibility + `s` / click cycle target.
+    main_mode: MainMode,
     paths: Signal<Vec<(String, String)>>,
     selected: Signal<Option<String>>,
     on_select: Callback<String>,
 ) -> impl IntoView {
     let search_q = Signal::derive(move || search::CatalogSearch::expect().trimmed.get());
+    let sort_ctx = ContentSortCtx::expect();
     let nav = UiNav::expect();
     let keys = Signal::derive(move || {
         paths
@@ -187,6 +192,8 @@ pub(crate) fn PathsPane(
         }
     });
     install_list_nav(nav.middle, string_list_nav(keys, bridge.into(), set_bridge));
+
+    let sort_label = Signal::derive(move || sort_ctx.sort.get().node_text(main_mode));
 
     view! {
         <div class="paths-pane">
@@ -234,7 +241,17 @@ pub(crate) fn PathsPane(
                     .into_any()
                 }}
             </div>
-            <div class="pane-footer" aria-label="Selection counter">
+            <div class="pane-footer" aria-label="Sort and selection counter">
+                <Show when=move || sort_label.get().is_some()>
+                    <button
+                        type="button"
+                        class="status-node status-node--button"
+                        title="Cycle content sort (s)"
+                        on:click=move |_| sort_ctx.cycle(main_mode)
+                    >
+                        {move || sort_label.get().unwrap_or_default()}
+                    </button>
+                </Show>
                 <span class="status-node">
                     {move || {
                         let rows = paths.get();

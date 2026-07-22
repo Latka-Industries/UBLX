@@ -70,7 +70,7 @@ const DIGIT_ROW_KEY: &str = "1 2 7 8 9";
 const DIGIT_ROW_DESC: &str = "Jump to Main Tab when that tab is visible.";
 
 const FOOTNOTE: &str =
-    "Only bindings that work in the web UI are listed. Sort, find, and menus land in later PRs.";
+    "Only bindings that work in the web UI are listed. Find and menus land in later PRs.";
 
 const GENERAL_BROWSER: &[(&str, &str)] = &[
     ("~", "Alternate between Main tabs"),
@@ -83,6 +83,7 @@ const GENERAL_BROWSER: &[(&str, &str)] = &[
     ("j | k · ↑ ↓", "Move down / up in focused pane"),
     ("g | G", "Go to top / bottom of focused list"),
     ("Ctrl+j/k · Ctrl+↑↓", "Jump by 10 in focused list"),
+    ("s", "Cycle middle-pane sort (Snapshot / Delta / Dupes)"),
     ("?", "Toggle this help"),
 ];
 

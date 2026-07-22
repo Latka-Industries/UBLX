@@ -15,6 +15,7 @@ mod nav;
 mod panes;
 mod search;
 mod shell;
+mod sort;
 mod theme;
 
 use leptos::prelude::*;

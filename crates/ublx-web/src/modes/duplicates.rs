@@ -2,19 +2,28 @@
 
 use leptos::prelude::*;
 
-use crate::api::{fetch_duplicates, fetch_entry_detail};
+use crate::api::{EntryRow, fetch_duplicates, fetch_entry_detail, get_json};
 use crate::focus::{UiNav, id_list_nav, install_list_nav};
+use crate::nav::MainMode;
 use crate::panes::{EntryRightPane, PanelRow, PathsPane, ThreePane};
 use crate::search::{
     CatalogSearch, empty_list_message, filter_paths, fuzzy_matches_field, path_rows,
 };
+use crate::sort::{ContentSortCtx, sort_snapshot_rows};
 
 #[component]
 pub(crate) fn DuplicatesMode() -> impl IntoView {
     let search = CatalogSearch::expect();
     let catalog = LocalResource::new(fetch_duplicates);
+    // Size / Mod sort needs catalog sizes — same `/entries` payload Snapshot uses.
+    let entries = LocalResource::new(|| async move {
+        get_json::<Vec<EntryRow>>("/entries")
+            .await
+            .unwrap_or_default()
+    });
     let (selected_id, set_selected_id) = signal::<Option<usize>>(None);
     let (selected_path, set_selected_path) = signal::<Option<String>>(None);
+    let sort_ctx = ContentSortCtx::expect();
 
     let visible_groups = Signal::derive(move || {
         let cat = catalog.get().unwrap_or_default();
@@ -50,12 +59,30 @@ pub(crate) fn DuplicatesMode() -> impl IntoView {
         let groups = visible_groups.get();
         let id = selected_id.get();
         let q = search.trimmed.get();
+        let sort = sort_ctx.sort.get();
         let raw = groups
             .into_iter()
             .find(|g| Some(g.id) == id)
             .map(|g| g.paths)
             .unwrap_or_default();
-        path_rows(filter_paths(&raw, &q))
+        let filtered = filter_paths(&raw, &q);
+        if !q.trim().is_empty() {
+            return path_rows(filtered);
+        }
+        let meta = entries.get().unwrap_or_default();
+        let mut rows: Vec<(String, u64, Option<i64>)> = filtered
+            .into_iter()
+            .map(|p| {
+                let (size, mtime) = meta
+                    .iter()
+                    .find(|e| e.path == p)
+                    .map(|e| (e.size, e.mtime_ns))
+                    .unwrap_or((0, None));
+                (p, size, mtime)
+            })
+            .collect();
+        sort_snapshot_rows(&mut rows, sort);
+        path_rows(rows.into_iter().map(|(p, _, _)| p))
     });
 
     let detail = LocalResource::new(move || {
@@ -145,6 +172,7 @@ pub(crate) fn DuplicatesMode() -> impl IntoView {
             middle=view! {
                 <Suspense fallback=move || view! { <p class="pane-empty">"…"</p> }>
                     <PathsPane
+                        main_mode=MainMode::Duplicates
                         paths=paths
                         selected=selected_path.into()
                         on_select=Callback::new(move |p| set_selected_path.set(Some(p)))

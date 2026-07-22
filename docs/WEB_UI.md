@@ -174,9 +174,10 @@ Mouse click remains supported; keyboard is first-class.
 - [x] Catalog search (`/` strip + Skim fuzzy)
 - [x] Settings controls + live read-only TOML; `GET`/`PATCH /settings/{scope}`; `GET /duplicates`
 - [x] Feature `ui` + Dir / `UBLX_WEB_DIST` (Embedded still open)
-- [x] Keyboard focus + hotkeys (digits/`~`/hjkl/arrows/`g``G`/Tab/`vtmw`/Shift+Tab); sort `s` waits on middle-sort PR
+- [x] Keyboard focus + hotkeys (digits/`~`/hjkl/arrows/`g``G`/Tab/`vtmw`/Shift+Tab/`s` sort)
 - [x] Help overlay (`?`) + footer `? — Help` chip; 7px shell inset from browser edge
 - [x] Palette → CSS tokens (`themes::css`); Settings theme dropdown applies live
+- [x] Middle sort node left of `n/N` (Snapshot / Dupes / Delta) + `s` cycle
 
 ---
 
@@ -189,7 +190,7 @@ One concern per PR. Order is dependency-aware; titles are suggestions.
 | **1** | **Keyboard focus + hotkeys** | ✅ Landed (#43) | [`keys.rs`](../crates/ublx-web/src/keys.rs) + [`focus.rs`](../crates/ublx-web/src/focus.rs) |
 | **2** | **Help overlay (`?`)** | ✅ Landed (#44) — mode-aware popup, footer chip, Esc/`?`/backdrop close | [`help.rs`](../crates/ublx-web/src/help.rs) |
 | **3** | **Palette → CSS tokens** | ✅ Landed — `Palette` → HSL vars; Settings theme switches live look | [`themes/css.rs`](../src/themes/css.rs); WEB_UI token table above |
-| **4** | **Middle sort node** | Sort control **left of** `n/N` on Snapshot / Dupes / Delta (TUI `title_bottom` cluster) + sort `s` | [`middle.rs`](../src/render/panes/middle.rs) `sort_node_text` / `line_for` |
+| **4** | **Middle sort node** | ✅ Landed — sort left of `n/N` + `s` cycle (TUI `ContentSort` rules) | [`sort.rs`](../crates/ublx-web/src/sort.rs); [`middle.rs`](../src/render/panes/middle.rs) |
 | **5** | **Pretty Metadata + Writing** | Port KV / column-stat table rendering into Metadata & Writing tabs (abbrev/full rules) | [`render/kv_tables/`](../src/render/kv_tables/); Settings `typed_column_tables` |
 | **6** | **Markdown viewer** | Viewer tab renders markdown like TUI (flow, tables, code fences) | [`render/viewers/markdown/`](../src/render/viewers/markdown/); needs file/preview API if not already |
 | **7** | **Code / syntect viewer** | Syntax-highlighted text for code categories | [`syntect_text`](../src/render/viewers/syntect_text.rs) |

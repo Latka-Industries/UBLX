@@ -4,6 +4,7 @@ use leptos::prelude::*;
 
 use crate::api::{fetch_entry_detail, fetch_lens_entries, fetch_lens_names};
 use crate::focus::{UiNav, install_list_nav, string_list_nav};
+use crate::nav::MainMode;
 use crate::panes::{EntryRightPane, PanelRow, PathsPane, ThreePane};
 use crate::search::{CatalogSearch, empty_list_message, filter_labels, filter_paths, path_rows};
 
@@ -132,6 +133,7 @@ pub(crate) fn LensesMode() -> impl IntoView {
             middle=view! {
                 <Suspense fallback=move || view! { <p class="pane-empty">"…"</p> }>
                     <PathsPane
+                        main_mode=MainMode::Lenses
                         paths=paths
                         selected=selected_path.into()
                         on_select=Callback::new(move |p| set_selected_path.set(Some(p)))
