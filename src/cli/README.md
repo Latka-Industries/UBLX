@@ -60,3 +60,9 @@ Notes:
 Hard nefax failures in the orchestrator can still process-exit (same as TUI on-demand snapshot). Prefer panza’s `GET /health` for liveness only.
 
 Bind/health/static shell comes from [panza](https://crates.io/crates/panza) (`--host` / `--port` / `--open`). No embedded UI yet (`StaticMount::None`).
+
+## Planned: embedded web UI (v0.2.0 / THI-157)
+
+Opt-in Cargo feature **`ui`**: Leptos CSR + **leptos-shadcn-ui**, embedded via `StaticMount::Embedded`, same-origin against the JSON API above. Default builds stay API-only.
+
+Design / packaging: [`docs/WEB_UI.md`](../../docs/WEB_UI.md).

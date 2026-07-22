@@ -1,6 +1,20 @@
 [tools]
-rust = "1.95"
+rust = { version = "1.95", targets = "wasm32-unknown-unknown" }
 
 [tasks.tublx]
 description = "Run ublx headless (--snapshot-only, no TUI)"
 run = "cargo run -- --snapshot-only"
+
+[tasks.web]
+description = "Build ublx-web WASM, then serve . with --features ui --open"
+run = [
+  "./crates/ublx-web/build.sh",
+  "cargo run -p ublx --features ui -- serve . --open",
+]
+
+[tasks.web-check]
+description = "fmt + clippy for ublx-web (Leptos / wasm32)"
+run = [
+  "cargo fmt -p ublx-web",
+  "cargo clippy -p ublx-web --target wasm32-unknown-unknown -- -D warnings",
+]

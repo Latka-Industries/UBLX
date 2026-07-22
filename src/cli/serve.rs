@@ -141,8 +141,31 @@ pub fn run(args: &ServeCli) -> Result<(), anyhow::Error> {
         },
         args.serve.clone(),
         api,
-        StaticMount::None,
+        static_mount(),
     ))
+}
+
+/// Optional Leptos UI (`--features ui`): serve `crates/ublx-web/dist` (or `UBLX_WEB_DIST`).
+fn static_mount() -> StaticMount {
+    #[cfg(feature = "ui")]
+    {
+        let dir = std::env::var_os("UBLX_WEB_DIST")
+            .map(PathBuf::from)
+            .unwrap_or_else(|| Path::new(env!("CARGO_MANIFEST_DIR")).join("crates/ublx-web/dist"));
+        if !dir.join("index.html").is_file() {
+            warn!(
+                "feature `ui` enabled but {}/index.html missing — run crates/ublx-web/build.sh",
+                dir.display()
+            );
+        } else {
+            info!("serve UI static mount: {}", dir.display());
+        }
+        StaticMount::Dir(dir)
+    }
+    #[cfg(not(feature = "ui"))]
+    {
+        StaticMount::None
+    }
 }
 
 #[derive(Debug, Serialize)]
