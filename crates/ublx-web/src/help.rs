@@ -69,8 +69,7 @@ struct HelpSection {
 const DIGIT_ROW_KEY: &str = "1 2 7 8 9";
 const DIGIT_ROW_DESC: &str = "Jump to Main Tab when that tab is visible.";
 
-const FOOTNOTE: &str =
-    "Only bindings that work in the web UI are listed. Multi-select, Space menus, and Command Mode land in later mini-PRs.";
+const FOOTNOTE: &str = "Only bindings that work in the web UI are listed. Space menus and Command Mode land in later mini-PRs.";
 
 const GENERAL_BROWSER: &[(&str, &str)] = &[
     ("~", "Alternate between Main tabs"),
@@ -107,6 +106,11 @@ const RIGHT_PANE: &[(&str, &str)] = &[
     ),
 ];
 
+const MULTISELECT: &[(&str, &str)] = &[
+    ("Spacebar", "Toggle row for multi-select"),
+    ("Esc", "Exit Multi-select mode"),
+];
+
 const GENERAL_SETTINGS: &[(&str, &str)] = &[
     ("h | l · ← →", "Focus Scope or Options pane"),
     ("j | k · ↑ ↓", "Move in the focused list (Scope / Options)"),
@@ -115,6 +119,25 @@ const GENERAL_SETTINGS: &[(&str, &str)] = &[
 ];
 
 const SNAPSHOT_SECTIONS: &[HelpSection] = &[
+    HelpSection {
+        title: "General",
+        rows: GENERAL_BROWSER,
+        include_digit_row: true,
+    },
+    HelpSection {
+        title: "Right Pane",
+        rows: RIGHT_PANE,
+        include_digit_row: false,
+    },
+    HelpSection {
+        title: "Multi-select (Ctrl+Space)",
+        rows: MULTISELECT,
+        include_digit_row: false,
+    },
+];
+
+/// Duplicates: same chrome as Snapshot but no multi-select (TUI).
+const DUPLICATES_SECTIONS: &[HelpSection] = &[
     HelpSection {
         title: "General",
         rows: GENERAL_BROWSER,
@@ -141,7 +164,8 @@ const SETTINGS_SECTIONS: &[HelpSection] = &[HelpSection {
 
 fn sections_for(mode: MainMode) -> &'static [HelpSection] {
     match mode {
-        MainMode::Snapshot | MainMode::Lenses | MainMode::Duplicates => SNAPSHOT_SECTIONS,
+        MainMode::Snapshot | MainMode::Lenses => SNAPSHOT_SECTIONS,
+        MainMode::Duplicates => DUPLICATES_SECTIONS,
         MainMode::Delta => DELTA_SECTIONS,
         MainMode::Settings => SETTINGS_SECTIONS,
     }

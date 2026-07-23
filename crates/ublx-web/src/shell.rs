@@ -7,8 +7,11 @@ use web_sys::KeyboardEvent;
 use crate::api::{CatalogFlags, format_timestamp_ns};
 use crate::focus::{PaneFocus, PdfPageNav, PreviewKeysBus, RightTabBus, UiNav};
 use crate::help::{HelpModal, HelpOverlay};
-use crate::keys::{FindKeyCtx, WebAction, action_from_keydown, typing_in_form_field};
+use crate::keys::{
+    FindKeyCtx, MultiselectKeyCtx, WebAction, action_from_keydown, typing_in_form_field,
+};
 use crate::modes::{DeltaMode, DuplicatesMode, LensesMode, SettingsMode, SnapshotMode};
+use crate::multiselect::MultiselectCtx;
 use crate::nav::{MainMode, clamp_mode_to_visible, select_mode, use_main_mode};
 use crate::search::{CatalogSearch, SEARCH_LABEL};
 use crate::sort::ContentSortCtx;
@@ -24,6 +27,7 @@ pub(crate) fn Shell(flags: CatalogFlags) -> impl IntoView {
     let sort = ContentSortCtx::provide();
     let (nav, tabs, preview) = UiNav::provide();
     let help = HelpOverlay::provide();
+    let multiselect = MultiselectCtx::provide();
 
     // Deep-link may name a tab that is hidden for this catalog — fall back to Snapshot.
     Effect::new(move |_| {
@@ -43,6 +47,19 @@ pub(crate) fn Shell(flags: CatalogFlags) -> impl IntoView {
         }
     });
 
+    // Multi-select clears on mode switch (TUI `apply_mode_switch`).
+    Effect::new(move |_| {
+        let _ = mode.get();
+        multiselect.clear();
+    });
+
+    // Leaving contents pane exits multi-select (TUI FocusCategories / Tab).
+    Effect::new(move |_| {
+        if nav.pane.get() != PaneFocus::Middle && multiselect.active.get_untracked() {
+            multiselect.clear();
+        }
+    });
+
     // Global keybus — TUI-shaped hotkeys (ignore while typing in forms).
     Effect::new(move |_| {
         let Some(window) = web_sys::window() else {
@@ -58,6 +75,7 @@ pub(crate) fn Shell(flags: CatalogFlags) -> impl IntoView {
         let flags = flags;
         let help = help;
         let preview = preview;
+        let multiselect = multiselect;
         let closure = wasm_bindgen::closure::Closure::wrap(Box::new(move |ev: KeyboardEvent| {
             if typing_in_form_field() {
                 return;
@@ -68,7 +86,12 @@ pub(crate) fn Shell(flags: CatalogFlags) -> impl IntoView {
                 catalog_search_active: search.active.get_untracked(),
                 allow: mode.get_untracked() != MainMode::Settings,
             };
-            let Some(action) = action_from_keydown(&ev, help_open, find_ctx) else {
+            let ms_ctx = MultiselectKeyCtx {
+                active: multiselect.active.get_untracked(),
+                applies: MultiselectCtx::applies(mode.get_untracked()),
+                middle_focused: nav.pane.get_untracked() == PaneFocus::Middle,
+            };
+            let Some(action) = action_from_keydown(&ev, help_open, find_ctx, ms_ctx) else {
                 return;
             };
             ev.prevent_default();
@@ -85,6 +108,7 @@ pub(crate) fn Shell(flags: CatalogFlags) -> impl IntoView {
                     set_mode,
                     flags,
                     help,
+                    multiselect,
                 },
             );
         }) as Box<dyn FnMut(_)>);
@@ -147,6 +171,7 @@ struct KeybusCtx {
     set_mode: WriteSignal<MainMode>,
     flags: StoredValue<CatalogFlags>,
     help: HelpOverlay,
+    multiselect: MultiselectCtx,
 }
 
 fn dispatch_action(action: WebAction, ctx: KeybusCtx) {
@@ -168,6 +193,18 @@ fn dispatch_action(action: WebAction, ctx: KeybusCtx) {
         WebAction::ViewerFindNext => ctx.find.next(),
         WebAction::ViewerFindPrev => ctx.find.prev(),
         WebAction::ViewerFindClear => ctx.find.clear(),
+        WebAction::MultiselectToggleMode => {
+            let _ = ctx.multiselect.try_toggle_mode(
+                ctx.mode.get_untracked(),
+                ctx.nav.pane.get_untracked() == PaneFocus::Middle,
+            );
+        }
+        WebAction::MultiselectToggleRow => {
+            if ctx.nav.pane.get_untracked() == PaneFocus::Middle {
+                ctx.multiselect.toggle_row();
+            }
+        }
+        WebAction::MultiselectCancel => ctx.multiselect.clear(),
         WebAction::CycleContentSort => ctx.sort.cycle(ctx.mode.get_untracked()),
         WebAction::ScrollPreviewDown => apply_preview_keys(ctx.preview, PdfPageNav::Next),
         WebAction::ScrollPreviewUp => apply_preview_keys(ctx.preview, PdfPageNav::Prev),

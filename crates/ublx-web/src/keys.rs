@@ -46,6 +46,12 @@ pub(crate) enum WebAction {
     ViewerFindPrev,
     /// Clear Viewer find (Esc while committed).
     ViewerFindClear,
+    /// Ctrl+Space — enter/exit multi-select (Snapshot / Lenses, contents).
+    MultiselectToggleMode,
+    /// Space — toggle cursor row while multi-select is active.
+    MultiselectToggleRow,
+    /// Esc — exit multi-select.
+    MultiselectCancel,
 }
 
 /// Extra keymap gates for Viewer find (TUI `KeyActionContext` subset).
@@ -59,6 +65,16 @@ pub(crate) struct FindKeyCtx {
     pub allow: bool,
 }
 
+/// Extra keymap gates for multi-select.
+#[derive(Clone, Copy, Debug, Default)]
+pub(crate) struct MultiselectKeyCtx {
+    pub active: bool,
+    /// Snapshot or Lenses.
+    pub applies: bool,
+    /// Contents (middle) pane focused.
+    pub middle_focused: bool,
+}
+
 /// Map a keydown to a [`WebAction`]. Returns `None` when the event should pass through.
 ///
 /// Caller must skip invoking this while a form field (including catalog / find inputs) is focused.
@@ -68,6 +84,7 @@ pub(crate) fn action_from_keydown(
     ev: &KeyboardEvent,
     help_open: bool,
     find: FindKeyCtx,
+    ms: MultiselectKeyCtx,
 ) -> Option<WebAction> {
     let key = ev.key();
     let code = ev.code();
@@ -126,6 +143,20 @@ pub(crate) fn action_from_keydown(
         if shift && (key == "N" || key == "n" || code == "KeyN") {
             return Some(WebAction::ViewerFindPrev);
         }
+    }
+
+    // Multi-select: Ctrl+Space toggle; Space row toggle; Esc exit (after find Esc).
+    if ctrl && !shift && (key == " " || code == "Space") {
+        if ms.applies && ms.middle_focused {
+            return Some(WebAction::MultiselectToggleMode);
+        }
+        return None;
+    }
+    if ms.active && !ctrl && !shift && (key == " " || code == "Space") {
+        return Some(WebAction::MultiselectToggleRow);
+    }
+    if ms.active && !ctrl && key == "Escape" {
+        return Some(WebAction::MultiselectCancel);
     }
 
     // Preview scroll / PDF page nav (TUI Shift+J/K/B/E + Shift+arrows).
