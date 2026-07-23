@@ -20,6 +20,34 @@ pub use css::{ThemeCss, tokens_for_theme_name, tokens_from_palette};
 pub use palettes::{DEFAULT_COLORS, OBLIVION_INK, theme_ordered_list, theme_selector_entries};
 pub use syntect::{CodeThemeKeys, SYNTECT_THEME_KEYS};
 
+/// Match TUI `UiConstants` swatch lighten amounts (kept here so `themes` does not depend on `ui`).
+const SWATCH_LIGHTEN: f32 = 0.2;
+const SWATCH_LIGHTEN_DARK_ON_LIGHT_POPUP: f32 = 0.38;
+const SWATCH_LIGHT_THEME_TEXT: f32 = 0.6;
+
+/// Display color for a theme-selector swatch chip (same rules as the TUI picker).
+#[must_use]
+pub fn theme_selector_swatch(theme: &Palette, popup_theme: &Palette) -> Color {
+    match theme.appearance {
+        Appearance::Light => lighten_rgb(theme.swatch, SWATCH_LIGHT_THEME_TEXT),
+        Appearance::Dark => {
+            let pct = if popup_theme.appearance == Appearance::Light {
+                SWATCH_LIGHTEN_DARK_ON_LIGHT_POPUP
+            } else {
+                SWATCH_LIGHTEN
+            };
+            adjust_surface_rgb(theme.swatch, pct, theme.appearance)
+        }
+    }
+}
+
+/// HSL token (`"H S% L%"`) for web theme-picker swatches.
+#[must_use]
+pub fn theme_selector_swatch_token(theme: &Palette, popup_theme: &Palette) -> String {
+    color_to_hsl_token(theme_selector_swatch(theme, popup_theme))
+        .unwrap_or_else(|| rgb_to_hsl_token(0, 0, 0))
+}
+
 /// One row in the theme selector list: a non-selectable section label or a selectable theme.
 #[derive(Clone, Copy)]
 pub enum SelectorEntry {

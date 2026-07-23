@@ -8,6 +8,8 @@ use std::collections::BTreeMap;
 use wasm_bindgen::JsCast;
 use web_sys::HtmlElement;
 
+use crate::api::ThemeCssBody;
+
 /// Subset of settings `css` payload used by the shell.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub(crate) struct ThemeCssView {
@@ -27,6 +29,14 @@ impl ThemeCssView {
             appearance,
             vars,
         }
+    }
+
+    pub(crate) fn from_body(body: &ThemeCssBody) -> Self {
+        Self::from_parts(
+            body.name.clone(),
+            body.appearance.clone(),
+            body.vars.clone(),
+        )
     }
 }
 
@@ -56,6 +66,10 @@ pub(crate) fn apply_theme_css(css: &ThemeCssView) {
 
     let _ = html.set_attribute("data-ublx-theme", &css.name);
     apply_favicon(&doc, &css.vars);
+}
+
+pub(crate) fn apply_theme_css_body(body: &ThemeCssBody) {
+    apply_theme_css(&ThemeCssView::from_body(body));
 }
 
 /// TUI-shaped mark: rounded square in page bg, “U” in `title_brand`.

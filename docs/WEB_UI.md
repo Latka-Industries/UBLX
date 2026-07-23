@@ -221,7 +221,7 @@ Every mini-PR that adds or changes a **keybinding, selection model, overlay, or 
 | **12** | **Preview / file body API** | ✅ Landed (#59) — windowed `/content` (`offset`/`limit`); stub `EXT file` labels; CSV pinned header; Metadata sticky headers; collapsible directory/schema trees + Expand/Collapse; Epub/Audio cover Viewer | [`serve.rs`](../src/cli/serve.rs) `/content`; [`viewer.rs`](../crates/ublx-web/src/viewer.rs); [`schema.rs`](../src/render/kv_tables/schema.rs) |
 | **13** | **Multi-select** | ✅ Landed — Ctrl+Space enter/exit; Space toggle rows on Snapshot / Lenses contents (not Dupes); █ chrome + `n/N · k sel`; **`?` Multi-select section** | [`multiselect.rs`](../crates/ublx-web/src/multiselect.rs); TUI [`ui/multiselect.rs`](../src/ui/multiselect.rs) |
 | **14** | **Space / context menu** | ✅ Landed — Space QA + `a` bulk; serve `/fs/*` + lens writes; confirm / rename / lens picker; **`?` QA rows** | [`space_menu/`](../crates/ublx-web/src/space_menu/); [`serve/fs.rs`](../src/cli/serve/fs.rs); TUI [`ui/menus/`](../src/ui/menus/) |
-| **15** | **Command Mode** | Ctrl+a overlay — TUI command palette actions that apply over serve; **`?` Command section** | [`config/command_mode.rs`](../src/config/command_mode.rs), ctrl chord |
+| **15** | **Command Mode** | ✅ Landed — Ctrl+a chord + menu; d/t/s/r/x/l/p; theme/root pickers; serve `/export/*`; **`?` Command section** | [`command_mode/`](../crates/ublx-web/src/command_mode/); [`serve/export.rs`](../src/cli/serve/export.rs); TUI [`ui/ctrl_chord.rs`](../src/ui/ctrl_chord.rs) |
 | **16** | **`StaticMount::Embedded`** | Ship `--features ui` as one binary; Dir remains for `mise run web` | panza `Embedded`; build.sh → embed |
 
 **Ops / chrome follow-ups** (separate PRs after or interleaved when small):

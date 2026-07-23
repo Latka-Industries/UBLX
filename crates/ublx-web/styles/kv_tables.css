@@ -467,6 +467,20 @@ mark.viewer-find-hit--current {
   padding: 0.2rem 0.35rem;
 }
 
+button.settings-theme-trigger {
+  text-align: left;
+  cursor: pointer;
+}
+
+button.settings-theme-trigger:hover:not(:disabled) {
+  border-color: hsl(var(--primary) / 0.55);
+}
+
+button.settings-theme-trigger:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
 .settings-toml-pane {
   display: flex;
   flex-direction: column;

@@ -100,15 +100,12 @@ pub(super) async fn post_bulk_rename(
     let mut renamed = 0usize;
     let mut failed = None;
     for item in body.renames {
-        let rel = match require_rel_path(&item.path) {
-            Ok(p) => p,
-            Err(_) => {
-                failed = Some(BulkOpFail {
-                    path: item.path,
-                    error: "invalid entry path".into(),
-                });
-                break;
-            }
+        let Ok(rel) = require_rel_path(&item.path) else {
+            failed = Some(BulkOpFail {
+                path: item.path,
+                error: "invalid entry path".into(),
+            });
+            break;
         };
         match file_ops::rename_entry_under_root(&dir, &db, &rel, &item.new_name) {
             Ok(_) => renamed += 1,
@@ -138,15 +135,12 @@ pub(super) async fn post_delete(
     let mut deleted = 0usize;
     let mut failed = None;
     for raw in body.paths {
-        let rel = match require_rel_path(&raw) {
-            Ok(p) => p,
-            Err(_) => {
-                failed = Some(BulkOpFail {
-                    path: raw,
-                    error: "invalid entry path".into(),
-                });
-                break;
-            }
+        let Ok(rel) = require_rel_path(&raw) else {
+            failed = Some(BulkOpFail {
+                path: raw,
+                error: "invalid entry path".into(),
+            });
+            break;
         };
         match file_ops::delete_entry_under_root(&dir, &db, &rel) {
             Ok(()) => deleted += 1,

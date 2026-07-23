@@ -1,0 +1,194 @@
+/* —— Command Mode (Ctrl+a) overlay —— */
+.command-mode-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 38;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: hsl(var(--background) / 0.45);
+}
+
+.command-mode-panel {
+  min-width: 18rem;
+  max-width: min(32rem, 92vw);
+  max-height: min(70vh, 28rem);
+  display: flex;
+  flex-direction: column;
+  padding: 0.45rem 0.55rem 0.5rem;
+  border: 1px solid hsl(var(--border));
+  background: hsl(var(--popover));
+  color: hsl(var(--popover-foreground));
+  box-shadow: 0 0.35rem 1.1rem hsl(var(--background) / 0.5);
+  outline: none;
+}
+
+.command-mode-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  margin: 0 -0.15rem;
+  padding: 0 0.15rem;
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--muted-foreground) / 0.28) transparent;
+}
+
+.command-mode-scroll::-webkit-scrollbar {
+  width: 5px;
+}
+
+.command-mode-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.command-mode-scroll::-webkit-scrollbar-thumb {
+  background: hsl(var(--muted-foreground) / 0.28);
+  border-radius: 999px;
+}
+
+.command-mode-scroll::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground) / 0.42);
+}
+
+.command-mode-title {
+  font-weight: 700;
+  color: hsl(var(--primary));
+  margin-bottom: 0.35rem;
+  white-space: pre;
+  text-align: center;
+}
+
+.command-mode-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+}
+
+.command-mode-table th {
+  text-align: left;
+  font-weight: 600;
+  color: hsl(var(--muted-foreground));
+  padding: 0.15rem 0.35rem 0.3rem;
+  border-bottom: 1px solid hsl(var(--border));
+}
+
+.command-mode-table td {
+  padding: 0.2rem 0.35rem;
+}
+
+.command-mode-key {
+  width: 2.5rem;
+  color: hsl(var(--primary));
+  font-weight: 600;
+}
+
+.command-mode-row {
+  cursor: pointer;
+}
+
+.command-mode-table tr.command-mode-row:hover td {
+  background: hsl(var(--primary) / 0.1);
+}
+
+.command-mode-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.command-mode-list > li {
+  margin: 0;
+  padding: 0;
+}
+
+button.command-mode-row {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  width: 100%;
+  text-align: left;
+  padding: 0.2rem 0.35rem;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+button.command-mode-row:hover,
+button.command-mode-row--sel {
+  background: hsl(var(--primary) / 0.15);
+}
+
+.command-mode-swatch {
+  flex: 0 0 auto;
+  width: 0.85rem;
+  height: 0.85rem;
+  line-height: 0.85rem;
+  font-size: 0.85rem;
+  display: inline-block;
+  border: 1px solid hsl(var(--border));
+}
+
+.command-mode-theme-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.command-mode-section {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.25rem 0.2rem;
+  color: hsl(var(--muted-foreground));
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+  user-select: none;
+}
+
+.command-mode-section-label {
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.command-mode-section-rule {
+  opacity: 0.55;
+}
+
+.command-mode-hint {
+  margin: 0.4rem 0 0;
+  font-size: 0.75rem;
+  color: hsl(var(--muted-foreground));
+}
+
+.command-mode-toast {
+  position: fixed;
+  bottom: 2.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 45;
+  padding: 0.35rem 0.75rem;
+  border: 1px solid hsl(var(--border));
+  background: hsl(var(--popover));
+  color: hsl(var(--popover-foreground));
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  box-shadow: 0 0.25rem 0.8rem hsl(var(--background) / 0.45);
+  pointer-events: none;
+}
+
+.tui-shell--chord-pending .main-chrome .tab-node--active {
+  color: hsl(var(--primary));
+  outline: 1px solid hsl(var(--primary) / 0.55);
+}

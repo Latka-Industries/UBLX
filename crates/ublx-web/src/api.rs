@@ -455,6 +455,85 @@ pub(crate) async fn fetch_duplicates() -> DuplicatesResponse {
         .unwrap_or_default()
 }
 
+#[derive(Clone, Debug, Default, Deserialize, PartialEq)]
+pub(crate) struct RootRow {
+    pub path: String,
+    pub current: bool,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, PartialEq)]
+pub(crate) struct SnapshotLast {
+    pub added: usize,
+    pub modified: usize,
+    pub removed: usize,
+    #[serde(default)]
+    pub error: Option<String>,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, PartialEq)]
+pub(crate) struct SnapshotStatus {
+    /// `idle` | `running` | `done` | `failed`
+    pub state: String,
+    #[serde(default)]
+    pub dir: Option<String>,
+    #[serde(default)]
+    pub last: Option<SnapshotLast>,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, PartialEq)]
+pub(crate) struct ExportOut {
+    pub count: usize,
+    pub dir: String,
+}
+
+pub(crate) async fn fetch_roots() -> Result<Vec<RootRow>, String> {
+    get_json("/roots").await
+}
+
+pub(crate) async fn switch_root(dir: &str) -> Result<CurrentRoot, String> {
+    #[derive(Serialize)]
+    struct Body<'a> {
+        dir: &'a str,
+    }
+    put_json("/roots/current", &Body { dir }).await
+}
+
+pub(crate) async fn post_snapshot(enhance_all: bool) -> Result<SnapshotStatus, String> {
+    #[derive(Serialize)]
+    struct Body {
+        enhance_all: bool,
+    }
+    post_json("/snapshot", &Body { enhance_all }).await
+}
+
+pub(crate) async fn get_snapshot_status() -> Result<SnapshotStatus, String> {
+    get_json("/snapshot").await
+}
+
+pub(crate) async fn post_export_zahir() -> Result<ExportOut, String> {
+    post_json("/export/zahir", &serde_json::json!({})).await
+}
+
+pub(crate) async fn post_export_lenses() -> Result<ExportOut, String> {
+    post_json("/export/lenses", &serde_json::json!({})).await
+}
+
+pub(crate) async fn put_json<T: for<'de> Deserialize<'de>, B: Serialize>(
+    url: &str,
+    body: &B,
+) -> Result<T, String> {
+    let resp = gloo_net::http::Request::put(url)
+        .json(body)
+        .map_err(|e| e.to_string())?
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    if !resp.ok() {
+        return Err(http_error_message(resp).await);
+    }
+    resp.json::<T>().await.map_err(|e| e.to_string())
+}
+
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub(crate) enum SettingsScope {
     #[default]
@@ -494,7 +573,7 @@ pub(crate) struct SettingsLayoutControl {
     pub right_pct: u16,
 }
 
-#[derive(Clone, Debug, Default, Deserialize, PartialEq)]
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Eq)]
 pub(crate) struct ThemeCssBody {
     #[serde(default)]
     pub name: String,
@@ -520,12 +599,65 @@ pub(crate) struct SettingsView {
     #[serde(default)]
     pub themes: Vec<String>,
     #[serde(default)]
+    pub theme_picker: Vec<ThemePickerRow>,
+    #[serde(default)]
     pub bg_opacity: f32,
     /// `none` | `abbrev` | `full`
     #[serde(default = "default_typed_column_tables")]
     pub typed_column_tables: String,
     #[serde(default)]
     pub css: ThemeCssBody,
+}
+
+/// Command Mode theme picker rows (`Dark` / `Light` sections + swatches).
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub(crate) enum ThemePickerRow {
+    Section {
+        label: String,
+    },
+    Theme {
+        name: String,
+        #[serde(default)]
+        appearance: String,
+        /// HSL components (`"H S% L%"`).
+        #[serde(default)]
+        swatch: String,
+        /// Full tokens for live highlight preview.
+        #[serde(default)]
+        css: ThemeCssBody,
+    },
+}
+
+impl ThemePickerRow {
+    pub(crate) fn theme_name(&self) -> Option<&str> {
+        match self {
+            Self::Theme { name, .. } => Some(name.as_str()),
+            Self::Section { .. } => None,
+        }
+    }
+
+    pub(crate) fn theme_css(&self) -> Option<&ThemeCssBody> {
+        match self {
+            Self::Theme { css, .. } if !css.vars.is_empty() || !css.name.is_empty() => Some(css),
+            _ => None,
+        }
+    }
+
+    pub(crate) fn index_of_theme(rows: &[Self], current: &str) -> usize {
+        rows.iter()
+            .filter_map(Self::theme_name)
+            .position(|n| n == current)
+            .unwrap_or(0)
+    }
+
+    pub(crate) fn theme_name_at(rows: &[Self], index: usize) -> Option<&str> {
+        rows.iter().filter_map(Self::theme_name).nth(index)
+    }
+
+    pub(crate) fn theme_css_at(rows: &[Self], index: usize) -> Option<&ThemeCssBody> {
+        rows.iter().filter_map(Self::theme_css).nth(index)
+    }
 }
 
 fn default_typed_column_tables() -> String {
