@@ -1,14 +1,14 @@
-//! Right-pane viewers: CSV hints, markdown, comfy tables, image labels, zahir JSON helpers.
+//! Viewer unit tests: CSV, markdown, pretty tables, find, zahir wrappers.
 
 use std::path::Path;
 
-use ublx::integrations::{
+use crate::integrations::{
     ZahirFT, ZahirOutput, file_type_from_metadata_name, zahir_output_to_json_for_path,
 };
-use ublx::layout::setup::{RightPaneContent, RightPaneMode, UblxState, ViewerFindState};
-use ublx::modules::viewer_search;
-use ublx::render::{kv_tables, panes, viewers};
-use ublx::ui::UI_GLYPHS;
+use crate::layout::setup::{RightPaneContent, RightPaneMode, UblxState, ViewerFindState};
+use crate::modules::viewer_search;
+use crate::render::{kv_tables, panes, viewers};
+use crate::ui::UI_GLYPHS;
 
 // --- CSV --------------------------------------------------------------------
 
@@ -346,7 +346,7 @@ fn viewer_total_lines_kv_tables_matches_content_height() {
     let n = panes::viewer_total_lines(&rc, w, Some(json), &mut state, None);
     assert_eq!(
         n,
-        kv_tables::content_height(json, ublx::config::ColumnStatsDisplay::default()) as usize
+        kv_tables::content_height(json, crate::config::ColumnStatsDisplay::default()) as usize
     );
 }
 
@@ -439,7 +439,7 @@ fn highlighted_body_empty_ranges_is_raw() {
     let mut state = UblxState::new();
     state.viewer_find.ranges = vec![];
     let t = viewer_search::highlighted_body(&state, "one\ntwo");
-    assert_eq!(ublx::render::panes::text_to_plain_string(&t), "one\ntwo");
+    assert_eq!(crate::render::panes::text_to_plain_string(&t), "one\ntwo");
 }
 
 #[test]

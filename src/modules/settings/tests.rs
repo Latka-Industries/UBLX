@@ -1,7 +1,7 @@
-//! Integration tests for Settings local layout source ([`ublx::modules::settings::layout_overlay_for_local_editing`]).
+//! Settings layout overlay resolution for local editing.
 
-use ublx::config::{LayoutOverlay, UblxOverlay};
-use ublx::modules::settings::layout_overlay_for_local_editing;
+use crate::config::{LayoutOverlay, UblxOverlay};
+use crate::modules::settings::layout_overlay_for_local_editing;
 
 #[test]
 fn layout_overlay_no_local_uses_merged() {

@@ -1,6 +1,19 @@
 [tools]
 rust = { version = "1.95", targets = "wasm32-unknown-unknown" }
 
+# THI-171: default check is fmt+clippy only (13-crate `cargo test` melts local machines).
+# Full suite: `mise run test` (CI still runs `cargo test`).
+[tasks.check]
+description = "fmt + clippy (no cargo test — use `mise run test`)"
+run = [
+  "cargo fmt --all",
+  "cargo clippy -- -D warnings",
+]
+
+[tasks.test]
+description = "Run cargo test (src unit tests + thin tests/suite CLI/frame smoke)"
+run = "cargo test"
+
 [tasks.tublx]
 description = "Run ublx headless (--snapshot-only, no TUI)"
 run = "cargo run -- --snapshot-only"

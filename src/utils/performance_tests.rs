@@ -1,15 +1,13 @@
-//! Viewer read caps ([#26]) and cache eviction smoke tests ([#25]).
-//!
-//! RSS on row switch ([#28]) is manual (Activity Monitor).
+//! Large-file viewer preview policy + cache eviction.
 
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use ublx::engine::cache::{self, ViewerContentIdentity};
-use ublx::integrations::ZahirFT;
-use ublx::layout::setup::{UblxState, ViewerDiskContentCache};
-use ublx::render::viewer_cache;
-use ublx::utils::{ViewerReadPolicy, file_content_for_viewer};
+use crate::engine::cache::{self, ViewerContentIdentity};
+use crate::integrations::ZahirFT;
+use crate::layout::setup::{UblxState, ViewerDiskContentCache};
+use crate::render::viewer_cache;
+use crate::utils::{ViewerReadPolicy, file_content_for_viewer};
 
 static TEMP_COUNTER: AtomicU64 = AtomicU64::new(0);
 

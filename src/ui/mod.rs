@@ -54,3 +54,6 @@ pub fn show_operation_toast(
         );
     }
 }
+
+#[cfg(test)]
+mod tests;

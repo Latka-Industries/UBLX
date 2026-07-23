@@ -19,3 +19,6 @@ pub use profile::*;
 pub use streaming::*;
 pub use toast::*;
 pub use validation::*;
+
+#[cfg(test)]
+mod tests;

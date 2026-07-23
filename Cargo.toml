@@ -23,6 +23,12 @@ categories = [
   "text-processing",
   "visualization",
 ]
+# THI-171: one integration crate (`tests/suite`), not one target per `tests/*.rs`.
+autotests = false
+
+[[test]]
+name = "suite"
+path = "tests/suite/mod.rs"
 
 # rustdoc: `zahirscan` with default features off (no `netcdf`).
 [package.metadata.docs.rs]

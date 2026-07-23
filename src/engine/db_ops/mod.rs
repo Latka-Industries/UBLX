@@ -27,3 +27,6 @@ pub use live_snapshot::*;
 pub use path_resolver::*;
 pub use utils::*;
 pub use zahir_export::*;
+
+#[cfg(test)]
+mod tests;
