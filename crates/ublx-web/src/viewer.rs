@@ -12,6 +12,7 @@ use web_sys::HtmlElement;
 
 use crate::api::{EntryContent, encode_entry_path, fetch_entry_content, fetch_entry_content_page};
 use crate::focus::{PdfPageCtl, PdfPageNav, PreviewKeysBus};
+use crate::viewer_find::ViewerFind;
 
 /// Zahir catalog category for markdown (`FileType::Markdown.as_metadata_name()`).
 const MARKDOWN_CATEGORY: &str = "Markdown";
@@ -345,6 +346,9 @@ fn HtmlFragment(class: &'static str, html: String) -> impl IntoView {
             if class == "img-viewer-host" {
                 wire_img_load_errors(&el);
             }
+            if let Some(find) = use_context::<ViewerFind>() {
+                find.bump_content();
+            }
         }
     });
     view! { <div class=class node_ref=node_ref></div> }
@@ -432,6 +436,9 @@ fn CsvHtmlFragment(html: String) -> impl IntoView {
             el.set_inner_html(&html);
             wire_csv_frozen_scroll(&el);
             wire_csv_tip_signals(&el, set_tip_open, set_tip_text, set_tip_x, set_tip_y);
+            if let Some(find) = use_context::<ViewerFind>() {
+                find.bump_content();
+            }
         }
     });
 

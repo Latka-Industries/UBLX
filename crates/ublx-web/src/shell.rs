@@ -7,18 +7,20 @@ use web_sys::KeyboardEvent;
 use crate::api::{CatalogFlags, format_timestamp_ns};
 use crate::focus::{PaneFocus, PdfPageNav, PreviewKeysBus, RightTabBus, UiNav};
 use crate::help::{HelpModal, HelpOverlay};
-use crate::keys::{WebAction, action_from_keydown, typing_in_form_field};
+use crate::keys::{FindKeyCtx, WebAction, action_from_keydown, typing_in_form_field};
 use crate::modes::{DeltaMode, DuplicatesMode, LensesMode, SettingsMode, SnapshotMode};
 use crate::nav::{MainMode, clamp_mode_to_visible, select_mode, use_main_mode};
 use crate::search::{CatalogSearch, SEARCH_LABEL};
 use crate::sort::ContentSortCtx;
 use crate::viewer::scroll_right_preview;
+use crate::viewer_find::ViewerFind;
 
 #[component]
 pub(crate) fn Shell(flags: CatalogFlags) -> impl IntoView {
     let flags = StoredValue::new(flags);
     let (mode, set_mode) = use_main_mode();
     let search = CatalogSearch::provide();
+    let find = ViewerFind::provide();
     let sort = ContentSortCtx::provide();
     let (nav, tabs, preview) = UiNav::provide();
     let help = HelpOverlay::provide();
@@ -47,6 +49,7 @@ pub(crate) fn Shell(flags: CatalogFlags) -> impl IntoView {
             return;
         };
         let search = search;
+        let find = find;
         let sort = sort;
         let nav = nav;
         let tabs = tabs;
@@ -60,7 +63,12 @@ pub(crate) fn Shell(flags: CatalogFlags) -> impl IntoView {
                 return;
             }
             let help_open = help.visible.get_untracked();
-            let Some(action) = action_from_keydown(&ev, help_open) else {
+            let find_ctx = FindKeyCtx {
+                committed: find.committed.get_untracked() && !find.active.get_untracked(),
+                catalog_search_active: search.active.get_untracked(),
+                allow: mode.get_untracked() != MainMode::Settings,
+            };
+            let Some(action) = action_from_keydown(&ev, help_open, find_ctx) else {
                 return;
             };
             ev.prevent_default();
@@ -68,6 +76,7 @@ pub(crate) fn Shell(flags: CatalogFlags) -> impl IntoView {
                 action,
                 KeybusCtx {
                     search,
+                    find,
                     sort,
                     nav,
                     tabs,
@@ -129,6 +138,7 @@ pub(crate) fn Shell(flags: CatalogFlags) -> impl IntoView {
 #[derive(Clone, Copy)]
 struct KeybusCtx {
     search: CatalogSearch,
+    find: ViewerFind,
     sort: ContentSortCtx,
     nav: UiNav,
     tabs: RightTabBus,
@@ -147,7 +157,17 @@ fn dispatch_action(action: WebAction, ctx: KeybusCtx) {
         WebAction::HelpSectionNext => ctx.help.cycle_section(ctx.mode.get_untracked(), 1),
         WebAction::HelpSectionPrev => ctx.help.cycle_section(ctx.mode.get_untracked(), -1),
         WebAction::HelpAbsorb => {}
-        WebAction::SearchStart => ctx.search.start(),
+        WebAction::SearchStart => {
+            ctx.find.clear();
+            ctx.search.start();
+        }
+        WebAction::ViewerFindOpen => {
+            ctx.search.set_active.set(false);
+            ctx.find.start();
+        }
+        WebAction::ViewerFindNext => ctx.find.next(),
+        WebAction::ViewerFindPrev => ctx.find.prev(),
+        WebAction::ViewerFindClear => ctx.find.clear(),
         WebAction::CycleContentSort => ctx.sort.cycle(ctx.mode.get_untracked()),
         WebAction::ScrollPreviewDown => apply_preview_keys(ctx.preview, PdfPageNav::Next),
         WebAction::ScrollPreviewUp => apply_preview_keys(ctx.preview, PdfPageNav::Prev),
