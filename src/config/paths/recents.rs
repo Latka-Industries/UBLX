@@ -363,4 +363,3 @@ pub fn prior_indexed_roots_recent(current: &Path, max: usize) -> Vec<PathBuf> {
         .map(|(p, _)| p)
         .collect()
 }
-

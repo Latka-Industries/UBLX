@@ -7,9 +7,9 @@ use crate::utils::ClipboardCopyCommand;
 
 use super::modes::{MainMode, RightPaneMode, SpaceMenuKind};
 use super::overlays::{
-    EnhancePolicyMenuState, FileDeleteConfirmState, LensConfirmState, LensMenuState, MultiselectState,
-    OpenMenuState, QAMenuState, SearchState, StartupPromptState, ThemeState, ToastState,
-    ViewerChrome, ViewerFindState,
+    EnhancePolicyMenuState, FileDeleteConfirmState, LensConfirmState, LensMenuState,
+    MultiselectState, OpenMenuState, QAMenuState, SearchState, StartupPromptState, ThemeState,
+    ToastState, ViewerChrome, ViewerFindState,
 };
 use super::panels::PanelState;
 use super::session::{
