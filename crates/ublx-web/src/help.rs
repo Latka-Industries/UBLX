@@ -93,6 +93,14 @@ const RIGHT_PANE: &[(&str, &str)] = &[
         "Viewer / Templates / Metadata / Writing (when available)",
     ),
     ("Shift+Tab", "Cycle right-pane tabs"),
+    (
+        "Shift+J/↓ · Shift+K/↑",
+        "Scroll right pane (or PDF: next / previous page)",
+    ),
+    (
+        "Shift+B · Shift+E",
+        "Jump right pane to top / bottom (or PDF: first / last page)",
+    ),
 ];
 
 const GENERAL_SETTINGS: &[(&str, &str)] = &[

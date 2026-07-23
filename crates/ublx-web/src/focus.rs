@@ -38,7 +38,7 @@ pub(crate) struct UiNav {
 }
 
 impl UiNav {
-    pub(crate) fn provide() -> (Self, RightTabBus) {
+    pub(crate) fn provide() -> (Self, RightTabBus, PreviewKeysBus) {
         let (pane, set_pane) = signal(PaneFocus::Middle);
         let left = RwSignal::new(None::<ListNav>);
         let middle = RwSignal::new(None::<ListNav>);
@@ -57,9 +57,10 @@ impl UiNav {
             cycle_tick,
             bump_cycle,
         };
+        let preview = PreviewKeysBus::provide();
         provide_context(nav);
         provide_context(tabs);
-        (nav, tabs)
+        (nav, tabs, preview)
     }
 
     pub(crate) fn expect() -> Self {
@@ -83,6 +84,42 @@ pub(crate) struct RightTabBus {
 }
 
 impl RightTabBus {
+    pub(crate) fn expect() -> Self {
+        expect_context::<Self>()
+    }
+}
+
+/// PDF page control while a PDF Viewer is mounted (Shift+J/K/B/E → pages, else DOM scroll).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum PdfPageNav {
+    Next,
+    Prev,
+    Top,
+    Bottom,
+}
+
+#[derive(Clone)]
+pub(crate) struct PdfPageCtl {
+    pub apply: Callback<PdfPageNav>,
+    /// Jump to an absolute page (caller clamps to `1..=page_count`).
+    pub goto: Callback<u32>,
+    pub page: Signal<u32>,
+    pub page_count: Signal<Option<u32>>,
+}
+
+#[derive(Clone, Copy)]
+pub(crate) struct PreviewKeysBus {
+    pub pdf: RwSignal<Option<PdfPageCtl>>,
+}
+
+impl PreviewKeysBus {
+    pub(crate) fn provide() -> Self {
+        let pdf = RwSignal::new(None::<PdfPageCtl>);
+        let bus = Self { pdf };
+        provide_context(bus);
+        bus
+    }
+
     pub(crate) fn expect() -> Self {
         expect_context::<Self>()
     }

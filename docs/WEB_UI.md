@@ -184,6 +184,7 @@ Mouse click remains supported; keyboard is first-class.
 - [x] Code / syntect viewer (JSON/TOML/YAML/XML/HTML/INI/Log/Code)
 - [x] Tables / CSV (+ misc text)
 - [x] Images / SVG (+ Audio/Epub embedded covers)
+- [x] PDF / video tool-backed previews (Poppler/MuPDF / ffmpeg; honest missing-tool errors)
 
 ---
 
@@ -202,7 +203,7 @@ One concern per PR. Order is dependency-aware; titles are suggestions.
 | **7** | **Code / syntect viewer** | ✅ Landed — syntect HTML for code cats via `/content` | [`syntect_text`](../src/render/viewers/syntect_text.rs); `/content` HTML branch |
 | **8** | **Tables / CSV (+ misc text)** | ✅ Landed — host HTML table / `<pre>` via `/content` | [`csv_handler`](../src/render/viewers/csv_handler.rs), pretty tables |
 | **9** | **Images (and covers)** | ✅ Landed — raster/SVG via `/content?format=raw`; Audio/Epub covers via `?format=cover` | [`viewer.rs`](../crates/ublx-web/src/viewer.rs); [`serve.rs`](../src/cli/serve.rs) `/content` |
-| **10** | **PDF / video / tool-backed** | Optional-tool previews or clear “tool missing” UI matching TUI honesty | [`async_tools`](../src/render/viewers/async_tools.rs), PDF/video modules |
+| **10** | **PDF / video / tool-backed** | ✅ Landed — PDF/video PNG via `/content?format=raw`; web Shift+J/K/B/E = preview scroll (TUI) or PDF pages when a PDF is open; `Page n / N` footer; tool-missing under `<img>` | [`pdf_preview`](../src/render/viewers/pdf_preview.rs), [`video_preview`](../src/render/viewers/video_preview.rs); [`viewer.rs`](../crates/ublx-web/src/viewer.rs) |
 | **11** | **Viewer find** | Shift+S find strip on right `title_bottom`; `n`/`N` next/prev | TUI viewer find; catalog `/` already landed |
 | **12** | **Preview / file body API** | Serve routes to stream or page file bytes / rendered slices the viewers need (if not covered by existing entry detail) | Extend [`serve.rs`](../src/cli/serve.rs) / `catalog_read` as required by PRs 6–10 — may land **earlier** as a prerequisite PR if blocked |
 | **13** | **Multi-select** | Ctrl+Space enter/exit; Space toggle rows on Snapshot / Lenses contents (not Dupes); selection chrome | [`ui/multiselect.rs`](../src/ui/multiselect.rs) |

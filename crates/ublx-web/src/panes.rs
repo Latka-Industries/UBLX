@@ -6,7 +6,7 @@ use wasm_bindgen::closure::Closure;
 use web_sys::{ScrollIntoViewOptions, ScrollLogicalPosition};
 
 use crate::api::{EntryDetail, format_bytes, format_timestamp_ns};
-use crate::focus::{PaneFocus, UiNav, install_list_nav, string_list_nav};
+use crate::focus::{PaneFocus, PreviewKeysBus, UiNav, install_list_nav, string_list_nav};
 use crate::kv_tables::KvTables;
 use crate::nav::MainMode;
 use crate::search;
@@ -346,6 +346,7 @@ pub(crate) fn PathsPane(
 pub(crate) fn EntryRightPane(detail: Signal<Option<EntryDetail>>) -> impl IntoView {
     let (tab, set_tab) = signal(RightTab::Viewer);
     let tabs = crate::focus::RightTabBus::expect();
+    let preview = PreviewKeysBus::expect();
 
     let available = move |t: RightTab, d: &Option<EntryDetail>| match t {
         RightTab::Viewer => true,
@@ -482,7 +483,10 @@ pub(crate) fn EntryRightPane(detail: Signal<Option<EntryDetail>>) -> impl IntoVi
                             }}
                         </div>
                         <Show when=move || tab.get() == RightTab::Viewer>
-                            <div class="right-pane-footer" aria-label="Size and modified time">
+                            <div class="right-pane-footer" aria-label="Viewer status">
+                                <Show when=move || preview.pdf.get().is_some()>
+                                    <PdfPageStatusNode/>
+                                </Show>
                                 <span class="status-node">{size_label.clone()}</span>
                                 {if show_mtime {
                                     view! {
@@ -499,6 +503,135 @@ pub(crate) fn EntryRightPane(detail: Signal<Option<EntryDetail>>) -> impl IntoVi
                 }}
             </Show>
         </div>
+    }
+}
+
+#[component]
+fn PdfPageStatusNode() -> impl IntoView {
+    let preview = PreviewKeysBus::expect();
+    let (editing, set_editing) = signal(false);
+    let (draft, set_draft) = signal(String::new());
+    let input_ref = NodeRef::<leptos::html::Input>::new();
+
+    Effect::new(move |_| {
+        if !editing.get() {
+            return;
+        }
+        if let Some(el) = input_ref.get() {
+            let _ = el.focus();
+            el.select();
+        }
+    });
+
+    let start_edit = move |_| {
+        let Some(ctl) = preview.pdf.get_untracked() else {
+            return;
+        };
+        set_draft.set(ctl.page.get_untracked().max(1).to_string());
+        set_editing.set(true);
+    };
+
+    let commit = move || {
+        let Some(ctl) = preview.pdf.get_untracked() else {
+            set_editing.set(false);
+            return;
+        };
+        let raw = draft.get_untracked();
+        let trimmed = raw.trim();
+        if !trimmed.is_empty()
+            && let Ok(n) = trimmed.parse::<u32>()
+        {
+            ctl.goto.run(n);
+        }
+        set_editing.set(false);
+    };
+
+    let cancel = move || {
+        set_editing.set(false);
+    };
+
+    view! {
+        <span
+            class=move || {
+                if editing.get() {
+                    "status-node status-node--page status-node--page-editing"
+                } else {
+                    "status-node status-node--button status-node--page"
+                }
+            }
+            title="Click to jump to page"
+            on:click=move |ev| {
+                if editing.get_untracked() {
+                    return;
+                }
+                ev.prevent_default();
+                start_edit(());
+            }
+        >
+            "Page "
+            <Show
+                when=move || editing.get()
+                fallback=move || {
+                    view! {
+                        <span class="status-node__page-num">
+                            {move || {
+                                preview
+                                    .pdf
+                                    .get()
+                                    .map(|c| c.page.get().max(1))
+                                    .unwrap_or(1)
+                            }}
+                        </span>
+                    }
+                }
+            >
+                <input
+                    node_ref=input_ref
+                    class="status-node__page-input"
+                    type="text"
+                    inputmode="numeric"
+                    pattern="[0-9]*"
+                    prop:value=move || draft.get()
+                    size=move || {
+                        let digits = preview
+                            .pdf
+                            .get()
+                            .and_then(|c| c.page_count.get())
+                            .unwrap_or_else(|| {
+                                preview.pdf.get().map(|c| c.page.get()).unwrap_or(1)
+                            })
+                            .to_string()
+                            .len();
+                        digits.clamp(2, 6) as u32
+                    }
+                    aria-label="Page number"
+                    on:input=move |ev| {
+                        set_draft.set(event_target_value(&ev));
+                    }
+                    on:keydown=move |ev| {
+                        ev.stop_propagation();
+                        match ev.key().as_str() {
+                            "Enter" => {
+                                ev.prevent_default();
+                                commit();
+                            }
+                            "Escape" => {
+                                ev.prevent_default();
+                                cancel();
+                            }
+                            _ => {}
+                        }
+                    }
+                    on:blur=move |_| commit()
+                    on:click=move |ev| ev.stop_propagation()
+                />
+            </Show>
+            {move || {
+                preview.pdf.get().and_then(|c| c.page_count.get()).map(|n| {
+                    view! { <span>{format!(" / {n}")}</span> }.into_any()
+                })
+            }}
+        </span>
     }
 }
 

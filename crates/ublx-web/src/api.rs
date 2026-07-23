@@ -316,16 +316,39 @@ pub(crate) struct EntryContent {
     pub format: String,
     #[serde(default)]
     pub content: String,
+    /// PDF page (1-based) when category is PDF.
+    #[serde(default)]
+    pub page: Option<u32>,
+    /// PDF page count when known.
+    #[serde(default)]
+    pub page_count: Option<u32>,
 }
 
-/// `format`: `Some("html")` | `Some("text")` | `None` (server default — HTML for Markdown).
+/// `format`: `Some("html")` | `Some("text")` | `None` (server default).
+/// `page`: PDF page for html/raw (1-based).
 pub(crate) async fn fetch_entry_content(
     path: &str,
     format: Option<&str>,
 ) -> Result<EntryContent, String> {
+    fetch_entry_content_page(path, format, None).await
+}
+
+pub(crate) async fn fetch_entry_content_page(
+    path: &str,
+    format: Option<&str>,
+    page: Option<u32>,
+) -> Result<EntryContent, String> {
     let mut url = format!("/content/{}", encode_entry_path(path));
+    let mut q: Vec<String> = Vec::new();
     if let Some(f) = format {
-        url.push_str(&format!("?format={f}"));
+        q.push(format!("format={f}"));
+    }
+    if let Some(p) = page {
+        q.push(format!("page={p}"));
+    }
+    if !q.is_empty() {
+        url.push('?');
+        url.push_str(&q.join("&"));
     }
     get_json::<EntryContent>(&url).await
 }

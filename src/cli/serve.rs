@@ -1,5 +1,6 @@
 //! `ublx serve` — local HTTP API over `.ublx` (THI-156 / v0.1.13).
 
+use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
 use std::sync::mpsc;
 use std::sync::{Arc, Mutex};
@@ -29,7 +30,9 @@ use crate::handlers::run_snap_pipeline_from_dir_db;
 use crate::handlers::viewing::sectioned_preview_from_zahir;
 use crate::integrations::{ZahirFT, delimiter_from_path_for_viewer, file_type_from_metadata_name};
 use crate::render::kv_tables::{SectionView, parse_json_to_views};
-use crate::render::viewers::{csv_handler, html_escape_minimal, images, svg_preview, syntect_text};
+use crate::render::viewers::{
+    csv_handler, html_escape_minimal, images, pdf_preview, svg_preview, syntect_text, video_preview,
+};
 use crate::utils::{file_content_for_viewer, try_extract_cover};
 
 /// Live catalog for one serve process — switchable via `/roots/current`.
@@ -449,10 +452,13 @@ const MAX_RAW_IMAGE_BYTES: u64 = 32 * 1024 * 1024;
 
 #[derive(Debug, Deserialize)]
 struct EntryContentQuery {
-    /// `text` | `html` | `raw` (image bytes) | `cover` (Audio/Epub embedded art).
-    /// Omitted → HTML for Markdown / syntect / CSV / Text / Image / cover cats.
+    /// `text` | `html` | `raw` (image / PDF page / video frame) | `cover` (Audio/Epub art).
+    /// Omitted → HTML for Markdown / syntect / CSV / Text / Image / PDF / Video / cover cats.
     #[serde(default)]
     format: Option<String>,
+    /// PDF page (1-based) for `format=raw` / HTML preview. Default `1`.
+    #[serde(default)]
+    page: Option<u32>,
 }
 
 #[derive(Debug, Serialize)]
@@ -462,6 +468,12 @@ struct EntryContentResponse {
     /// `text` or `html`
     format: String,
     content: String,
+    /// PDF page shown in `content` / requested for `raw` (1-based).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    page: Option<u32>,
+    /// PDF page count from `pdfinfo` when available.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    page_count: Option<u32>,
 }
 
 async fn get_entry_content(
@@ -476,21 +488,35 @@ async fn get_entry_content(
     let zahir_type = file_type_from_metadata_name(&row.category);
 
     match q.format.as_deref().map(str::trim) {
-        Some("raw") => return raw_image_response(&abs, zahir_type),
+        Some("raw") => return raw_media_response(&abs, zahir_type, q.page),
         Some("cover") => return embedded_cover_response(&abs, zahir_type),
         _ => {}
     }
 
     let text = file_content_for_viewer(&abs, zahir_type).unwrap_or_else(|| "(empty)".into());
     let want_html = content_want_html(q.format.as_deref(), zahir_type, &row.path)?;
+    let pdf_page = q.page.unwrap_or(1).max(1);
     let (format, content) = if want_html {
         let appearance = settings_api::effective_appearance(&dir);
         (
             "html".into(),
-            content_to_html(&text, &row.path, &abs, zahir_type, appearance),
+            content_to_html(
+                &text,
+                &row.path,
+                &abs,
+                zahir_type,
+                appearance,
+                Some(pdf_page),
+            ),
         )
     } else {
         ("text".into(), text)
+    };
+
+    let (page, page_count) = if zahir_type == Some(ZahirFT::Pdf) {
+        (Some(pdf_page), pdf_preview::pdf_page_count(&abs).ok())
+    } else {
+        (None, None)
     };
 
     Ok(Json(EntryContentResponse {
@@ -498,6 +524,8 @@ async fn get_entry_content(
         category: row.category,
         format,
         content,
+        page,
+        page_count,
     })
     .into_response())
 }
@@ -517,6 +545,8 @@ fn content_want_html(
                     | ZahirFT::Csv
                     | ZahirFT::Text
                     | ZahirFT::Image
+                    | ZahirFT::Pdf
+                    | ZahirFT::Video
                     | ZahirFT::Audio
                     | ZahirFT::Epub
             )
@@ -535,6 +565,7 @@ fn content_to_html(
     abs: &Path,
     zahir_type: Option<ZahirFT>,
     appearance: crate::themes::Appearance,
+    page: Option<u32>,
 ) -> String {
     match zahir_type {
         Some(ZahirFT::Markdown) => markdown_to_html(text),
@@ -543,15 +574,17 @@ fn content_to_html(
         }
         Some(ZahirFT::Csv) => csv_handler::delimited_to_html(text, path),
         Some(ZahirFT::Text) => format!("<pre>{}</pre>", html_escape_minimal(text)),
-        Some(ZahirFT::Image) => image_viewer_html(path, abs),
+        Some(ZahirFT::Image) => image_viewer_html(path, abs, None),
+        Some(ZahirFT::Pdf) => image_viewer_html(path, abs, Some(("raw", page.unwrap_or(1)))),
+        Some(ZahirFT::Video) => image_viewer_html(path, abs, Some(("raw", 0))),
         Some(ft @ (ZahirFT::Audio | ZahirFT::Epub)) => {
             if try_extract_cover(abs, ft).is_some() {
-                image_preview_html(path, "cover")
+                image_preview_html(path, "cover", None)
             } else {
                 r#"<p class="img-viewer__empty">(no embedded cover)</p>"#.into()
             }
         }
-        _ if svg_preview::is_svg_path(Path::new(path)) => image_viewer_html(path, abs),
+        _ if svg_preview::is_svg_path(Path::new(path)) => image_viewer_html(path, abs, None),
         _ if delimiter_from_path_for_viewer(path).is_some() => {
             csv_handler::delimited_to_html(text, path)
         }
@@ -559,10 +592,22 @@ fn content_to_html(
     }
 }
 
-/// `<img>` plus an in-pane note when preview decode already fails (TIFF etc.).
-fn image_viewer_html(rel_path: &str, abs: &Path) -> String {
-    let img = image_preview_html(rel_path, "raw");
-    match ensure_image_previewable(abs) {
+/// `<img>` plus an in-pane note when preview already fails (TIFF / missing tools / etc.).
+///
+/// `raw_opts`: `Some(("raw", page))` for PDF (`page` 1-based); `Some(("raw", 0))` for video;
+/// `None` for Image/SVG (plain `?format=raw`).
+fn image_viewer_html(rel_path: &str, abs: &Path, raw_opts: Option<(&str, u32)>) -> String {
+    let img = match raw_opts {
+        Some(("raw", page)) if page >= 1 => image_preview_html(rel_path, "raw", Some(page)),
+        Some(("raw", _)) | None => image_preview_html(rel_path, "raw", None),
+        Some((fmt, _)) => image_preview_html(rel_path, fmt, None),
+    };
+    let check = match raw_opts {
+        Some(("raw", page)) if page >= 1 => ensure_tool_previewable(abs, Some(ZahirFT::Pdf), page),
+        Some(("raw", _)) => ensure_tool_previewable(abs, Some(ZahirFT::Video), 1),
+        _ => ensure_image_previewable(abs),
+    };
+    match check {
         Ok(()) => img,
         Err(msg) => format!(
             r#"{img}<p class="img-viewer__empty">{}</p>"#,
@@ -571,11 +616,14 @@ fn image_viewer_html(rel_path: &str, abs: &Path) -> String {
     }
 }
 
-fn image_preview_html(rel_path: &str, format_query: &str) -> String {
-    let src = format!(
+fn image_preview_html(rel_path: &str, format_query: &str, page: Option<u32>) -> String {
+    let mut src = format!(
         "/content/{}?format={format_query}",
         encode_entry_path(rel_path)
     );
+    if let Some(p) = page {
+        let _ = write!(src, "&page={p}");
+    }
     let alt = html_escape_minimal(rel_path);
     format!(
         r#"<div class="img-viewer"><img class="img-viewer__img" src="{src}" alt="{alt}" loading="lazy" /></div>"#
@@ -589,7 +637,7 @@ fn ensure_image_previewable(abs: &Path) -> Result<(), String> {
     }
     if svg_preview::is_svg_path(abs) {
         if meta.len() > MAX_RAW_IMAGE_BYTES {
-            return Err(format!("image larger than {} bytes", MAX_RAW_IMAGE_BYTES));
+            return Err(format!("image larger than {MAX_RAW_IMAGE_BYTES} bytes"));
         }
         return Ok(());
     }
@@ -600,26 +648,59 @@ fn ensure_image_previewable(abs: &Path) -> Result<(), String> {
     }
 }
 
-fn allows_raw_image(zahir_type: Option<ZahirFT>, abs: &Path) -> bool {
-    matches!(zahir_type, Some(ZahirFT::Image)) || svg_preview::is_svg_path(abs)
+fn ensure_tool_previewable(
+    abs: &Path,
+    zahir_type: Option<ZahirFT>,
+    page: u32,
+) -> Result<(), String> {
+    let meta = std::fs::metadata(abs).map_err(|e| e.to_string())?;
+    if !meta.is_file() {
+        return Err("not a file".into());
+    }
+    match zahir_type {
+        Some(ZahirFT::Pdf) => decode_pdf_preview(abs, page, meta.len()).map(|_| ()),
+        Some(ZahirFT::Video) => decode_video_preview(abs, meta.len()).map(|_| ()),
+        _ => Err("not a tool-backed preview category".into()),
+    }
 }
 
-fn raw_image_response(abs: &Path, zahir_type: Option<ZahirFT>) -> Result<Response, ApiError> {
-    if !allows_raw_image(zahir_type, abs) {
+fn allows_raw_media(zahir_type: Option<ZahirFT>, abs: &Path) -> bool {
+    matches!(
+        zahir_type,
+        Some(ZahirFT::Image | ZahirFT::Pdf | ZahirFT::Video)
+    ) || svg_preview::is_svg_path(abs)
+}
+
+fn raw_media_response(
+    abs: &Path,
+    zahir_type: Option<ZahirFT>,
+    page: Option<u32>,
+) -> Result<Response, ApiError> {
+    if !allows_raw_media(zahir_type, abs) {
         return Err(ApiError::bad_request(
-            "format=raw is only for Image (or .svg) entries",
+            "format=raw is only for Image, PDF, Video (or .svg) entries",
         ));
     }
     let meta = std::fs::metadata(abs).map_err(ApiError::not_found)?;
     if !meta.is_file() {
         return Err(ApiError::bad_request("not a file"));
     }
+    match zahir_type {
+        Some(ZahirFT::Pdf) => {
+            return png_bytes_response(decode_pdf_preview(
+                abs,
+                page.unwrap_or(1).max(1),
+                meta.len(),
+            ));
+        }
+        Some(ZahirFT::Video) => return png_bytes_response(decode_video_preview(abs, meta.len())),
+        _ => {}
+    }
     // SVG stays vector; browsers can't show TIFF and many BMPs/huge rasters need a PNG preview.
     if svg_preview::is_svg_path(abs) {
         if meta.len() > MAX_RAW_IMAGE_BYTES {
             return Err(ApiError::bad_request(format!(
-                "image larger than {} bytes",
-                MAX_RAW_IMAGE_BYTES
+                "image larger than {MAX_RAW_IMAGE_BYTES} bytes"
             )));
         }
         let bytes = std::fs::read(abs).map_err(ApiError::not_found)?;
@@ -641,25 +722,46 @@ fn needs_png_preview(path: &Path, len: u64) -> bool {
     matches!(
         path.extension()
             .and_then(|e| e.to_str())
-            .map(|e| e.to_ascii_lowercase())
+            .map(str::to_ascii_lowercase)
             .as_deref(),
         Some("tif" | "tiff" | "bmp" | "dib" | "ico" | "tga")
     )
 }
 
 fn png_preview_response(abs: &Path, file_size: u64) -> Result<Response, ApiError> {
-    let bytes = decode_png_preview(abs, file_size).map_err(ApiError::bad_request)?;
+    png_bytes_response(decode_png_preview(abs, file_size))
+}
+
+fn png_bytes_response(result: Result<Vec<u8>, String>) -> Result<Response, ApiError> {
+    let bytes = result.map_err(ApiError::bad_request)?;
     Ok(([(axum::http::header::CONTENT_TYPE, "image/png")], bytes).into_response())
+}
+
+fn encode_png_bytes(img: &image::DynamicImage) -> Result<Vec<u8>, String> {
+    let mut buf = std::io::Cursor::new(Vec::new());
+    img.write_to(&mut buf, image::ImageFormat::Png)
+        .map_err(|e| format!("encode png: {e}"))?;
+    Ok(buf.into_inner())
 }
 
 fn decode_png_preview(abs: &Path, file_size: u64) -> Result<Vec<u8>, String> {
     let max_dim = images::tiered_max_dimension_for_file_size(file_size);
     let img = image::open(abs).map_err(|e| format!("decode image: {e}"))?;
-    let img = images::downscale_with_max(img, max_dim);
-    let mut buf = std::io::Cursor::new(Vec::new());
-    img.write_to(&mut buf, image::ImageFormat::Png)
-        .map_err(|e| format!("encode png: {e}"))?;
-    Ok(buf.into_inner())
+    encode_png_bytes(&images::downscale_with_max(img, max_dim))
+}
+
+fn decode_pdf_preview(abs: &Path, page: u32, file_size: u64) -> Result<Vec<u8>, String> {
+    let max_dim = pdf_preview::PdfRasterMaxDimBoost::apply(
+        images::tiered_max_dimension_for_file_size(file_size),
+    );
+    let img = pdf_preview::render_pdf_page(abs, page, max_dim)?;
+    encode_png_bytes(&images::downscale_with_max(img, max_dim))
+}
+
+fn decode_video_preview(abs: &Path, file_size: u64) -> Result<Vec<u8>, String> {
+    let max_dim = images::tiered_max_dimension_for_file_size(file_size);
+    let img = video_preview::decode_preview_frame(abs)?;
+    encode_png_bytes(&images::downscale_with_max(img, max_dim))
 }
 
 fn embedded_cover_response(abs: &Path, zahir_type: Option<ZahirFT>) -> Result<Response, ApiError> {
@@ -699,7 +801,7 @@ fn image_mime_from_path(path: &Path) -> &'static str {
     match path
         .extension()
         .and_then(|e| e.to_str())
-        .map(|e| e.to_ascii_lowercase())
+        .map(str::to_ascii_lowercase)
         .as_deref()
     {
         Some("png") => "image/png",

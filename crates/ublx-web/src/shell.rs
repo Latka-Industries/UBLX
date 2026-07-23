@@ -5,13 +5,14 @@ use wasm_bindgen::JsCast;
 use web_sys::KeyboardEvent;
 
 use crate::api::{CatalogFlags, format_timestamp_ns};
-use crate::focus::{PaneFocus, RightTabBus, UiNav};
+use crate::focus::{PaneFocus, PdfPageNav, PreviewKeysBus, RightTabBus, UiNav};
 use crate::help::{HelpModal, HelpOverlay};
 use crate::keys::{WebAction, action_from_keydown, typing_in_form_field};
 use crate::modes::{DeltaMode, DuplicatesMode, LensesMode, SettingsMode, SnapshotMode};
 use crate::nav::{MainMode, clamp_mode_to_visible, select_mode, use_main_mode};
 use crate::search::{CatalogSearch, SEARCH_LABEL};
 use crate::sort::ContentSortCtx;
+use crate::viewer::scroll_right_preview;
 
 #[component]
 pub(crate) fn Shell(flags: CatalogFlags) -> impl IntoView {
@@ -19,7 +20,7 @@ pub(crate) fn Shell(flags: CatalogFlags) -> impl IntoView {
     let (mode, set_mode) = use_main_mode();
     let search = CatalogSearch::provide();
     let sort = ContentSortCtx::provide();
-    let (nav, tabs) = UiNav::provide();
+    let (nav, tabs, preview) = UiNav::provide();
     let help = HelpOverlay::provide();
 
     // Deep-link may name a tab that is hidden for this catalog — fall back to Snapshot.
@@ -53,6 +54,7 @@ pub(crate) fn Shell(flags: CatalogFlags) -> impl IntoView {
         let set_mode = set_mode;
         let flags = flags;
         let help = help;
+        let preview = preview;
         let closure = wasm_bindgen::closure::Closure::wrap(Box::new(move |ev: KeyboardEvent| {
             if typing_in_form_field() {
                 return;
@@ -69,6 +71,7 @@ pub(crate) fn Shell(flags: CatalogFlags) -> impl IntoView {
                     sort,
                     nav,
                     tabs,
+                    preview,
                     mode,
                     set_mode,
                     flags,
@@ -129,6 +132,7 @@ struct KeybusCtx {
     sort: ContentSortCtx,
     nav: UiNav,
     tabs: RightTabBus,
+    preview: PreviewKeysBus,
     mode: ReadSignal<MainMode>,
     set_mode: WriteSignal<MainMode>,
     flags: StoredValue<CatalogFlags>,
@@ -145,6 +149,10 @@ fn dispatch_action(action: WebAction, ctx: KeybusCtx) {
         WebAction::HelpAbsorb => {}
         WebAction::SearchStart => ctx.search.start(),
         WebAction::CycleContentSort => ctx.sort.cycle(ctx.mode.get_untracked()),
+        WebAction::ScrollPreviewDown => apply_preview_keys(ctx.preview, PdfPageNav::Next),
+        WebAction::ScrollPreviewUp => apply_preview_keys(ctx.preview, PdfPageNav::Prev),
+        WebAction::PreviewTop => apply_preview_keys(ctx.preview, PdfPageNav::Top),
+        WebAction::PreviewBottom => apply_preview_keys(ctx.preview, PdfPageNav::Bottom),
         WebAction::MainMode(m) => {
             if m.is_visible(f.has_lenses, f.has_delta, f.has_duplicates) {
                 select_mode(ctx.set_mode, m);
@@ -207,6 +215,14 @@ fn dispatch_action(action: WebAction, ctx: KeybusCtx) {
         WebAction::CycleRightTab => {
             ctx.tabs.bump_cycle.update(|n| *n = n.wrapping_add(1));
         }
+    }
+}
+
+fn apply_preview_keys(preview: PreviewKeysBus, nav: PdfPageNav) {
+    if let Some(ctl) = preview.pdf.get_untracked() {
+        ctl.apply.run(nav);
+    } else {
+        scroll_right_preview(nav);
     }
 }
 

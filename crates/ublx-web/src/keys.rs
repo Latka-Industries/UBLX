@@ -30,6 +30,14 @@ pub(crate) enum WebAction {
     HelpAbsorb,
     /// Cycle middle-pane content sort (`s`) — Snapshot / Dupes / Delta.
     CycleContentSort,
+    /// Right-pane preview: scroll down / PDF next page (Shift+J / Shift+↓).
+    ScrollPreviewDown,
+    /// Right-pane preview: scroll up / PDF previous page (Shift+K / Shift+↑).
+    ScrollPreviewUp,
+    /// Right-pane preview: top / PDF first page (Shift+B).
+    PreviewTop,
+    /// Right-pane preview: bottom / PDF last page (Shift+E).
+    PreviewBottom,
 }
 
 /// Map a keydown to a [`WebAction`]. Returns `None` when the event should pass through.
@@ -76,6 +84,17 @@ pub(crate) fn action_from_keydown(ev: &KeyboardEvent, help_open: bool) -> Option
 
     if shift && !ctrl && key == "Tab" {
         return Some(WebAction::CycleRightTab);
+    }
+
+    // Preview scroll / PDF page nav (TUI Shift+J/K/B/E + Shift+arrows).
+    if shift && !ctrl {
+        match (key.as_str(), code.as_str()) {
+            ("J" | "j", _) | (_, "ArrowDown") => return Some(WebAction::ScrollPreviewDown),
+            ("K" | "k", _) | (_, "ArrowUp") => return Some(WebAction::ScrollPreviewUp),
+            ("B" | "b", _) => return Some(WebAction::PreviewTop),
+            ("E" | "e", _) => return Some(WebAction::PreviewBottom),
+            _ => {}
+        }
     }
 
     // Mode digits via `code` (layout-stable) + numpad.

@@ -1,4 +1,4 @@
-//! Viewer tab: markdown / syntect / CSV / text / image HTML (host) and placeholders for other categories.
+//! Viewer tab: markdown / syntect / CSV / text / image / PDF / video HTML (host) and placeholders.
 
 use std::rc::Rc;
 
@@ -10,7 +10,8 @@ use wasm_bindgen::JsCast;
 use wasm_bindgen::closure::Closure;
 use web_sys::HtmlElement;
 
-use crate::api::{EntryContent, fetch_entry_content};
+use crate::api::{EntryContent, encode_entry_path, fetch_entry_content, fetch_entry_content_page};
+use crate::focus::{PdfPageCtl, PdfPageNav, PreviewKeysBus};
 
 /// Zahir catalog category for markdown (`FileType::Markdown.as_metadata_name()`).
 const MARKDOWN_CATEGORY: &str = "Markdown";
@@ -21,6 +22,8 @@ const SYNTECT_CATEGORIES: &[&str] = &["JSON", "TOML", "YAML", "XML", "HTML", "IN
 const CSV_CATEGORY: &str = "CSV";
 const TEXT_CATEGORY: &str = "Text";
 const IMAGE_CATEGORY: &str = "Image";
+const PDF_CATEGORY: &str = "PDF";
+const VIDEO_CATEGORY: &str = "Video";
 /// Audio / Epub show embedded cover art in the TUI Viewer when present.
 const COVER_CATEGORIES: &[&str] = &["Audio", "Epub"];
 
@@ -45,6 +48,14 @@ pub(crate) fn is_image_category(category: &str) -> bool {
     category == IMAGE_CATEGORY
 }
 
+pub(crate) fn is_pdf_category(category: &str) -> bool {
+    category == PDF_CATEGORY
+}
+
+pub(crate) fn is_video_category(category: &str) -> bool {
+    category == VIDEO_CATEGORY
+}
+
 pub(crate) fn is_cover_category(category: &str) -> bool {
     COVER_CATEGORIES.contains(&category)
 }
@@ -55,6 +66,8 @@ fn uses_html_viewer(category: &str, path: &str) -> bool {
         || is_csv_category(category)
         || is_text_category(category)
         || is_image_category(category)
+        || is_pdf_category(category)
+        || is_video_category(category)
         || is_cover_category(category)
         || path_looks_delimited(path)
         || path_looks_svg(path)
@@ -83,7 +96,12 @@ fn viewer_html_class(category: &str, path: &str) -> &'static str {
         "csv-viewer"
     } else if is_text_category(category) {
         "text-viewer"
-    } else if is_image_category(category) || is_cover_category(category) || path_looks_svg(path) {
+    } else if is_image_category(category)
+        || is_pdf_category(category)
+        || is_video_category(category)
+        || is_cover_category(category)
+        || path_looks_svg(path)
+    {
         "img-viewer-host"
     } else {
         "code-viewer"
@@ -94,10 +112,13 @@ fn viewer_html_class(category: &str, path: &str) -> &'static str {
 pub(crate) fn EntryViewer(path: String, category: String) -> impl IntoView {
     let html_viewer = uses_html_viewer(&category, &path);
     let class = viewer_html_class(&category, &path);
+    let is_pdf = is_pdf_category(&category);
 
     view! {
         <div class="entry-viewer">
-            {if html_viewer {
+            {if is_pdf {
+                view! { <PdfViewer path=path/> }.into_any()
+            } else if html_viewer {
                 view! { <HostHtmlBody path=path class=class/> }.into_any()
             } else {
                 view! {
@@ -108,6 +129,175 @@ pub(crate) fn EntryViewer(path: String, category: String) -> impl IntoView {
                 .into_any()
             }}
         </div>
+    }
+}
+
+/// TUI-parity PDF Viewer: page raster via `/content?format=raw&page=N`; keys via shell Shift+J/K/B/E.
+#[component]
+fn PdfViewer(path: String) -> impl IntoView {
+    let (page, set_page) = signal(1_u32);
+    let (page_count, set_page_count) = signal::<Option<u32>>(None);
+    let (load_err, set_load_err) = signal::<Option<String>>(None);
+    let preview = PreviewKeysBus::expect();
+
+    // Reset + probe page count when the catalog path changes.
+    Effect::new({
+        let path = path.clone();
+        move |_| {
+            let p = path.clone();
+            set_page.set(1);
+            set_page_count.set(None);
+            set_load_err.set(None);
+            wasm_bindgen_futures::spawn_local(async move {
+                match fetch_entry_content_page(&p, Some("html"), Some(1)).await {
+                    Ok(body) => {
+                        if let Some(n) = body.page_count {
+                            set_page_count.set(Some(n.max(1)));
+                        }
+                        if let Some(pg) = body.page {
+                            set_page.set(pg.max(1));
+                        }
+                    }
+                    Err(e) => set_load_err.set(Some(e)),
+                }
+            });
+        }
+    });
+
+    // Register PDF page handler for shell Shift+J/K/B/E + footer bumper goto.
+    Effect::new(move |_| {
+        let ctl = PdfPageCtl {
+            apply: Callback::new(move |nav| {
+                apply_pdf_page_action(nav, page, set_page, page_count);
+            }),
+            goto: Callback::new(move |n: u32| {
+                goto_pdf_page(n, set_page, page_count);
+            }),
+            page: page.into(),
+            page_count: page_count.into(),
+        };
+        preview.pdf.set(Some(ctl));
+        on_cleanup(move || {
+            preview.pdf.set(None);
+        });
+    });
+
+    let img_src = {
+        let path = path.clone();
+        move || {
+            format!(
+                "/content/{}?format=raw&page={}",
+                encode_entry_path(&path),
+                page.get().max(1)
+            )
+        }
+    };
+    let alt = path.clone();
+
+    view! {
+        <div class="img-viewer-host pdf-viewer">
+            <div class="img-viewer">
+                <img
+                    class="img-viewer__img"
+                    src=img_src
+                    alt=alt
+                    loading="lazy"
+                    on:error=move |_| {
+                        let src = format!(
+                            "/content/{}?format=raw&page={}",
+                            encode_entry_path(&path),
+                            page.get_untracked().max(1)
+                        );
+                        wasm_bindgen_futures::spawn_local(async move {
+                            let msg = match gloo_net::http::Request::get(&src).send().await {
+                                Ok(resp) if !resp.ok() => resp
+                                    .json::<serde_json::Value>()
+                                    .await
+                                    .ok()
+                                    .and_then(|v| {
+                                        v.get("error").and_then(|e| e.as_str()).map(str::to_owned)
+                                    })
+                                    .unwrap_or_else(|| {
+                                        format!("failed to load page ({})", resp.status())
+                                    }),
+                                Ok(_) => "(failed to load page)".into(),
+                                Err(e) => e.to_string(),
+                            };
+                            set_load_err.set(Some(msg));
+                        });
+                    }
+                    on:load=move |_| set_load_err.set(None)
+                />
+            </div>
+            <Show when=move || load_err.get().is_some()>
+                <p class="img-viewer__empty">{move || load_err.get().unwrap_or_default()}</p>
+            </Show>
+        </div>
+    }
+}
+
+fn apply_pdf_page_action(
+    action: PdfPageNav,
+    page: ReadSignal<u32>,
+    set_page: WriteSignal<u32>,
+    page_count: ReadSignal<Option<u32>>,
+) {
+    let cur = page.get_untracked().max(1);
+    let max = page_count.get_untracked();
+    let next = match action {
+        PdfPageNav::Next => {
+            let n = cur.saturating_add(1);
+            max.map_or(n, |m| n.min(m.max(1)))
+        }
+        PdfPageNav::Prev => cur.saturating_sub(1).max(1),
+        PdfPageNav::Top => 1,
+        PdfPageNav::Bottom => max.unwrap_or(cur).max(1),
+    };
+    if next != cur {
+        set_page.set(next);
+    }
+}
+
+fn goto_pdf_page(n: u32, set_page: WriteSignal<u32>, page_count: ReadSignal<Option<u32>>) {
+    let max = page_count.get_untracked().unwrap_or(u32::MAX).max(1);
+    set_page.set(n.clamp(1, max));
+}
+
+/// ~5 line steps like TUI [`PREVIEW_SCROLL_STEP_LINES`].
+const PREVIEW_SCROLL_STEP_PX: i32 = 5 * 18;
+
+/// Scroll the right-pane Viewer (markdown / code / CSV / image / templates / …).
+pub(crate) fn scroll_right_preview(nav: PdfPageNav) {
+    let Some(doc) = web_sys::window().and_then(|w| w.document()) else {
+        return;
+    };
+    let candidates = [
+        ".right-pane .csv-viewer__vbar",
+        ".right-pane .img-viewer-host:not(.pdf-viewer)",
+        ".right-pane .panel-pad",
+    ];
+    let mut el = None;
+    for sel in candidates {
+        if let Ok(Some(n)) = doc.query_selector(sel) {
+            el = Some(n);
+            break;
+        }
+    }
+    let Some(el) = el else {
+        return;
+    };
+    let Ok(html) = el.dyn_into::<web_sys::HtmlElement>() else {
+        return;
+    };
+    match nav {
+        PdfPageNav::Next => {
+            html.set_scroll_top(html.scroll_top().saturating_add(PREVIEW_SCROLL_STEP_PX));
+        }
+        PdfPageNav::Prev => {
+            html.set_scroll_top(html.scroll_top().saturating_sub(PREVIEW_SCROLL_STEP_PX));
+        }
+        PdfPageNav::Top => html.set_scroll_top(0),
+        PdfPageNav::Bottom => html.set_scroll_top(html.scroll_height()),
     }
 }
 
