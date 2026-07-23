@@ -1,4 +1,4 @@
-//! Viewer tab: markdown / syntect / CSV / text HTML (host) and placeholders for other categories.
+//! Viewer tab: markdown / syntect / CSV / text / image HTML (host) and placeholders for other categories.
 
 use std::rc::Rc;
 
@@ -20,6 +20,9 @@ const SYNTECT_CATEGORIES: &[&str] = &["JSON", "TOML", "YAML", "XML", "HTML", "IN
 
 const CSV_CATEGORY: &str = "CSV";
 const TEXT_CATEGORY: &str = "Text";
+const IMAGE_CATEGORY: &str = "Image";
+/// Audio / Epub show embedded cover art in the TUI Viewer when present.
+const COVER_CATEGORIES: &[&str] = &["Audio", "Epub"];
 
 /// True when catalog category is Zahir Markdown (same gate as TUI viewer).
 pub(crate) fn is_markdown_category(category: &str) -> bool {
@@ -38,12 +41,23 @@ pub(crate) fn is_text_category(category: &str) -> bool {
     category == TEXT_CATEGORY
 }
 
+pub(crate) fn is_image_category(category: &str) -> bool {
+    category == IMAGE_CATEGORY
+}
+
+pub(crate) fn is_cover_category(category: &str) -> bool {
+    COVER_CATEGORIES.contains(&category)
+}
+
 fn uses_html_viewer(category: &str, path: &str) -> bool {
     is_markdown_category(category)
         || is_syntect_category(category)
         || is_csv_category(category)
         || is_text_category(category)
+        || is_image_category(category)
+        || is_cover_category(category)
         || path_looks_delimited(path)
+        || path_looks_svg(path)
 }
 
 fn path_looks_delimited(path: &str) -> bool {
@@ -57,6 +71,11 @@ fn path_looks_delimited(path: &str) -> bool {
         .unwrap_or(false)
 }
 
+fn path_looks_svg(path: &str) -> bool {
+    path.rsplit_once('.')
+        .is_some_and(|(_, ext)| ext.eq_ignore_ascii_case("svg"))
+}
+
 fn viewer_html_class(category: &str, path: &str) -> &'static str {
     if is_markdown_category(category) {
         "md-viewer"
@@ -64,6 +83,8 @@ fn viewer_html_class(category: &str, path: &str) -> &'static str {
         "csv-viewer"
     } else if is_text_category(category) {
         "text-viewer"
+    } else if is_image_category(category) || is_cover_category(category) || path_looks_svg(path) {
+        "img-viewer-host"
     } else {
         "code-viewer"
     }
@@ -124,16 +145,87 @@ fn ContentBody(body: EntryContent, class: &'static str) -> impl IntoView {
     }
 }
 
-/// Trusted host HTML into a div (markdown / syntect / text).
+/// Trusted host HTML into a div (markdown / syntect / text / image).
 #[component]
 fn HtmlFragment(class: &'static str, html: String) -> impl IntoView {
     let node_ref = NodeRef::<Div>::new();
     Effect::new(move |_| {
         if let Some(el) = node_ref.get() {
             el.set_inner_html(&html);
+            if class == "img-viewer-host" {
+                wire_img_load_errors(&el);
+            }
         }
     });
     view! { <div class=class node_ref=node_ref></div> }
+}
+
+/// If `<img>` fails, keep the broken icon and show the serve error underneath.
+fn wire_img_load_errors(root: &web_sys::HtmlDivElement) {
+    let Ok(nodes) = root.query_selector_all("img.img-viewer__img") else {
+        return;
+    };
+    for i in 0..nodes.length() {
+        let Some(node) = nodes.item(i) else {
+            continue;
+        };
+        let Ok(img) = node.dyn_into::<web_sys::HtmlImageElement>() else {
+            continue;
+        };
+        let host = root.clone();
+        let on_err = Closure::wrap(Box::new(move |ev: web_sys::Event| {
+            let Some(target) = ev
+                .target()
+                .and_then(|t| t.dyn_into::<web_sys::HtmlImageElement>().ok())
+            else {
+                return;
+            };
+            let src = target.current_src();
+            if src.is_empty() {
+                show_img_error_under(&host, "(failed to load image)");
+                return;
+            }
+            let host = host.clone();
+            wasm_bindgen_futures::spawn_local(async move {
+                let msg = match gloo_net::http::Request::get(&src).send().await {
+                    Ok(resp) if !resp.ok() => resp
+                        .json::<serde_json::Value>()
+                        .await
+                        .ok()
+                        .and_then(|v| v.get("error").and_then(|e| e.as_str()).map(str::to_owned))
+                        .unwrap_or_else(|| format!("failed to load image ({})", resp.status())),
+                    Ok(_) => "(failed to load image)".into(),
+                    Err(e) => e.to_string(),
+                };
+                show_img_error_under(&host, &msg);
+            });
+        }) as Box<dyn FnMut(_)>);
+        let _ = img.add_event_listener_with_callback("error", on_err.as_ref().unchecked_ref());
+        on_err.forget();
+    }
+}
+
+fn show_img_error_under(host: &web_sys::HtmlDivElement, msg: &str) {
+    if host
+        .query_selector(".img-viewer__empty")
+        .ok()
+        .flatten()
+        .is_some()
+    {
+        return;
+    }
+    let escaped = html_escape_text(msg);
+    let _ = host.insert_adjacent_html(
+        "beforeend",
+        &format!(r#"<p class="img-viewer__empty">{escaped}</p>"#),
+    );
+}
+
+fn html_escape_text(s: &str) -> String {
+    s.replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+        .replace('"', "&quot;")
 }
 
 /// CSV host HTML + frozen H/V scroll + shadcn tooltip for truncated cells.
