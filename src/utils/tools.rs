@@ -147,6 +147,65 @@ fn read_delimited_preview_lines(path: &Path) -> Option<String> {
     Some(out)
 }
 
+/// Read a UTF-8 byte window from `path` for serve windowing (`offset` / `limit` on `/content`).
+///
+/// Caps `limit` at [`ViewerReadPolicy::HALF_MIB_BYTES`]. Invalid UTF-8 is lossy-decoded.
+#[must_use]
+pub fn read_text_byte_window(path: &Path, offset: u64, limit: u64) -> Option<TextByteWindow> {
+    let meta = fs::metadata(path).ok()?;
+    if !meta.is_file() {
+        return None;
+    }
+    let total = meta.len();
+    let offset = offset.min(total);
+    let limit = limit
+        .min(ViewerReadPolicy::HALF_MIB_BYTES)
+        .min(total.saturating_sub(offset));
+    if limit == 0 {
+        return Some(TextByteWindow {
+            text: String::new(),
+            offset,
+            byte_len: 0,
+            total,
+        });
+    }
+    let mut f = fs::File::open(path).ok()?;
+    f.seek(std::io::SeekFrom::Start(offset)).ok()?;
+    let mut buf = Vec::with_capacity(u64_to_usize_saturating(limit));
+    let n = Read::by_ref(&mut f)
+        .take(limit)
+        .read_to_end(&mut buf)
+        .ok()?;
+    Some(TextByteWindow {
+        text: String::from_utf8_lossy(&buf[..n]).into_owned(),
+        offset,
+        byte_len: n as u64,
+        total,
+    })
+}
+
+/// One byte window from [`read_text_byte_window`].
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TextByteWindow {
+    pub text: String,
+    pub offset: u64,
+    pub byte_len: u64,
+    pub total: u64,
+}
+
+impl TextByteWindow {
+    #[must_use]
+    pub fn next_offset(&self) -> Option<u64> {
+        let next = self.offset.saturating_add(self.byte_len);
+        (next < self.total).then_some(next)
+    }
+
+    #[must_use]
+    pub fn prev_offset(&self, window: u64) -> u64 {
+        self.offset.saturating_sub(window.max(1))
+    }
+}
+
 /// Read text for a viewer pane: not found, empty for image/PDF (raster preview elsewhere), binary short label, or capped UTF-8 with truncation notice.
 ///
 /// Cap is [`HALF_MIB_BYTES_USIZE`]. Files larger than that read **head + tail** (half cap each) with an explicit omitted-bytes marker instead of loading the full buffer. When `zahir_type` is [`FileType::Image`], [`FileType::Pdf`], or [`FileType::Video`], returns empty string for a normal file so the render layer loads the preview.

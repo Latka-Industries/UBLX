@@ -352,7 +352,8 @@ pub fn table_string_and_line_count(rows: &[Vec<String>], content_width: u16) -> 
 /// Host HTML for web Viewer — same parse/delimiter rules as the TUI table path.
 ///
 /// Unlike the TUI, **all columns** are emitted; the web Viewer uses frozen
-/// H/V scrollbars (`.csv-viewer__hbar` / `__vbar`) with `translate` on the table.
+/// H/V scrollbars (`.csv-viewer__hbar` / `__vbar`) plus a pinned header row
+/// (`.csv-viewer__head`) with `translate` on head (X) and body (X/Y).
 #[must_use]
 pub fn delimited_to_html(raw: &str, path: &str) -> String {
     let total_hint = total_rows_hint_from_raw(raw);
@@ -378,12 +379,19 @@ const SHELL_OPEN: &str = concat!(
     r#"<div class="csv-viewer__shell">"#,
     r#"<div class="csv-viewer__hbar" aria-hidden="true"><div class="csv-viewer__hspacer"></div></div>"#,
     r#"<div class="csv-viewer__corner" aria-hidden="true"></div>"#,
-    r#"<div class="csv-viewer__body"><div class="csv-viewer__inner">"#,
+    r#"<div class="csv-viewer__viewport">"#,
+    r#"<div class="csv-viewer__head"><div class="csv-viewer__head-inner">"#,
     r#"<table class="kv-table kv-table--wide"><thead><tr>"#,
 );
 
+const SHELL_MID: &str = concat!(
+    "</tr></thead></table></div></div>",
+    r#"<div class="csv-viewer__body"><div class="csv-viewer__inner">"#,
+    r#"<table class="kv-table kv-table--wide"><tbody>"#,
+);
+
 const SHELL_TAIL: &str = concat!(
-    "</table></div></div>",
+    "</tbody></table></div></div></div>",
     r#"<div class="csv-viewer__vbar" aria-hidden="true"><div class="csv-viewer__vspacer"></div></div>"#,
     "</div>",
 );
@@ -414,14 +422,14 @@ fn rows_to_html_table(
         .split_first()
         .map_or((&[][..], rows), |(h, b)| (h.as_slice(), b));
     if header.is_empty() {
-        out.push_str("</tr></thead><tbody></tbody>");
+        out.push_str(SHELL_MID);
         out.push_str(SHELL_TAIL);
         return out;
     }
     for cell in header {
         write_html_cell(&mut out, "th", cell);
     }
-    out.push_str("</tr></thead><tbody>");
+    out.push_str(SHELL_MID);
     for row in body {
         out.push_str("<tr>");
         let cols = header.len().max(row.len());
@@ -430,7 +438,6 @@ fn rows_to_html_table(
         }
         out.push_str("</tr>");
     }
-    out.push_str("</tbody>");
     out.push_str(SHELL_TAIL);
     out
 }

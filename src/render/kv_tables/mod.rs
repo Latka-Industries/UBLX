@@ -40,8 +40,9 @@ pub mod walk;
 pub mod xlsx;
 
 pub use draw::*;
-pub use export::{SectionView, parse_json_to_views};
+pub use export::{SectionView, TreeNodeView, parse_json_to_views, tree_node_to_view};
 pub use parse_ctx::KvParseCtx;
+pub use schema::tree_roots_to_lines;
 pub use sections::*;
 pub use walk::WalkKeyVars;
 
