@@ -22,6 +22,7 @@ mod shell;
 mod sort;
 mod space_menu;
 mod theme;
+mod toast;
 mod viewer;
 mod viewer_find;
 

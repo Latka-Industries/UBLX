@@ -23,7 +23,7 @@ pub(super) async fn flash_api<T>(
 ) {
     match result {
         Ok(v) => ctx.flash(on_ok(v)),
-        Err(e) => ctx.flash(e),
+        Err(e) => ctx.flash_err(e),
     }
 }
 
@@ -39,7 +39,7 @@ pub(super) async fn flash_api_side_effect<T>(
             on_ok(v);
             ctx.flash(msg);
         }
-        Err(e) => ctx.flash(e),
+        Err(e) => ctx.flash_err(e),
     }
 }
 

@@ -6,6 +6,7 @@ use leptos::task::spawn_local;
 use crate::api::SettingsScope;
 use crate::catalog_refresh::CatalogRefresh;
 use crate::nav::MainMode;
+use crate::toast::ToastCtx;
 
 use super::actions::{
     move_picker, open_theme_selector, restore_theme_preview, run_letter, submit_picker,
@@ -56,7 +57,6 @@ pub(crate) struct CommandModeCtx {
     pub pending: RwSignal<bool>,
     pub menu_visible: RwSignal<bool>,
     pub leader: RwSignal<char>,
-    pub toast: RwSignal<Option<String>>,
     pub(super) picker: RwSignal<Option<Picker>>,
     /// Scope used when opening / committing the theme picker (Command Mode → Local).
     pub(super) theme_scope: RwSignal<SettingsScope>,
@@ -66,21 +66,26 @@ pub(crate) struct CommandModeCtx {
     chord_gen: RwSignal<u32>,
     pub(super) refresh: CatalogRefresh,
     pub(super) set_mode: WriteSignal<MainMode>,
+    toasts: ToastCtx,
 }
 
 impl CommandModeCtx {
-    pub(crate) fn provide(refresh: CatalogRefresh, set_mode: WriteSignal<MainMode>) -> Self {
+    pub(crate) fn provide(
+        refresh: CatalogRefresh,
+        set_mode: WriteSignal<MainMode>,
+        toasts: ToastCtx,
+    ) -> Self {
         let ctx = Self {
             pending: RwSignal::new(false),
             menu_visible: RwSignal::new(false),
             leader: RwSignal::new(DEFAULT_LEADER),
-            toast: RwSignal::new(None),
             picker: RwSignal::new(None),
             theme_scope: RwSignal::new(SettingsScope::Local),
             theme_committed: RwSignal::new(0),
             chord_gen: RwSignal::new(0),
             refresh,
             set_mode,
+            toasts,
         };
         provide_context(ctx);
         ctx
@@ -109,12 +114,19 @@ impl CommandModeCtx {
     }
 
     pub(crate) fn flash(self, msg: impl Into<String>) {
-        self.toast.set(Some(msg.into()));
-        let toast = self.toast;
-        spawn_local(async move {
-            sleep_ms(1800).await;
-            toast.set(None);
-        });
+        self.toasts.info(msg);
+    }
+
+    pub(crate) fn flash_warn(self, msg: impl Into<String>) {
+        self.toasts.warn(msg);
+    }
+
+    pub(crate) fn flash_err(self, msg: impl Into<String>) {
+        self.toasts.error(msg);
+    }
+
+    pub(crate) fn flash_snapshot(self, added: usize, modified: usize, removed: usize) {
+        self.toasts.snapshot_done(added, modified, removed);
     }
 
     /// Start Ctrl+leader wait; menu appears after [`CHORD_MENU_DELAY_MS`] if still pending.

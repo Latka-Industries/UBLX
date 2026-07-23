@@ -11,18 +11,20 @@
 }
 
 .space-menu-panel {
-  min-width: 16rem;
-  max-width: min(28rem, 92vw);
-  padding: 0.45rem 0.55rem 0.5rem;
+  min-width: 18rem;
+  max-width: min(30rem, 92vw);
+  padding: 0.5rem 0.65rem 0.55rem;
   border: 1px solid hsl(var(--border));
   background: hsl(var(--popover));
   color: hsl(var(--popover-foreground));
   box-shadow: 0 0.35rem 1.1rem hsl(var(--background) / 0.5);
   outline: none;
+  font-size: 1rem;
 }
 
 .space-menu-title {
   font-weight: 700;
+  font-size: 1.1rem;
   color: hsl(var(--primary));
   margin-bottom: 0.35rem;
   white-space: pre;
@@ -51,7 +53,7 @@
   background: transparent;
   color: inherit;
   font-family: var(--font-mono);
-  font-size: 0.9rem;
+  font-size: 1rem;
   cursor: pointer;
 }
 
@@ -70,7 +72,7 @@
 
 .space-menu-hint {
   margin: 0.4rem 0 0;
-  font-size: 0.75rem;
+  font-size: 0.85rem;
   color: hsl(var(--muted-foreground));
 }
 
@@ -84,25 +86,10 @@
   background: hsl(var(--background));
   color: hsl(var(--foreground));
   font-family: var(--font-mono);
-  font-size: 0.9rem;
+  font-size: 1rem;
 }
 
 .space-menu-textarea {
   min-height: 8rem;
   resize: vertical;
-}
-
-.space-menu-toast {
-  position: fixed;
-  bottom: 2.75rem;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 45;
-  padding: 0.35rem 0.75rem;
-  border: 1px solid hsl(var(--border));
-  background: hsl(var(--card));
-  color: hsl(var(--card-foreground));
-  font-family: var(--font-mono);
-  font-size: 0.85rem;
-  box-shadow: 0 0.25rem 0.75rem hsl(var(--background) / 0.45);
 }

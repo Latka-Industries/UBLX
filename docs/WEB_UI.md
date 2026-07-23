@@ -119,6 +119,7 @@ Rules:
 | `tab_inactive()` bg | `tab_inactive_bg` | `--muted` |
 | focused panel border / ring | `focused_border` | `--ring`, `--primary` (focus only) |
 | `search_text()` | `search_text` | `--search` |
+| toast / notification block | `notification_bg` | `--notification` |
 | `hint_text()` | `hint` (+ `popup_bg` in TUI) | `--hint`, `--muted-foreground` |
 | popup / help panel | `popup_bg` | `--card`, `--popover`, `--accent` |
 | `table_row_style` stripes | `popup_bg` + `adjust_surface_rgb(…, table_stripe_lighten)` | `--card` (even) / `--table-stripe` (odd) |
@@ -228,6 +229,7 @@ Every mini-PR that adds or changes a **keybinding, selection model, overlay, or 
 
 | PR | Delivers |
 | -- | -------- |
+| Toast polish | Shared stack (bottom-right, max 3) via shadcn `Toast`; Space / Command Mode wired |
 | Root switcher | UI for `GET`/`PUT /roots/current` |
 | Snapshot trigger | UI for `POST`/`GET /snapshot` |
 | Doctor / health surface | `GET /doctor` + panza health |

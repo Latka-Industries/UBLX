@@ -1,0 +1,65 @@
+/* Toast viewport — TUI bottom-right stack (shadcn Toast supplies the card chrome) */
+
+.toast-stack {
+  position: fixed;
+  right: 1rem;
+  /* Above shell status-chrome + right-pane size/mtime footer */
+  bottom: 5.5rem;
+  z-index: 50;
+  display: flex;
+  flex-direction: column; /* oldest → newest, newest at bottom */
+  align-items: flex-end;
+  gap: 0.4rem;
+  max-width: min(22rem, 92vw);
+  width: max-content;
+  pointer-events: none;
+}
+
+.toast-item {
+  background: hsl(var(--notification));
+  box-shadow: 0 0.25rem 0.85rem hsl(var(--background) / 0.45);
+  animation: toast-in 140ms ease-out;
+}
+
+.toast-item__msg {
+  font-family: var(--font-mono);
+}
+
+.toast-item--info .toast-item__msg {
+  color: hsl(var(--search));
+}
+
+.toast-item--warn .toast-item__msg {
+  color: hsl(var(--delta-mod));
+}
+
+.toast-item--error .toast-item__msg {
+  color: hsl(var(--destructive));
+}
+
+.toast-delta {
+  font-weight: 700;
+}
+
+.toast-delta--added {
+  color: hsl(var(--delta-added));
+}
+
+.toast-delta--mod {
+  color: hsl(var(--delta-mod));
+}
+
+.toast-delta--removed {
+  color: hsl(var(--delta-removed));
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.35rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

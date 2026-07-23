@@ -19,6 +19,7 @@ use crate::nav::{MainMode, clamp_mode_to_visible, select_mode, use_main_mode};
 use crate::search::{CatalogSearch, SEARCH_LABEL};
 use crate::sort::ContentSortCtx;
 use crate::space_menu::{SpaceMenuCtx, SpaceMenuPopup};
+use crate::toast::{ToastCtx, ToastHost};
 use crate::viewer::scroll_right_preview;
 use crate::viewer_find::ViewerFind;
 
@@ -33,9 +34,10 @@ pub(crate) fn Shell(flags: CatalogFlags) -> impl IntoView {
     let help = HelpOverlay::provide();
     let multiselect = MultiselectCtx::provide();
     let catalog_refresh = CatalogRefresh::provide();
-    let space_menu = SpaceMenuCtx::provide(catalog_refresh, multiselect);
+    let toasts = ToastCtx::provide();
+    let space_menu = SpaceMenuCtx::provide(catalog_refresh, multiselect, toasts);
     space_menu.catalog_root.set(flags.get_value().root.clone());
-    let command_mode = CommandModeCtx::provide(catalog_refresh, set_mode);
+    let command_mode = CommandModeCtx::provide(catalog_refresh, set_mode, toasts);
 
     // Deep-link may name a tab that is hidden for this catalog — fall back to Snapshot.
     Effect::new(move |_| {
@@ -219,6 +221,7 @@ pub(crate) fn Shell(flags: CatalogFlags) -> impl IntoView {
         </footer>
 
         <HelpModal mode=mode/>
+        <ToastHost/>
         <SpaceMenuPopup/>
         <CommandModePopup/>
     }

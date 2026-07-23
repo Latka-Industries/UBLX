@@ -24,6 +24,8 @@
   --brand: 267 94% 68%;
   --hint: 267 94% 68%;
   --search: 166 100% 70%;
+  /* TUI toast / notification_bg (Oblivion Ink ≈ 216 65% 10%) */
+  --notification: 216 65% 10%;
   --delta-added: 142 47% 51%;
   --delta-mod: 43 97% 71%;
   --delta-removed: 0 84% 60%;

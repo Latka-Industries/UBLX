@@ -2753,6 +2753,8 @@ version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bbb143cf96099802033e0d4f4963b19fd2e0b728bcf076cd9cf7f6634f092994"
 dependencies = [
+ "futures-channel",
+ "futures-core",
  "js-sys",
  "wasm-bindgen",
 ]
@@ -3640,6 +3642,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "leptos-shadcn-toast"
+version = "0.8.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3315f7ed844e3286704cc7b57db7209cad592c11eee770f5dc48ebdc92d66cfb"
+dependencies = [
+ "gloo-timers",
+ "leptos",
+ "leptos-node-ref",
+ "leptos-shadcn-signal-management",
+ "leptos-struct-component",
+ "leptos-style",
+ "tailwind_fuse",
+ "uuid",
+ "web-sys",
+]
+
+[[package]]
 name = "leptos-shadcn-tooltip"
 version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3667,6 +3686,7 @@ dependencies = [
  "leptos-shadcn-button",
  "leptos-shadcn-card",
  "leptos-shadcn-separator",
+ "leptos-shadcn-toast",
  "leptos-shadcn-tooltip",
  "leptos-struct-component",
  "leptos-style",
@@ -7947,6 +7967,7 @@ dependencies = [
  "serde",
  "serde_json",
  "urlencoding",
+ "uuid",
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "web-sys",
