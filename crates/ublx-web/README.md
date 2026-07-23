@@ -10,6 +10,7 @@ Leptos CSR + [leptos-shadcn-ui](https://github.com/cloud-shuttle/leptos-shadcn-u
 | `nav`     | `MainMode` tabs + `/?mode=` (never UI-navigate to `/delta`, …)        |
 | `shell`   | Tabs, project path, Last Snapshot footer                              |
 | `panes`   | 3-pane boxes, list rows, right-pane tabs                              |
+| `viewer_find` | Shift+S in-pane find strip + DOM highlights                        |
 | `modes/*` | Snapshot / Lenses / Delta / Duplicates / Settings                     |
 
 ## Build (wasm-bindgen — no trunk)

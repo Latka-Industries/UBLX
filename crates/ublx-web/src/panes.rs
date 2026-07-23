@@ -12,6 +12,7 @@ use crate::nav::MainMode;
 use crate::search;
 use crate::sort::ContentSortCtx;
 use crate::viewer::EntryViewer;
+use crate::viewer_find::{ViewerFind, ViewerFindStrip, install_highlight_effect};
 
 /// Shared 3-pane TUI layout — bordered boxes with title nodes.
 /// Pane focus lives in [`UiNav`] (keyboard + click).
@@ -347,6 +348,15 @@ pub(crate) fn EntryRightPane(detail: Signal<Option<EntryDetail>>) -> impl IntoVi
     let (tab, set_tab) = signal(RightTab::Viewer);
     let tabs = crate::focus::RightTabBus::expect();
     let preview = PreviewKeysBus::expect();
+    let find = ViewerFind::expect();
+    install_highlight_effect(find, tab);
+
+    // Remounted Metadata / Writing / Templates bodies need a find re-scan.
+    Effect::new(move |_| {
+        let _ = tab.get();
+        let _ = detail.get();
+        find.bump_content();
+    });
 
     let available = move |t: RightTab, d: &Option<EntryDetail>| match t {
         RightTab::Viewer => true,
@@ -482,22 +492,48 @@ pub(crate) fn EntryRightPane(detail: Signal<Option<EntryDetail>>) -> impl IntoVi
                                 }
                             }}
                         </div>
-                        <Show when=move || tab.get() == RightTab::Viewer>
-                            <div class="right-pane-footer" aria-label="Viewer status">
-                                <Show when=move || preview.pdf.get().is_some()>
-                                    <PdfPageStatusNode/>
-                                </Show>
-                                <span class="status-node">{size_label.clone()}</span>
-                                {if show_mtime {
-                                    view! {
-                                        <span class="status-node">{mtime_label.clone()}</span>
-                                    }
-                                    .into_any()
-                                } else {
-                                    ().into_any()
-                                }}
-                            </div>
-                        </Show>
+                        {move || {
+                            let viewer_meta = tab.get() == RightTab::Viewer;
+                            let find_strip = find.strip_visible.get();
+                            if !viewer_meta && !find_strip {
+                                return ().into_any();
+                            }
+                            let size_label = size_label.clone();
+                            let mtime_label = mtime_label.clone();
+                            view! {
+                                <div class="right-pane-footer" aria-label="Viewer status">
+                                    <div class="right-pane-footer__start">
+                                        {if find_strip {
+                                            view! { <ViewerFindStrip/> }.into_any()
+                                        } else {
+                                            ().into_any()
+                                        }}
+                                    </div>
+                                    <div class="right-pane-footer__end">
+                                        {if viewer_meta {
+                                            view! {
+                                                <Show when=move || preview.pdf.get().is_some()>
+                                                    <PdfPageStatusNode/>
+                                                </Show>
+                                                <span class="status-node">{size_label}</span>
+                                                {if show_mtime {
+                                                    view! {
+                                                        <span class="status-node">{mtime_label}</span>
+                                                    }
+                                                    .into_any()
+                                                } else {
+                                                    ().into_any()
+                                                }}
+                                            }
+                                            .into_any()
+                                        } else {
+                                            ().into_any()
+                                        }}
+                                    </div>
+                                </div>
+                            }
+                            .into_any()
+                        }}
                     }
                     .into_any()
                 }}

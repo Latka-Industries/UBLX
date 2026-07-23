@@ -652,7 +652,9 @@ button.tab-node {
 /* —— Code / syntect Viewer (host HTML; theme bg lives in syntect markup) —— */
 .code-viewer {
   margin-top: 0.35rem;
-  overflow-x: auto;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: hidden;
   font-family: var(--font-mono);
   font-size: 0.85rem;
   line-height: 1.4;
@@ -661,7 +663,10 @@ button.tab-node {
 .code-viewer pre {
   margin: 0;
   padding: 0;
-  white-space: pre;
+  max-width: 100%;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
   font: inherit;
   border: none;
   border-radius: 0;
@@ -915,15 +920,115 @@ button.tab-node {
 .right-pane-footer {
   display: flex;
   flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 0.35rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.35rem 0.75rem;
   flex: 0 0 auto;
   padding: 0.3rem 0.45rem;
   border-top: 1px solid hsl(var(--border) / 0.5);
 }
 
+.right-pane-footer__start {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.right-pane-footer__end {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.35rem;
+  flex: 0 0 auto;
+  margin-left: auto;
+}
+
 .right-pane-footer .status-node {
   font-size: 0.8rem;
+}
+
+/* Viewer find (Shift+S) — same popup strip language as catalog search */
+.viewer-find {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+  max-width: min(100%, 28rem);
+  padding: 0.1rem 0.45rem;
+  border-radius: 0.2rem;
+  background: hsl(var(--muted));
+  border-left: 3px solid hsl(var(--ring));
+  cursor: text;
+}
+
+.viewer-find--active {
+  border-left-color: hsl(var(--ring));
+}
+
+.viewer-find--committed {
+  border-left-color: hsl(var(--search));
+}
+
+.viewer-find__label {
+  flex: 0 0 auto;
+  color: hsl(var(--search));
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
+.viewer-find--committed .viewer-find__label {
+  color: hsl(var(--muted-foreground));
+}
+
+.viewer-find__query,
+.viewer-find__input {
+  flex: 1;
+  min-width: 4rem;
+  margin: 0;
+  padding: 0.1rem 0.2rem;
+  border: none;
+  background: transparent;
+  color: hsl(var(--foreground));
+  font: inherit;
+  font-size: 0.8rem;
+  outline: none;
+}
+
+.viewer-find__query {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.viewer-find__count {
+  flex: 0 0 auto;
+  color: hsl(var(--search));
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.viewer-find--committed .viewer-find__count {
+  color: hsl(var(--muted-foreground));
+}
+
+/* TUI: non-current = search_text + underline; current = reverse */
+mark.viewer-find-hit {
+  color: hsl(var(--search));
+  background: transparent;
+  text-decoration: underline;
+  font-weight: inherit;
+  padding: 0;
+}
+
+mark.viewer-find-hit--current {
+  color: hsl(var(--background));
+  background: hsl(var(--foreground));
+  text-decoration: none;
+  font-weight: 700;
 }
 
 .status-node--page {

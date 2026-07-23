@@ -42,9 +42,11 @@ web-sys = { version = "0.3", features = [
   "KeyboardEvent",
   "Location",
   "MouseEvent",
+  "Node",
   "NodeList",
   "ScrollIntoViewOptions",
   "ScrollLogicalPosition",
+  "Text",
   "WheelEvent",
   "Window",
 ] }
