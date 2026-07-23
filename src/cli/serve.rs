@@ -21,6 +21,7 @@ use crate::cli::catalog_read::{
     list_duplicates, list_entries, list_lens_entries, list_lens_names,
 };
 use crate::cli::doctor;
+use crate::cli::remote::encode_entry_path;
 use crate::cli::settings_api::{self, SettingsPatch};
 use crate::cli_parser::ServeCli;
 use crate::config::{UblxPaths, all_indexed_roots_alphabetical, record_prior_root_selected};
@@ -28,8 +29,8 @@ use crate::handlers::run_snap_pipeline_from_dir_db;
 use crate::handlers::viewing::sectioned_preview_from_zahir;
 use crate::integrations::{ZahirFT, delimiter_from_path_for_viewer, file_type_from_metadata_name};
 use crate::render::kv_tables::{SectionView, parse_json_to_views};
-use crate::render::viewers::{csv_handler, html_escape_minimal, syntect_text};
-use crate::utils::file_content_for_viewer;
+use crate::render::viewers::{csv_handler, html_escape_minimal, images, svg_preview, syntect_text};
+use crate::utils::{file_content_for_viewer, try_extract_cover};
 
 /// Live catalog for one serve process — switchable via `/roots/current`.
 struct ServeCatalog {
@@ -443,9 +444,13 @@ async fn get_entry(
     })
 }
 
+/// Cap for passing through original bytes (`format=raw`). Larger / non-web formats → PNG preview.
+const MAX_RAW_IMAGE_BYTES: u64 = 32 * 1024 * 1024;
+
 #[derive(Debug, Deserialize)]
 struct EntryContentQuery {
-    /// `text` or `html` (markdown → HTML via pulldown-cmark). Omitted → HTML for Markdown.
+    /// `text` | `html` | `raw` (image bytes) | `cover` (Audio/Epub embedded art).
+    /// Omitted → HTML for Markdown / syntect / CSV / Text / Image / cover cats.
     #[serde(default)]
     format: Option<String>,
 }
@@ -463,19 +468,26 @@ async fn get_entry_content(
     State(state): State<AppState>,
     AxumPath(path): AxumPath<String>,
     Query(q): Query<EntryContentQuery>,
-) -> Result<impl IntoResponse, ApiError> {
+) -> Result<Response, ApiError> {
     let path = require_rel_path(&path)?;
     let dir = current_dir(&state)?;
     let row = with_db(&state, |conn| entry_row(conn, &path, false))?;
     let abs = resolve_entry_disk_path(&dir, &path)?;
     let zahir_type = file_type_from_metadata_name(&row.category);
+
+    match q.format.as_deref().map(str::trim) {
+        Some("raw") => return raw_image_response(&abs, zahir_type),
+        Some("cover") => return embedded_cover_response(&abs, zahir_type),
+        _ => {}
+    }
+
     let text = file_content_for_viewer(&abs, zahir_type).unwrap_or_else(|| "(empty)".into());
     let want_html = content_want_html(q.format.as_deref(), zahir_type, &row.path)?;
     let (format, content) = if want_html {
         let appearance = settings_api::effective_appearance(&dir);
         (
             "html".into(),
-            content_to_html(&text, &row.path, zahir_type, appearance),
+            content_to_html(&text, &row.path, &abs, zahir_type, appearance),
         )
     } else {
         ("text".into(), text)
@@ -486,7 +498,8 @@ async fn get_entry_content(
         category: row.category,
         format,
         content,
-    }))
+    })
+    .into_response())
 }
 
 fn content_want_html(
@@ -499,11 +512,19 @@ fn content_want_html(
         Some("text") => Ok(false),
         None => Ok(matches!(
             zahir_type,
-            Some(ZahirFT::Markdown | ZahirFT::Csv | ZahirFT::Text)
+            Some(
+                ZahirFT::Markdown
+                    | ZahirFT::Csv
+                    | ZahirFT::Text
+                    | ZahirFT::Image
+                    | ZahirFT::Audio
+                    | ZahirFT::Epub
+            )
         ) || zahir_type.is_some_and(syntect_text::uses_syntect_ft)
-            || delimiter_from_path_for_viewer(path).is_some()),
+            || delimiter_from_path_for_viewer(path).is_some()
+            || svg_preview::is_svg_path(Path::new(path))),
         Some(other) => Err(ApiError::bad_request(format!(
-            "invalid format {other:?}; expected text|html"
+            "invalid format {other:?}; expected text|html|raw|cover"
         ))),
     }
 }
@@ -511,6 +532,7 @@ fn content_want_html(
 fn content_to_html(
     text: &str,
     path: &str,
+    abs: &Path,
     zahir_type: Option<ZahirFT>,
     appearance: crate::themes::Appearance,
 ) -> String {
@@ -521,10 +543,198 @@ fn content_to_html(
         }
         Some(ZahirFT::Csv) => csv_handler::delimited_to_html(text, path),
         Some(ZahirFT::Text) => format!("<pre>{}</pre>", html_escape_minimal(text)),
+        Some(ZahirFT::Image) => image_viewer_html(path, abs),
+        Some(ft @ (ZahirFT::Audio | ZahirFT::Epub)) => {
+            if try_extract_cover(abs, ft).is_some() {
+                image_preview_html(path, "cover")
+            } else {
+                r#"<p class="img-viewer__empty">(no embedded cover)</p>"#.into()
+            }
+        }
+        _ if svg_preview::is_svg_path(Path::new(path)) => image_viewer_html(path, abs),
         _ if delimiter_from_path_for_viewer(path).is_some() => {
             csv_handler::delimited_to_html(text, path)
         }
         _ => format!("<pre>{}</pre>", html_escape_minimal(text)),
+    }
+}
+
+/// `<img>` plus an in-pane note when preview decode already fails (TIFF etc.).
+fn image_viewer_html(rel_path: &str, abs: &Path) -> String {
+    let img = image_preview_html(rel_path, "raw");
+    match ensure_image_previewable(abs) {
+        Ok(()) => img,
+        Err(msg) => format!(
+            r#"{img}<p class="img-viewer__empty">{}</p>"#,
+            html_escape_minimal(&msg)
+        ),
+    }
+}
+
+fn image_preview_html(rel_path: &str, format_query: &str) -> String {
+    let src = format!(
+        "/content/{}?format={format_query}",
+        encode_entry_path(rel_path)
+    );
+    let alt = html_escape_minimal(rel_path);
+    format!(
+        r#"<div class="img-viewer"><img class="img-viewer__img" src="{src}" alt="{alt}" loading="lazy" /></div>"#
+    )
+}
+
+fn ensure_image_previewable(abs: &Path) -> Result<(), String> {
+    let meta = std::fs::metadata(abs).map_err(|e| e.to_string())?;
+    if !meta.is_file() {
+        return Err("not a file".into());
+    }
+    if svg_preview::is_svg_path(abs) {
+        if meta.len() > MAX_RAW_IMAGE_BYTES {
+            return Err(format!("image larger than {} bytes", MAX_RAW_IMAGE_BYTES));
+        }
+        return Ok(());
+    }
+    if needs_png_preview(abs, meta.len()) {
+        decode_png_preview(abs, meta.len()).map(|_| ())
+    } else {
+        Ok(())
+    }
+}
+
+fn allows_raw_image(zahir_type: Option<ZahirFT>, abs: &Path) -> bool {
+    matches!(zahir_type, Some(ZahirFT::Image)) || svg_preview::is_svg_path(abs)
+}
+
+fn raw_image_response(abs: &Path, zahir_type: Option<ZahirFT>) -> Result<Response, ApiError> {
+    if !allows_raw_image(zahir_type, abs) {
+        return Err(ApiError::bad_request(
+            "format=raw is only for Image (or .svg) entries",
+        ));
+    }
+    let meta = std::fs::metadata(abs).map_err(ApiError::not_found)?;
+    if !meta.is_file() {
+        return Err(ApiError::bad_request("not a file"));
+    }
+    // SVG stays vector; browsers can't show TIFF and many BMPs/huge rasters need a PNG preview.
+    if svg_preview::is_svg_path(abs) {
+        if meta.len() > MAX_RAW_IMAGE_BYTES {
+            return Err(ApiError::bad_request(format!(
+                "image larger than {} bytes",
+                MAX_RAW_IMAGE_BYTES
+            )));
+        }
+        let bytes = std::fs::read(abs).map_err(ApiError::not_found)?;
+        return Ok(([(axum::http::header::CONTENT_TYPE, "image/svg+xml")], bytes).into_response());
+    }
+    if needs_png_preview(abs, meta.len()) {
+        return png_preview_response(abs, meta.len());
+    }
+    let bytes = std::fs::read(abs).map_err(ApiError::not_found)?;
+    let mime = image_mime_from_path(abs);
+    Ok(([(axum::http::header::CONTENT_TYPE, mime)], bytes).into_response())
+}
+
+/// TIFF (no browser `<img>`), BMP/ICO, and oversize files → decode + PNG (TUI-tiered downscale).
+fn needs_png_preview(path: &Path, len: u64) -> bool {
+    if len > MAX_RAW_IMAGE_BYTES {
+        return true;
+    }
+    matches!(
+        path.extension()
+            .and_then(|e| e.to_str())
+            .map(|e| e.to_ascii_lowercase())
+            .as_deref(),
+        Some("tif" | "tiff" | "bmp" | "dib" | "ico" | "tga")
+    )
+}
+
+fn png_preview_response(abs: &Path, file_size: u64) -> Result<Response, ApiError> {
+    let bytes = decode_png_preview(abs, file_size).map_err(ApiError::bad_request)?;
+    Ok(([(axum::http::header::CONTENT_TYPE, "image/png")], bytes).into_response())
+}
+
+fn decode_png_preview(abs: &Path, file_size: u64) -> Result<Vec<u8>, String> {
+    let max_dim = images::tiered_max_dimension_for_file_size(file_size);
+    let img = image::open(abs).map_err(|e| format!("decode image: {e}"))?;
+    let img = images::downscale_with_max(img, max_dim);
+    let mut buf = std::io::Cursor::new(Vec::new());
+    img.write_to(&mut buf, image::ImageFormat::Png)
+        .map_err(|e| format!("encode png: {e}"))?;
+    Ok(buf.into_inner())
+}
+
+fn embedded_cover_response(abs: &Path, zahir_type: Option<ZahirFT>) -> Result<Response, ApiError> {
+    let Some(ft @ (ZahirFT::Audio | ZahirFT::Epub)) = zahir_type else {
+        return Err(ApiError::bad_request(
+            "format=cover is only for Audio or Epub entries",
+        ));
+    };
+    let Some(bytes) = try_extract_cover(abs, ft) else {
+        return Err(ApiError::not_found("no embedded cover"));
+    };
+    // Covers may be JPEG/PNG (pass through) or uncommon codecs → PNG preview.
+    let mime = image_mime_from_bytes(&bytes);
+    if matches!(
+        mime,
+        "image/jpeg" | "image/png" | "image/gif" | "image/webp"
+    ) {
+        return Ok(([(axum::http::header::CONTENT_TYPE, mime)], bytes).into_response());
+    }
+    let img = image::load_from_memory(&bytes)
+        .map_err(|e| ApiError::bad_request(format!("decode cover: {e}")))?;
+    let img = images::downscale_with_max(
+        img,
+        images::tiered_max_dimension_for_file_size(bytes.len() as u64),
+    );
+    let mut buf = std::io::Cursor::new(Vec::new());
+    img.write_to(&mut buf, image::ImageFormat::Png)
+        .map_err(|e| ApiError::bad_request(format!("encode cover png: {e}")))?;
+    Ok((
+        [(axum::http::header::CONTENT_TYPE, "image/png")],
+        buf.into_inner(),
+    )
+        .into_response())
+}
+
+fn image_mime_from_path(path: &Path) -> &'static str {
+    match path
+        .extension()
+        .and_then(|e| e.to_str())
+        .map(|e| e.to_ascii_lowercase())
+        .as_deref()
+    {
+        Some("png") => "image/png",
+        Some("jpg" | "jpeg") => "image/jpeg",
+        Some("gif") => "image/gif",
+        Some("webp") => "image/webp",
+        Some("bmp") => "image/bmp",
+        Some("ico") => "image/x-icon",
+        Some("svg") => "image/svg+xml",
+        Some("avif") => "image/avif",
+        Some("tif" | "tiff") => "image/tiff",
+        _ => "application/octet-stream",
+    }
+}
+
+fn image_mime_from_bytes(bytes: &[u8]) -> &'static str {
+    if bytes.starts_with(&[0x89, b'P', b'N', b'G', b'\r', b'\n', 0x1a, b'\n']) {
+        "image/png"
+    } else if bytes.starts_with(&[0xff, 0xd8, 0xff]) {
+        "image/jpeg"
+    } else if bytes.starts_with(b"GIF87a") || bytes.starts_with(b"GIF89a") {
+        "image/gif"
+    } else if bytes.len() >= 12 && bytes.starts_with(b"RIFF") && &bytes[8..12] == b"WEBP" {
+        "image/webp"
+    } else {
+        let head = std::str::from_utf8(&bytes[..bytes.len().min(256)]).unwrap_or("");
+        let trimmed = head.trim_start();
+        if trimmed.starts_with("<svg")
+            || trimmed.starts_with("<SVG")
+            || trimmed.starts_with("<?xml")
+        {
+            "image/svg+xml"
+        } else {
+            "application/octet-stream"
+        }
     }
 }
 

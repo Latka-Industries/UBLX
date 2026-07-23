@@ -183,6 +183,7 @@ Mouse click remains supported; keyboard is first-class.
 - [x] Markdown viewer (Viewer tab; `/content/{*path}`)
 - [x] Code / syntect viewer (JSON/TOML/YAML/XML/HTML/INI/Log/Code)
 - [x] Tables / CSV (+ misc text)
+- [x] Images / SVG (+ Audio/Epub embedded covers)
 
 ---
 
@@ -200,7 +201,7 @@ One concern per PR. Order is dependency-aware; titles are suggestions.
 | **6** | **Markdown viewer** | ✅ Landed (#49) — host HTML via `/content/{*path}` | [`viewer.rs`](../crates/ublx-web/src/viewer.rs); [`render/viewers/markdown/`](../src/render/viewers/markdown/) |
 | **7** | **Code / syntect viewer** | ✅ Landed — syntect HTML for code cats via `/content` | [`syntect_text`](../src/render/viewers/syntect_text.rs); `/content` HTML branch |
 | **8** | **Tables / CSV (+ misc text)** | ✅ Landed — host HTML table / `<pre>` via `/content` | [`csv_handler`](../src/render/viewers/csv_handler.rs), pretty tables |
-| **9** | **Images (and covers)** | Raster / SVG preview in Viewer | [`viewers/images/`](../src/render/viewers/images/), `svg_preview` |
+| **9** | **Images (and covers)** | ✅ Landed — raster/SVG via `/content?format=raw`; Audio/Epub covers via `?format=cover` | [`viewer.rs`](../crates/ublx-web/src/viewer.rs); [`serve.rs`](../src/cli/serve.rs) `/content` |
 | **10** | **PDF / video / tool-backed** | Optional-tool previews or clear “tool missing” UI matching TUI honesty | [`async_tools`](../src/render/viewers/async_tools.rs), PDF/video modules |
 | **11** | **Viewer find** | Shift+S find strip on right `title_bottom`; `n`/`N` next/prev | TUI viewer find; catalog `/` already landed |
 | **12** | **Preview / file body API** | Serve routes to stream or page file bytes / rendered slices the viewers need (if not covered by existing entry detail) | Extend [`serve.rs`](../src/cli/serve.rs) / `catalog_read` as required by PRs 6–10 — may land **earlier** as a prerequisite PR if blocked |

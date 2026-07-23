@@ -483,6 +483,21 @@ button.tab-node {
   height: 100%;
 }
 
+.panel-pad:has(.img-viewer-host) {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.entry-viewer:has(.img-viewer-host) {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+}
+
 .csv-viewer-host > .csv-viewer {
   flex: 1 1 auto;
   min-height: 0;
@@ -586,6 +601,52 @@ button.tab-node {
 .md-viewer img {
   max-width: 100%;
   height: auto;
+}
+
+/* —— Image / SVG / embedded cover (host HTML → <img src=/content?format=raw|cover>) —— */
+.img-viewer-host {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  align-items: center;
+  justify-content: center;
+  overflow: auto;
+}
+
+.img-viewer-host .img-viewer {
+  display: flex;
+  max-width: 100%;
+  max-height: 100%;
+  align-items: center;
+  justify-content: center;
+  padding: 0.35rem;
+}
+
+.img-viewer-host .img-viewer__img {
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  background:
+    linear-gradient(45deg, hsl(var(--muted) / 0.45) 25%, transparent 25%),
+    linear-gradient(-45deg, hsl(var(--muted) / 0.45) 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, hsl(var(--muted) / 0.45) 75%),
+    linear-gradient(-45deg, transparent 75%, hsl(var(--muted) / 0.45) 75%);
+  background-size: 16px 16px;
+  background-position:
+    0 0,
+    0 8px,
+    8px -8px,
+    -8px 0;
+}
+
+.img-viewer-host .img-viewer__empty {
+  margin: 0.75rem;
+  color: hsl(var(--muted-foreground));
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
 }
 
 /* —— Code / syntect Viewer (host HTML; theme bg lives in syntect markup) —— */

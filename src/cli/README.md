@@ -62,7 +62,7 @@ Notes:
 - `GET /delta?type=` — wire values `added` | `mod` | `removed` (`modified` accepted as alias for `mod`)
 - `GET /duplicates` — `{ mode: "hash"|"name_size", groups: [{ id, label, paths }] }` (read-only; no on-demand blake3 fill)
 - `GET /entries/{*path}?zahir=1` — entry detail; when zahir is set, also `metadata_tables` / `writing_tables` (host-parsed KV / column-stat sections; honors effective `typed_column_tables`)
-- `GET /content/{*path}` — disk file body for Viewer (`file_content_for_viewer`); `?format=text|html` (default: HTML for Markdown, syntect cats, CSV/delimited paths, and Text). Path must stay under the current root.
+- `GET /content/{*path}` — disk file body for Viewer (`file_content_for_viewer`); `?format=text|html|raw|cover` (default: HTML for Markdown, syntect cats, CSV/delimited paths, Text, Image/`*.svg`, and Audio/Epub cover preview). `raw` returns browser-friendly image bytes (pass-through for PNG/JPEG/GIF/WebP/SVG; TIFF/BMP/oversize → PNG preview via the same decode/downscale path as the TUI). `cover` returns embedded art bytes (Audio / Epub). Path must stay under the current root.
 - `GET /settings/{scope}` — `scope` is `global`|`local`; returns path, exists, live `toml` text, bools, layout, theme list, `bg_opacity`, `typed_column_tables` (`none`|`abbrev`|`full`), and `css` (effective palette → HSL tokens)
 - `PATCH /settings/{scope}` — structured JSON fields only (no raw TOML body); response is the refreshed view (includes updated `css` / `typed_column_tables`)
 
