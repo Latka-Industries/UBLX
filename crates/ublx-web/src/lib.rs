@@ -7,6 +7,7 @@
 #![allow(non_snake_case)]
 
 mod api;
+mod catalog_refresh;
 mod focus;
 mod help;
 mod keys;
@@ -18,6 +19,7 @@ mod panes;
 mod search;
 mod shell;
 mod sort;
+mod space_menu;
 mod theme;
 mod viewer;
 mod viewer_find;

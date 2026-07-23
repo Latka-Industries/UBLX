@@ -197,6 +197,7 @@ Right pane is not a list-focus target. Focused pane: focused border + active tit
 | Viewer PDF/video | optional tools + Shift+J/K pages | PNG preview + PDF page keys / footer | **#10** |
 | Viewer find | Shift+S strip | landed | **11** |
 | Multi-select | Ctrl+Space / Space (Snapshot · Lenses) | landed | **13** |
+| Space / QA menu | Space · letter hotkeys · `a` bulk | landed (serve writes) | **14** |
 | Settings | controls + TOML; default **Local** | landed (no bg_opacity control) | — |
 | Embedded ship | one binary | Dir / `UBLX_WEB_DIST` | **#16** |
 

@@ -52,6 +52,18 @@ pub(crate) enum WebAction {
     MultiselectToggleRow,
     /// Esc — exit multi-select.
     MultiselectCancel,
+    /// `a` — open bulk menu while multi-select is active.
+    MultiselectOpenBulk,
+    /// Space — open quick-actions (when multi-select is off).
+    SpaceMenuOpen,
+    SpaceMenuMoveUp,
+    SpaceMenuMoveDown,
+    SpaceMenuSubmit,
+    SpaceMenuClose,
+    /// Letter hotkey while Space / bulk menu is open.
+    SpaceMenuHotkey(char),
+    /// Menu open — swallow unmatched keys.
+    SpaceMenuAbsorb,
 }
 
 /// Extra keymap gates for Viewer find (TUI `KeyActionContext` subset).
@@ -75,6 +87,14 @@ pub(crate) struct MultiselectKeyCtx {
     pub middle_focused: bool,
 }
 
+/// Extra keymap gates for Space / bulk menu.
+#[derive(Clone, Copy, Debug, Default)]
+pub(crate) struct SpaceMenuKeyCtx {
+    pub open: bool,
+    /// Snapshot / Lenses / Duplicates (not Delta / Settings).
+    pub can_open: bool,
+}
+
 /// Map a keydown to a [`WebAction`]. Returns `None` when the event should pass through.
 ///
 /// Caller must skip invoking this while a form field (including catalog / find inputs) is focused.
@@ -85,6 +105,7 @@ pub(crate) fn action_from_keydown(
     help_open: bool,
     find: FindKeyCtx,
     ms: MultiselectKeyCtx,
+    space: SpaceMenuKeyCtx,
 ) -> Option<WebAction> {
     let key = ev.key();
     let code = ev.code();
@@ -122,6 +143,30 @@ pub(crate) fn action_from_keydown(
         return Some(WebAction::HelpAbsorb);
     }
 
+    if space.open {
+        if !ctrl && key == "Escape" {
+            return Some(WebAction::SpaceMenuClose);
+        }
+        if !ctrl && !shift && (key == "Enter" || key == " ") {
+            return Some(WebAction::SpaceMenuSubmit);
+        }
+        // Letter hotkeys win over j/k move (TUI: `j` = Copy Zahir JSON when that row exists).
+        if !ctrl && !shift && key.len() == 1 {
+            let c = key.chars().next()?.to_ascii_lowercase();
+            if c.is_ascii_alphabetic() || c.is_ascii_digit() {
+                return Some(WebAction::SpaceMenuHotkey(c));
+            }
+        }
+        if !ctrl && !shift {
+            match key.as_str() {
+                "ArrowUp" => return Some(WebAction::SpaceMenuMoveUp),
+                "ArrowDown" => return Some(WebAction::SpaceMenuMoveDown),
+                _ => {}
+            }
+        }
+        return Some(WebAction::SpaceMenuAbsorb);
+    }
+
     if shift && !ctrl && key == "Tab" {
         return Some(WebAction::CycleRightTab);
     }
@@ -157,6 +202,14 @@ pub(crate) fn action_from_keydown(
     }
     if ms.active && !ctrl && key == "Escape" {
         return Some(WebAction::MultiselectCancel);
+    }
+    if ms.active && !ctrl && !shift && (key == "a" || key == "A") {
+        return Some(WebAction::MultiselectOpenBulk);
+    }
+
+    // Space opens quick-actions when multi-select is off.
+    if !ms.active && !ctrl && !shift && (key == " " || code == "Space") && space.can_open {
+        return Some(WebAction::SpaceMenuOpen);
     }
 
     // Preview scroll / PDF page nav (TUI Shift+J/K/B/E + Shift+arrows).

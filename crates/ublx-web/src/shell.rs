@@ -5,16 +5,19 @@ use wasm_bindgen::JsCast;
 use web_sys::KeyboardEvent;
 
 use crate::api::{CatalogFlags, format_timestamp_ns};
+use crate::catalog_refresh::CatalogRefresh;
 use crate::focus::{PaneFocus, PdfPageNav, PreviewKeysBus, RightTabBus, UiNav};
 use crate::help::{HelpModal, HelpOverlay};
 use crate::keys::{
-    FindKeyCtx, MultiselectKeyCtx, WebAction, action_from_keydown, typing_in_form_field,
+    FindKeyCtx, MultiselectKeyCtx, SpaceMenuKeyCtx, WebAction, action_from_keydown,
+    typing_in_form_field,
 };
 use crate::modes::{DeltaMode, DuplicatesMode, LensesMode, SettingsMode, SnapshotMode};
 use crate::multiselect::MultiselectCtx;
 use crate::nav::{MainMode, clamp_mode_to_visible, select_mode, use_main_mode};
 use crate::search::{CatalogSearch, SEARCH_LABEL};
 use crate::sort::ContentSortCtx;
+use crate::space_menu::{SpaceMenuCtx, SpaceMenuPopup};
 use crate::viewer::scroll_right_preview;
 use crate::viewer_find::ViewerFind;
 
@@ -28,6 +31,9 @@ pub(crate) fn Shell(flags: CatalogFlags) -> impl IntoView {
     let (nav, tabs, preview) = UiNav::provide();
     let help = HelpOverlay::provide();
     let multiselect = MultiselectCtx::provide();
+    let catalog_refresh = CatalogRefresh::provide();
+    let space_menu = SpaceMenuCtx::provide(catalog_refresh, multiselect);
+    space_menu.catalog_root.set(flags.get_value().root.clone());
 
     // Deep-link may name a tab that is hidden for this catalog — fall back to Snapshot.
     Effect::new(move |_| {
@@ -51,6 +57,7 @@ pub(crate) fn Shell(flags: CatalogFlags) -> impl IntoView {
     Effect::new(move |_| {
         let _ = mode.get();
         multiselect.clear();
+        space_menu.close();
     });
 
     // Leaving contents pane exits multi-select (TUI FocusCategories / Tab).
@@ -76,8 +83,14 @@ pub(crate) fn Shell(flags: CatalogFlags) -> impl IntoView {
         let help = help;
         let preview = preview;
         let multiselect = multiselect;
+        let space_menu = space_menu;
         let closure = wasm_bindgen::closure::Closure::wrap(Box::new(move |ev: KeyboardEvent| {
-            if typing_in_form_field() {
+            let menu_open = space_menu.visible.get_untracked();
+            // Rename / bulk-rename inputs need normal typing; their own on:keydown handles Enter/Esc.
+            if typing_in_form_field() && !menu_open {
+                return;
+            }
+            if typing_in_form_field() && menu_open {
                 return;
             }
             let help_open = help.visible.get_untracked();
@@ -91,10 +104,23 @@ pub(crate) fn Shell(flags: CatalogFlags) -> impl IntoView {
                 applies: MultiselectCtx::applies(mode.get_untracked()),
                 middle_focused: nav.pane.get_untracked() == PaneFocus::Middle,
             };
-            let Some(action) = action_from_keydown(&ev, help_open, find_ctx, ms_ctx) else {
+            let m = mode.get_untracked();
+            let space_ctx = SpaceMenuKeyCtx {
+                open: menu_open,
+                can_open: matches!(
+                    m,
+                    MainMode::Snapshot | MainMode::Lenses | MainMode::Duplicates
+                ),
+            };
+            let Some(action) = action_from_keydown(&ev, help_open, find_ctx, ms_ctx, space_ctx)
+            else {
                 return;
             };
             ev.prevent_default();
+            // Capture-phase: stop other handlers (focused <button> Enter, etc.) from stealing keys.
+            if menu_open {
+                ev.stop_immediate_propagation();
+            }
             dispatch_action(
                 action,
                 KeybusCtx {
@@ -109,11 +135,16 @@ pub(crate) fn Shell(flags: CatalogFlags) -> impl IntoView {
                     flags,
                     help,
                     multiselect,
+                    space_menu,
                 },
             );
         }) as Box<dyn FnMut(_)>);
-        let _ =
-            window.add_event_listener_with_callback("keydown", closure.as_ref().unchecked_ref());
+        // Capture so Space-menu Enter/letters win over a focused panel/menu button.
+        let _ = window.add_event_listener_with_callback_and_bool(
+            "keydown",
+            closure.as_ref().unchecked_ref(),
+            true,
+        );
         closure.forget();
     });
 
@@ -156,6 +187,7 @@ pub(crate) fn Shell(flags: CatalogFlags) -> impl IntoView {
         </footer>
 
         <HelpModal mode=mode/>
+        <SpaceMenuPopup/>
     }
 }
 
@@ -172,28 +204,61 @@ struct KeybusCtx {
     flags: StoredValue<CatalogFlags>,
     help: HelpOverlay,
     multiselect: MultiselectCtx,
+    space_menu: SpaceMenuCtx,
 }
 
 fn dispatch_action(action: WebAction, ctx: KeybusCtx) {
     let f = ctx.flags.get_value();
     match action {
-        WebAction::HelpToggle => ctx.help.toggle(),
+        WebAction::HelpToggle => {
+            ctx.space_menu.close();
+            ctx.help.toggle();
+        }
         WebAction::HelpClose => ctx.help.close(),
         WebAction::HelpSectionNext => ctx.help.cycle_section(ctx.mode.get_untracked(), 1),
         WebAction::HelpSectionPrev => ctx.help.cycle_section(ctx.mode.get_untracked(), -1),
         WebAction::HelpAbsorb => {}
+        WebAction::SpaceMenuOpen => {
+            let _ = ctx.space_menu.try_open_qa(
+                ctx.mode.get_untracked(),
+                ctx.nav.pane.get_untracked(),
+                ctx.multiselect.active.get_untracked(),
+            );
+        }
+        WebAction::SpaceMenuMoveUp => ctx.space_menu.move_sel(-1),
+        WebAction::SpaceMenuMoveDown => ctx.space_menu.move_sel(1),
+        WebAction::SpaceMenuSubmit => {
+            ctx.space_menu
+                .submit_selected(ctx.flags.get_value().root.clone());
+        }
+        WebAction::SpaceMenuClose => ctx.space_menu.close(),
+        WebAction::SpaceMenuHotkey(c) => {
+            let root = ctx.flags.get_value().root.clone();
+            if !ctx.space_menu.submit_hotkey(c, root) {
+                // No row for this letter — j/k still move the highlight (arrows always move).
+                match c {
+                    'k' => ctx.space_menu.move_sel(-1),
+                    'j' => ctx.space_menu.move_sel(1),
+                    _ => {}
+                }
+            }
+        }
+        WebAction::SpaceMenuAbsorb => {}
         WebAction::SearchStart => {
             ctx.find.clear();
+            ctx.space_menu.close();
             ctx.search.start();
         }
         WebAction::ViewerFindOpen => {
             ctx.search.set_active.set(false);
+            ctx.space_menu.close();
             ctx.find.start();
         }
         WebAction::ViewerFindNext => ctx.find.next(),
         WebAction::ViewerFindPrev => ctx.find.prev(),
         WebAction::ViewerFindClear => ctx.find.clear(),
         WebAction::MultiselectToggleMode => {
+            ctx.space_menu.close();
             let _ = ctx.multiselect.try_toggle_mode(
                 ctx.mode.get_untracked(),
                 ctx.nav.pane.get_untracked() == PaneFocus::Middle,
@@ -204,7 +269,16 @@ fn dispatch_action(action: WebAction, ctx: KeybusCtx) {
                 ctx.multiselect.toggle_row();
             }
         }
-        WebAction::MultiselectCancel => ctx.multiselect.clear(),
+        WebAction::MultiselectCancel => {
+            ctx.space_menu.close();
+            ctx.multiselect.clear();
+        }
+        WebAction::MultiselectOpenBulk => {
+            let _ = ctx.space_menu.try_open_bulk(
+                ctx.mode.get_untracked(),
+                ctx.multiselect.active.get_untracked(),
+            );
+        }
         WebAction::CycleContentSort => ctx.sort.cycle(ctx.mode.get_untracked()),
         WebAction::ScrollPreviewDown => apply_preview_keys(ctx.preview, PdfPageNav::Next),
         WebAction::ScrollPreviewUp => apply_preview_keys(ctx.preview, PdfPageNav::Prev),

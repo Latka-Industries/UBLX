@@ -3,6 +3,8 @@
 mod catalog;
 mod content;
 mod error;
+mod fs;
+mod lenses_mut;
 mod roots;
 mod settings;
 mod snapshot;
@@ -13,7 +15,7 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
 use axum::Router;
-use axum::routing::get;
+use axum::routing::{get, post};
 use log::info;
 #[cfg(feature = "ui")]
 use log::warn;
@@ -27,6 +29,10 @@ use self::catalog::{
     get_categories, get_delta, get_duplicates, get_entries, get_entry, get_lens, get_lenses,
 };
 use self::content::get_entry_content;
+use self::fs::{post_bulk_rename, post_delete, post_enhance, post_enhance_policy, post_rename};
+use self::lenses_mut::{
+    delete_lens_paths, delete_lens_route, patch_lens, post_lens, post_lens_paths,
+};
 use self::roots::{get_current_root, get_doctor, get_roots, put_current_root};
 use self::settings::{get_settings, patch_settings_route};
 use self::snapshot::{get_snapshot, post_snapshot};
@@ -67,8 +73,20 @@ pub fn run(args: &ServeCli) -> Result<(), anyhow::Error> {
         .route("/content/{*path}", get(get_entry_content))
         .route("/delta", get(get_delta))
         .route("/duplicates", get(get_duplicates))
-        .route("/lenses", get(get_lenses))
-        .route("/lenses/{name}", get(get_lens))
+        .route("/lenses", get(get_lenses).post(post_lens))
+        .route(
+            "/lenses/{name}",
+            get(get_lens).patch(patch_lens).delete(delete_lens_route),
+        )
+        .route(
+            "/lenses/{name}/paths",
+            post(post_lens_paths).delete(delete_lens_paths),
+        )
+        .route("/fs/rename", post(post_rename))
+        .route("/fs/bulk-rename", post(post_bulk_rename))
+        .route("/fs/delete", post(post_delete))
+        .route("/fs/enhance", post(post_enhance))
+        .route("/fs/enhance-policy", post(post_enhance_policy))
         .route(
             "/settings/{scope}",
             get(get_settings).patch(patch_settings_route),

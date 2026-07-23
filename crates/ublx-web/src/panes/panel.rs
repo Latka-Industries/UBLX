@@ -12,6 +12,7 @@ use crate::multiselect::MultiselectCtx;
 use crate::nav::MainMode;
 use crate::search;
 use crate::sort::ContentSortCtx;
+use crate::space_menu::SpaceMenuCtx;
 use crate::viewer::EntryViewer;
 use crate::viewer_find::{ViewerFind, ViewerFindStrip, install_highlight_effect};
 
@@ -183,6 +184,7 @@ pub(crate) fn PathsPane(
     let sort_ctx = ContentSortCtx::expect();
     let nav = UiNav::expect();
     let multiselect = MultiselectCtx::expect();
+    let space_menu = SpaceMenuCtx::expect();
     let keys = Signal::derive(move || {
         paths
             .get()
@@ -204,10 +206,12 @@ pub(crate) fn PathsPane(
     });
     install_list_nav(nav.middle, string_list_nav(keys, bridge.into(), set_bridge));
 
-    // Keep multi-select cursor in sync for Snapshot / Lenses contents.
+    // Keep Space-menu + multi-select cursor in sync with the middle selection.
     Effect::new(move |_| {
+        let path = selected.get();
+        space_menu.middle_path.set(path.clone());
         if MultiselectCtx::applies(main_mode) {
-            multiselect.cursor.set(selected.get());
+            multiselect.cursor.set(path);
         }
     });
 

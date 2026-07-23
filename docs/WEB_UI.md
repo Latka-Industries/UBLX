@@ -188,6 +188,7 @@ Mouse click remains supported; keyboard is first-class.
 - [x] PDF / video tool-backed previews (Poppler/MuPDF / ffmpeg; honest missing-tool errors)
 - [x] Viewer find (Shift+S strip; Enter / `n`/`N` / Esc)
 - [x] Multi-select (Ctrl+Space; Space toggle; Snapshot / Lenses)
+- [x] Space / context menu (Open / Copy / Ignore + rename/delete/lens/enhance via serve `/fs` + `/lenses`)
 
 ---
 
@@ -219,7 +220,7 @@ Every mini-PR that adds or changes a **keybinding, selection model, overlay, or 
 | **11** | **Viewer find** | ✅ Landed — Shift+S find strip on right `title_bottom`; Enter / `n`/`N` / Esc; DOM marks | [`viewer_find.rs`](../crates/ublx-web/src/viewer_find.rs) |
 | **12** | **Preview / file body API** | ✅ Landed (#59) — windowed `/content` (`offset`/`limit`); stub `EXT file` labels; CSV pinned header; Metadata sticky headers; collapsible directory/schema trees + Expand/Collapse; Epub/Audio cover Viewer | [`serve.rs`](../src/cli/serve.rs) `/content`; [`viewer.rs`](../crates/ublx-web/src/viewer.rs); [`schema.rs`](../src/render/kv_tables/schema.rs) |
 | **13** | **Multi-select** | ✅ Landed — Ctrl+Space enter/exit; Space toggle rows on Snapshot / Lenses contents (not Dupes); █ chrome + `n/N · k sel`; **`?` Multi-select section** | [`multiselect.rs`](../crates/ublx-web/src/multiselect.rs); TUI [`ui/multiselect.rs`](../src/ui/multiselect.rs) |
-| **14** | **Space / context menu** | Quick-actions popup (open, folder, copy, rename, delete, lens, …) for current / multi selection; **`?` QA rows** | [`ui/menus/`](../src/ui/menus/); may need serve-side mutations |
+| **14** | **Space / context menu** | ✅ Landed — Space QA + `a` bulk; serve `/fs/*` + lens writes; confirm / rename / lens picker; **`?` QA rows** | [`space_menu/`](../crates/ublx-web/src/space_menu/); [`serve/fs.rs`](../src/cli/serve/fs.rs); TUI [`ui/menus/`](../src/ui/menus/) |
 | **15** | **Command Mode** | Ctrl+a overlay — TUI command palette actions that apply over serve; **`?` Command section** | [`config/command_mode.rs`](../src/config/command_mode.rs), ctrl chord |
 | **16** | **`StaticMount::Embedded`** | Ship `--features ui` as one binary; Dir remains for `mise run web` | panza `Embedded`; build.sh → embed |
 

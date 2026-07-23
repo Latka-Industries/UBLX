@@ -321,6 +321,13 @@ pub(crate) async fn fetch_entry_detail(path: &str) -> Result<EntryDetail, String
     Ok(EntryDetail::from_row(row))
 }
 
+/// Raw Zahir JSON for clipboard (`GET /entries/{path}?zahir=1`).
+pub(crate) async fn fetch_entry_zahir_raw(path: &str) -> Result<Option<Value>, String> {
+    let url = format!("/entries/{}?zahir=1", encode_entry_path(path));
+    let row = get_json::<EntryRow>(&url).await?;
+    Ok(row.zahir)
+}
+
 /// Disk file body for Viewer (`GET /content/{path}`).
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Eq)]
 pub(crate) struct EntryContent {
@@ -598,6 +605,214 @@ pub(crate) async fn patch_json<T: for<'de> Deserialize<'de>, B: Serialize>(
         return Err(http_error_message(resp).await);
     }
     resp.json::<T>().await.map_err(|e| e.to_string())
+}
+
+pub(crate) async fn post_json<T: for<'de> Deserialize<'de>, B: Serialize>(
+    url: &str,
+    body: &B,
+) -> Result<T, String> {
+    let resp = gloo_net::http::Request::post(url)
+        .json(body)
+        .map_err(|e| e.to_string())?
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    if !resp.ok() {
+        return Err(http_error_message(resp).await);
+    }
+    resp.json::<T>().await.map_err(|e| e.to_string())
+}
+
+pub(crate) async fn delete_json<T: for<'de> Deserialize<'de>, B: Serialize>(
+    url: &str,
+    body: &B,
+) -> Result<T, String> {
+    let resp = gloo_net::http::Request::delete(url)
+        .json(body)
+        .map_err(|e| e.to_string())?
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    if !resp.ok() {
+        return Err(http_error_message(resp).await);
+    }
+    resp.json::<T>().await.map_err(|e| e.to_string())
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub(crate) struct RenameBody {
+    pub path: String,
+    pub new_name: String,
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub(crate) struct BulkRenameItem {
+    pub path: String,
+    pub new_name: String,
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub(crate) struct BulkRenameBody {
+    pub renames: Vec<BulkRenameItem>,
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub(crate) struct PathsBody {
+    pub paths: Vec<String>,
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub(crate) struct EnhancePolicyBody {
+    pub path: String,
+    pub policy: String,
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub(crate) struct CreateLensBody {
+    pub name: String,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub paths: Vec<String>,
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub(crate) struct RenameLensBody {
+    pub new_name: String,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub(crate) struct RenameOut {
+    pub path: String,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub(crate) struct BulkOpOut {
+    #[serde(default)]
+    pub renamed: Option<usize>,
+    #[serde(default)]
+    pub deleted: Option<usize>,
+    #[serde(default)]
+    pub failed: Option<serde_json::Value>,
+}
+
+pub(crate) async fn api_rename(path: &str, new_name: &str) -> Result<String, String> {
+    let out: RenameOut = post_json(
+        "/fs/rename",
+        &RenameBody {
+            path: path.into(),
+            new_name: new_name.into(),
+        },
+    )
+    .await?;
+    Ok(out.path)
+}
+
+pub(crate) async fn api_bulk_rename(renames: Vec<BulkRenameItem>) -> Result<String, String> {
+    let out: BulkOpOut = post_json("/fs/bulk-rename", &BulkRenameBody { renames }).await?;
+    let n = out.renamed.unwrap_or(0);
+    if let Some(f) = out.failed {
+        return Err(format!("renamed {n}; then failed: {f}"));
+    }
+    Ok(format!("Renamed {n}"))
+}
+
+pub(crate) async fn api_delete(paths: Vec<String>) -> Result<String, String> {
+    let out: BulkOpOut = post_json("/fs/delete", &PathsBody { paths }).await?;
+    let n = out.deleted.unwrap_or(0);
+    if let Some(f) = out.failed {
+        return Err(format!("deleted {n}; then failed: {f}"));
+    }
+    Ok(format!("Deleted {n}"))
+}
+
+pub(crate) async fn api_enhance(paths: Vec<String>) -> Result<String, String> {
+    #[derive(Deserialize)]
+    struct Out {
+        enhanced: usize,
+        failed: usize,
+    }
+    let out: Out = post_json("/fs/enhance", &PathsBody { paths }).await?;
+    Ok(format!("Enhanced {}; failed {}", out.enhanced, out.failed))
+}
+
+pub(crate) async fn api_enhance_policy(path: &str, policy: &str) -> Result<String, String> {
+    #[derive(Deserialize)]
+    struct Out {
+        policy: String,
+    }
+    let out: Out = post_json(
+        "/fs/enhance-policy",
+        &EnhancePolicyBody {
+            path: path.into(),
+            policy: policy.into(),
+        },
+    )
+    .await?;
+    Ok(format!("Enhance policy: {}", out.policy))
+}
+
+pub(crate) async fn api_create_lens(name: &str, paths: Vec<String>) -> Result<String, String> {
+    #[derive(Deserialize)]
+    struct Out {
+        name: String,
+        added: usize,
+    }
+    let out: Out = post_json(
+        "/lenses",
+        &CreateLensBody {
+            name: name.into(),
+            paths,
+        },
+    )
+    .await?;
+    Ok(format!("Lens {} (+{})", out.name, out.added))
+}
+
+pub(crate) async fn api_rename_lens(old: &str, new_name: &str) -> Result<String, String> {
+    #[derive(Deserialize)]
+    struct Out {
+        name: String,
+    }
+    let url = format!("/lenses/{}", urlencoding::encode(old));
+    let out: Out = patch_json(
+        &url,
+        &RenameLensBody {
+            new_name: new_name.into(),
+        },
+    )
+    .await?;
+    Ok(format!("Lens renamed to {}", out.name))
+}
+
+pub(crate) async fn api_delete_lens(name: &str) -> Result<(), String> {
+    let url = format!("/lenses/{}", urlencoding::encode(name));
+    let resp = gloo_net::http::Request::delete(&url)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    if !resp.ok() {
+        return Err(http_error_message(resp).await);
+    }
+    Ok(())
+}
+
+pub(crate) async fn api_add_to_lens(lens: &str, paths: Vec<String>) -> Result<String, String> {
+    #[derive(Deserialize)]
+    struct Out {
+        count: usize,
+    }
+    let url = format!("/lenses/{}/paths", urlencoding::encode(lens));
+    let out: Out = post_json(&url, &PathsBody { paths }).await?;
+    Ok(format!("Added {} to {lens}", out.count))
+}
+
+pub(crate) async fn api_remove_from_lens(lens: &str, paths: Vec<String>) -> Result<String, String> {
+    #[derive(Deserialize)]
+    struct Out {
+        count: usize,
+    }
+    let url = format!("/lenses/{}/paths", urlencoding::encode(lens));
+    let out: Out = delete_json(&url, &PathsBody { paths }).await?;
+    Ok(format!("Removed {} from {lens}", out.count))
 }
 
 async fn http_error_message(resp: gloo_net::http::Response) -> String {
