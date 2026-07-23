@@ -8,6 +8,7 @@ use web_sys::{ScrollIntoViewOptions, ScrollLogicalPosition};
 use crate::api::{EntryDetail, format_bytes, format_timestamp_ns};
 use crate::focus::{PreviewKeysBus, UiNav, install_list_nav, string_list_nav};
 use crate::kv_tables::KvTables;
+use crate::multiselect::MultiselectCtx;
 use crate::nav::MainMode;
 use crate::search;
 use crate::sort::ContentSortCtx;
@@ -59,17 +60,25 @@ pub(crate) fn PanelRow(
     label: String,
     selected: Signal<bool>,
     on_select: Callback<()>,
+    /// When set, reserve a check column (█ when true) for multi-select chrome.
+    #[prop(optional)]
+    checked: Option<Signal<bool>>,
 ) -> impl IntoView {
+    let show_check = checked.is_some();
+    let checked_sig = checked.unwrap_or_else(|| Signal::derive(|| false));
     view! {
         <li>
             <button
                 type="button"
                 class=move || {
+                    let mut c = String::from("panel-row");
                     if selected.get() {
-                        "panel-row panel-row--selected"
-                    } else {
-                        "panel-row"
+                        c.push_str(" panel-row--selected");
                     }
+                    if show_check && checked_sig.get() {
+                        c.push_str(" panel-row--checked");
+                    }
+                    c
                 }
                 on:mousedown=move |ev| {
                     // Prevent the button from taking DOM focus; otherwise click→arrow
@@ -78,6 +87,17 @@ pub(crate) fn PanelRow(
                 }
                 on:click=move |_| on_select.run(())
             >
+                <Show when=move || show_check>
+                    <span class="panel-row__check" aria-hidden="true">
+                        {move || {
+                            if checked_sig.get() {
+                                crate::multiselect::CHECK_GLYPH
+                            } else {
+                                " "
+                            }
+                        }}
+                    </span>
+                </Show>
                 <span class="panel-row__sym">{move || if selected.get() { "›" } else { " " }}</span>
                 <span class="panel-row__text">{label.clone()}</span>
             </button>
@@ -162,6 +182,7 @@ pub(crate) fn PathsPane(
     let search_q = Signal::derive(move || search::CatalogSearch::expect().trimmed.get());
     let sort_ctx = ContentSortCtx::expect();
     let nav = UiNav::expect();
+    let multiselect = MultiselectCtx::expect();
     let keys = Signal::derive(move || {
         paths
             .get()
@@ -182,6 +203,13 @@ pub(crate) fn PathsPane(
         }
     });
     install_list_nav(nav.middle, string_list_nav(keys, bridge.into(), set_bridge));
+
+    // Keep multi-select cursor in sync for Snapshot / Lenses contents.
+    Effect::new(move |_| {
+        if MultiselectCtx::applies(main_mode) {
+            multiselect.cursor.set(selected.get());
+        }
+    });
 
     let sort_label = Signal::derive(move || sort_ctx.sort.get().node_text(main_mode));
     let scroll_ref = NodeRef::<leptos::html::Div>::new();
@@ -226,11 +254,16 @@ pub(crate) fn PathsPane(
                                         } else {
                                             let pick = key.clone();
                                             let key_sel = key.clone();
+                                            let key_chk = key.clone();
                                             view! {
                                                 <PanelRow
                                                     label=label
                                                     selected=Signal::derive(move || {
                                                         selected.get().as_ref() == Some(&key_sel)
+                                                    })
+                                                    checked=Signal::derive(move || {
+                                                        MultiselectCtx::applies(main_mode)
+                                                            && multiselect.is_checked(&key_chk)
                                                     })
                                                     on_select=Callback::new({
                                                         let pick = pick.clone();
@@ -276,7 +309,17 @@ pub(crate) fn PathsPane(
                             .and_then(|s| selectable.iter().position(|(_, k)| **k == s))
                             .map(|i| i + 1)
                             .unwrap_or(0);
-                        format_selection_counter(current, total)
+                        let base = format_selection_counter(current, total);
+                        let n = if MultiselectCtx::applies(main_mode) {
+                            multiselect.count()
+                        } else {
+                            0
+                        };
+                        if n > 0 {
+                            format!("{base} · {n} sel")
+                        } else {
+                            base
+                        }
                     }}
                 </span>
             </div>

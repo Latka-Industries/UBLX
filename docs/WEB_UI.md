@@ -187,6 +187,7 @@ Mouse click remains supported; keyboard is first-class.
 - [x] Images / SVG (+ Audio/Epub embedded covers)
 - [x] PDF / video tool-backed previews (Poppler/MuPDF / ffmpeg; honest missing-tool errors)
 - [x] Viewer find (Shift+S strip; Enter / `n`/`N` / Esc)
+- [x] Multi-select (Ctrl+Space; Space toggle; Snapshot / Lenses)
 
 ---
 
@@ -217,7 +218,7 @@ Every mini-PR that adds or changes a **keybinding, selection model, overlay, or 
 | **10** | **PDF / video / tool-backed** | ✅ Landed — PDF/video PNG via `/content?format=raw`; web Shift+J/K/B/E = preview scroll (TUI) or PDF pages when a PDF is open; `Page n / N` footer; tool-missing under `<img>` | [`pdf_preview`](../src/render/viewers/pdf_preview.rs), [`video_preview`](../src/render/viewers/video_preview.rs); [`viewer.rs`](../crates/ublx-web/src/viewer.rs) |
 | **11** | **Viewer find** | ✅ Landed — Shift+S find strip on right `title_bottom`; Enter / `n`/`N` / Esc; DOM marks | [`viewer_find.rs`](../crates/ublx-web/src/viewer_find.rs) |
 | **12** | **Preview / file body API** | ✅ Landed (#59) — windowed `/content` (`offset`/`limit`); stub `EXT file` labels; CSV pinned header; Metadata sticky headers; collapsible directory/schema trees + Expand/Collapse; Epub/Audio cover Viewer | [`serve.rs`](../src/cli/serve.rs) `/content`; [`viewer.rs`](../crates/ublx-web/src/viewer.rs); [`schema.rs`](../src/render/kv_tables/schema.rs) |
-| **13** | **Multi-select** | Ctrl+Space enter/exit; Space toggle rows on Snapshot / Lenses contents (not Dupes); selection chrome; **`?` Multi-select section** | [`ui/multiselect.rs`](../src/ui/multiselect.rs); TUI [`HELP_MULTISELECT`](../src/render/overlays/help.rs) → web [`help.rs`](../crates/ublx-web/src/help.rs) |
+| **13** | **Multi-select** | ✅ Landed — Ctrl+Space enter/exit; Space toggle rows on Snapshot / Lenses contents (not Dupes); █ chrome + `n/N · k sel`; **`?` Multi-select section** | [`multiselect.rs`](../crates/ublx-web/src/multiselect.rs); TUI [`ui/multiselect.rs`](../src/ui/multiselect.rs) |
 | **14** | **Space / context menu** | Quick-actions popup (open, folder, copy, rename, delete, lens, …) for current / multi selection; **`?` QA rows** | [`ui/menus/`](../src/ui/menus/); may need serve-side mutations |
 | **15** | **Command Mode** | Ctrl+a overlay — TUI command palette actions that apply over serve; **`?` Command section** | [`config/command_mode.rs`](../src/config/command_mode.rs), ctrl chord |
 | **16** | **`StaticMount::Embedded`** | Ship `--features ui` as one binary; Dir remains for `mise run web` | panza `Embedded`; build.sh → embed |

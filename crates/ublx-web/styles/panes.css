@@ -156,6 +156,21 @@
   font-weight: 700;
 }
 
+.panel-row__check {
+  flex: 0 0 0.75rem;
+  font-weight: 700;
+  color: hsl(var(--secondary));
+  line-height: 1;
+}
+
+.panel-row--checked .panel-row__check {
+  color: hsl(var(--secondary-foreground));
+}
+
+.panel--focused .panel-row--selected.panel-row--checked .panel-row__check {
+  color: hsl(var(--secondary-foreground));
+}
+
 .panel-row__text {
   flex: 1;
   min-width: 0;

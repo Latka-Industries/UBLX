@@ -12,6 +12,7 @@ mod help;
 mod keys;
 mod kv_tables;
 mod modes;
+mod multiselect;
 mod nav;
 mod panes;
 mod search;
