@@ -230,7 +230,7 @@ Every mini-PR that adds or changes a **keybinding, selection model, overlay, or 
 | PR | Delivers |
 | -- | -------- |
 | Toast polish | Shared stack (bottom-right, max 3) via shadcn `Toast`; Space / Command Mode wired |
-| Root switcher | UI for `GET`/`PUT /roots/current` |
+| Root switcher | Click project path (or Command Mode `p`) → `GET`/`PUT /roots/current` |
 | Snapshot trigger | UI for `POST`/`GET /snapshot` |
 | Doctor / health surface | `GET /doctor` + panza health |
 

@@ -16,6 +16,7 @@ use crate::focus::PaneFocus;
 use crate::multiselect::MultiselectCtx;
 use crate::nav::MainMode;
 use crate::toast::ToastCtx;
+use crate::viewer::is_image_category;
 
 use super::helpers::{absolute_path, basename, bulk_paths, open_in_browser, write_clipboard};
 use super::kinds::{
@@ -29,6 +30,8 @@ pub(crate) struct SpaceMenuCtx {
     pub kind: RwSignal<Option<SpaceMenuKind>>,
     pub selected: RwSignal<usize>,
     pub middle_path: RwSignal<Option<String>>,
+    /// Catalog category for [`Self::middle_path`] (gates Open in new tab).
+    pub middle_category: RwSignal<Option<String>>,
     pub left_label: RwSignal<Option<String>>,
     pub ignored: RwSignal<HashSet<String>>,
     /// Catalog root for Copy Path (set from Shell).
@@ -51,6 +54,7 @@ impl SpaceMenuCtx {
             kind: RwSignal::new(None),
             selected: RwSignal::new(0),
             middle_path: RwSignal::new(None),
+            middle_category: RwSignal::new(None),
             left_label: RwSignal::new(None),
             ignored: RwSignal::new(HashSet::new()),
             catalog_root: RwSignal::new(None),
@@ -93,6 +97,13 @@ impl SpaceMenuCtx {
         self.visible.set(true);
     }
 
+    fn open_in_tab_for_middle(self) -> bool {
+        self.middle_category
+            .get_untracked()
+            .as_deref()
+            .is_some_and(is_image_category)
+    }
+
     pub(crate) fn try_open_qa(
         self,
         mode: MainMode,
@@ -100,6 +111,14 @@ impl SpaceMenuCtx {
         multiselect_active: bool,
     ) -> bool {
         if multiselect_active || self.visible.get_untracked() {
+            return false;
+        }
+        self.open_qa_at(mode, pane)
+    }
+
+    /// Mouse double-click: open QA even while multi-select is active.
+    pub(crate) fn open_qa_at(self, mode: MainMode, pane: PaneFocus) -> bool {
+        if self.visible.get_untracked() {
             return false;
         }
         match mode {
@@ -111,12 +130,18 @@ impl SpaceMenuCtx {
             let Some(path) = self.middle_path.get_untracked() else {
                 return false;
             };
+            let open_in_tab = self.open_in_tab_for_middle();
             let kind = match mode {
-                MainMode::Duplicates => SpaceMenuKind::Duplicate { path },
-                MainMode::Lenses => SpaceMenuKind::File { path, lenses: true },
+                MainMode::Duplicates => SpaceMenuKind::Duplicate { path, open_in_tab },
+                MainMode::Lenses => SpaceMenuKind::File {
+                    path,
+                    lenses: true,
+                    open_in_tab,
+                },
                 _ => SpaceMenuKind::File {
                     path,
                     lenses: false,
+                    open_in_tab,
                 },
             };
             self.open(kind);
@@ -131,6 +156,23 @@ impl SpaceMenuCtx {
             return true;
         }
         false
+    }
+
+    /// Double-click a checked multi-select row → bulk; otherwise file QA for that path.
+    pub(crate) fn open_from_middle_dblclick(self, mode: MainMode, path: &str) -> bool {
+        if self.visible.get_untracked() {
+            return false;
+        }
+        self.middle_path.set(Some(path.to_string()));
+        let ms = self.multiselect;
+        if MultiselectCtx::applies(mode)
+            && ms.active.get_untracked()
+            && ms.is_checked(path)
+            && self.try_open_bulk(mode, true)
+        {
+            return true;
+        }
+        self.open_qa_at(mode, PaneFocus::Middle)
     }
 
     pub(crate) fn try_open_bulk(self, mode: MainMode, multiselect_active: bool) -> bool {
@@ -353,12 +395,12 @@ impl SpaceMenuCtx {
         let ms = self.multiselect;
 
         match (&kind, row.key) {
-            (SpaceMenuKind::File { path, .. } | SpaceMenuKind::Duplicate { path }, 'o') => {
+            (SpaceMenuKind::File { path, .. } | SpaceMenuKind::Duplicate { path, .. }, 'o') => {
                 self.close();
                 open_in_browser(path);
                 self.flash("Opened in new tab");
             }
-            (SpaceMenuKind::File { path, .. } | SpaceMenuKind::Duplicate { path }, 'c') => {
+            (SpaceMenuKind::File { path, .. } | SpaceMenuKind::Duplicate { path, .. }, 'c') => {
                 self.copy_abs_path(root, path, "Copied path");
             }
             (SpaceMenuKind::File { path, .. }, 'j') => {
@@ -372,6 +414,7 @@ impl SpaceMenuCtx {
                 SpaceMenuKind::File {
                     path,
                     lenses: false,
+                    ..
                 },
                 'p',
             ) => {
@@ -397,6 +440,7 @@ impl SpaceMenuCtx {
                 SpaceMenuKind::File {
                     path,
                     lenses: false,
+                    ..
                 },
                 'l',
             ) => {
@@ -405,7 +449,12 @@ impl SpaceMenuCtx {
                     open_lens_picker(self, vec![path], None).await;
                 });
             }
-            (SpaceMenuKind::File { path, lenses: true }, 'd') => {
+            (
+                SpaceMenuKind::File {
+                    path, lenses: true, ..
+                },
+                'd',
+            ) => {
                 self.close();
                 let path = path.clone();
                 let lens = self.left_label.get_untracked().unwrap_or_default();
@@ -432,13 +481,14 @@ impl SpaceMenuCtx {
                 SpaceMenuKind::File {
                     path,
                     lenses: false,
+                    ..
                 },
                 'd',
             )
-            | (SpaceMenuKind::Duplicate { path }, 'd') => {
+            | (SpaceMenuKind::Duplicate { path, .. }, 'd') => {
                 self.confirm_delete(vec![path.clone()], None);
             }
-            (SpaceMenuKind::Duplicate { path }, 'i') => {
+            (SpaceMenuKind::Duplicate { path, .. }, 'i') => {
                 self.close();
                 self.ignored.update(|s| {
                     s.insert(path.clone());

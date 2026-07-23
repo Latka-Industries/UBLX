@@ -83,6 +83,10 @@ const GENERAL_BROWSER: &[(&str, &str)] = &[
     ("g | G", "Go to top / bottom of focused list"),
     ("Ctrl+j/k · Ctrl+↑↓", "Jump by 10 in focused list"),
     ("s", "Cycle middle-pane sort (Snapshot / Delta / Dupes)"),
+    (
+        "Project path",
+        "Click the path under the tabs to switch project (same as Ctrl+a then p)",
+    ),
     ("?", "Toggle this help"),
 ];
 
@@ -108,7 +112,11 @@ const RIGHT_PANE: &[(&str, &str)] = &[
 
 const QUICK_ACTIONS: &[(&str, &str)] = &[
     ("Spacebar", "Open quick-actions for the focused row"),
-    ("o", "Open file in a new browser tab"),
+    (
+        "Double-click",
+        "Same as Space (or Bulk menu if the row is multi-selected)",
+    ),
+    ("o", "Open image in a new browser tab (images only)"),
     ("p", "Enhance policy (directory Auto / Manual)"),
     ("z", "Enhance with ZahirScan"),
     ("l", "Add to Lens (picker or new)"),
@@ -120,14 +128,22 @@ const QUICK_ACTIONS: &[(&str, &str)] = &[
 
 const QUICK_ACTIONS_DUPES: &[(&str, &str)] = &[
     ("Spacebar", "Open quick-actions for the focused path"),
-    ("o / c", "Open in tab / Copy Path"),
+    ("Double-click", "Same as Space"),
+    ("o / c", "Open image in new tab (images only) / Copy Path"),
     ("i", "Ignore — hide path in Duplicates for this session"),
     ("d", "Delete file (confirm)"),
 ];
 
 const MULTISELECT: &[(&str, &str)] = &[
-    ("Spacebar", "Toggle row for multi-select"),
+    ("Ctrl+Space", "Enter / exit multi-select"),
+    ("Spacebar", "Toggle cursor row while multi-select is on"),
+    (
+        "Ctrl/Cmd+click",
+        "Enter multi-select (if needed) and toggle that row",
+    ),
+    ("Check column", "Same as Ctrl/Cmd+click"),
     ("a", "Bulk menu — Add to Lens / Rename / Delete / Enhance"),
+    ("Double-click (checked)", "Open Bulk menu"),
     ("Esc", "Exit Multi-select mode"),
 ];
 

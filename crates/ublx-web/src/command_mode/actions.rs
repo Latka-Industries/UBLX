@@ -23,7 +23,7 @@ pub(super) fn run_letter(ctx: CommandModeCtx, c: char) {
         'r' => spawn_local(run_reload(ctx)),
         'x' => spawn_local(run_export_zahir(ctx)),
         'l' => spawn_local(run_export_lenses(ctx)),
-        'p' => spawn_local(open_root_picker(ctx)),
+        'p' => open_root_picker(ctx),
         _ => {}
     }
 }
@@ -31,6 +31,10 @@ pub(super) fn run_letter(ctx: CommandModeCtx, c: char) {
 pub(super) fn open_theme_selector(ctx: CommandModeCtx, scope: SettingsScope) {
     ctx.theme_scope.set(scope);
     spawn_local(open_theme_picker(ctx));
+}
+
+pub(crate) fn open_root_picker(ctx: CommandModeCtx) {
+    spawn_local(open_root_picker_async(ctx));
 }
 
 async fn run_duplicates(ctx: CommandModeCtx) {
@@ -143,7 +147,7 @@ async fn open_theme_picker(ctx: CommandModeCtx) {
     }
 }
 
-async fn open_root_picker(ctx: CommandModeCtx) {
+async fn open_root_picker_async(ctx: CommandModeCtx) {
     match fetch_roots().await {
         Ok(rows) => {
             if rows.is_empty() {

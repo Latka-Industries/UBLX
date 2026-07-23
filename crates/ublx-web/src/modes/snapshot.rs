@@ -123,6 +123,13 @@ pub(crate) fn SnapshotMode() -> impl IntoView {
         path_rows(rows.into_iter().map(|(p, _, _)| p))
     });
 
+    let path_categories = Signal::derive(move || {
+        slim.get()
+            .iter()
+            .map(|r| (r.path.clone(), r.category.clone()))
+            .collect::<std::collections::HashMap<_, _>>()
+    });
+
     Effect::new(move |_| {
         let list = paths.get();
         if let Some(sel) = selected_path.get_untracked()
@@ -209,6 +216,7 @@ pub(crate) fn SnapshotMode() -> impl IntoView {
                         paths=paths.into()
                         selected=selected_path.into()
                         on_select=Callback::new(move |p| set_selected_path.set(Some(p)))
+                        path_categories=path_categories
                     />
                 </Suspense>
             }

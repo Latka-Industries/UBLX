@@ -6,7 +6,7 @@ use web_sys::KeyboardEvent;
 
 use crate::api::{CatalogFlags, format_timestamp_ns};
 use crate::catalog_refresh::CatalogRefresh;
-use crate::command_mode::{CommandModeCtx, CommandModePopup};
+use crate::command_mode::{CommandModeCtx, CommandModePopup, open_root_picker};
 use crate::focus::{PaneFocus, PdfPageNav, PreviewKeysBus, RightTabBus, UiNav};
 use crate::help::{HelpModal, HelpOverlay};
 use crate::keys::{
@@ -194,7 +194,22 @@ pub(crate) fn Shell(flags: CatalogFlags) -> impl IntoView {
             <div class="brand" aria-label="UBLX">"UBLX"</div>
         </header>
 
-        <div class="project-path" title=move || flags.get_value().root.clone().unwrap_or_default()>
+        <button
+            type="button"
+            class="project-path"
+            title=move || {
+                let root = flags.get_value().root.clone().unwrap_or_default();
+                if root.is_empty() {
+                    "Switch project".into()
+                } else {
+                    format!("{root} — click to switch project")
+                }
+            }
+            on:click=move |_| {
+                command_mode.close_all();
+                open_root_picker(command_mode);
+            }
+        >
             {
                 move || {
                     flags
@@ -204,7 +219,7 @@ pub(crate) fn Shell(flags: CatalogFlags) -> impl IntoView {
                         .unwrap_or_else(|| "—".into())
                 }
             }
-        </div>
+        </button>
 
         <main class="mode-body">
             {move || match mode.get() {
