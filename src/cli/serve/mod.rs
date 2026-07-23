@@ -8,11 +8,12 @@ mod settings;
 mod snapshot;
 mod state;
 
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
 use axum::Router;
 use axum::routing::get;
-use log::info;
+use log::{info, warn};
 use panza::{ServeMeta, StaticMount, run as panza_run};
 
 use crate::app::tokio_rt;
