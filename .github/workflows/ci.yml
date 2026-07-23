@@ -1,10 +1,30 @@
 name: Build
 
+# Native ublx only (fmt / clippy / test / MSRV). Web WASM is `.github/workflows/ublx-web.yml`.
+# Do **not** list Cargo.lock: web-only deps (crates/ublx-web) bump the workspace lockfile and
+# would otherwise fire this NetCDF matrix. Native dep intent is root `Cargo.toml`.
+# Markdown under matching trees is excluded with `!**/*.md` (GitHub forbids pairing `paths`
+# with `paths-ignore` on the same event — use `!` negation instead).
 on:
   push:
-    branches: [main, master]
+    branches: [main, master, dev]
+    paths:
+      - "src/**"
+      - "tests/**"
+      - "Cargo.toml"
+      # Keep CI self-testing when the workflow or Windows dep scripts change.
+      - ".github/workflows/ci.yml"
+      - ".github/scripts/ci-deps-windows-*"
+      - "!**/*.md"
   pull_request:
-    branches: [main, master]
+    branches: [main, master, dev]
+    paths:
+      - "src/**"
+      - "tests/**"
+      - "Cargo.toml"
+      - ".github/workflows/ci.yml"
+      - ".github/scripts/ci-deps-windows-*"
+      - "!**/*.md"
 
 jobs:
   test:

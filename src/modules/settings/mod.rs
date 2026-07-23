@@ -15,3 +15,6 @@ pub use layout_edit::*;
 pub use sync::*;
 pub use tab::*;
 pub use typed_column_tables_row::*;
+
+#[cfg(test)]
+mod tests;

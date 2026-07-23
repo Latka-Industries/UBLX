@@ -2,6 +2,8 @@
 
 Theme names match `Palette::name` in `palettes.rs`: use them as `theme = "..."` in `ublx.toml` or `.ublx.toml`. The in-app theme picker (**Command Mode + t**) previews and can save the choice.
 
+**Web UI:** palettes are not a free-form design kit. The TUI’s [`layout/style`](../layout/style/) (`ThemeStyles` / `tab_active`, etc.) defines which fields are used together. The web port exports those same fields as CSS vars (`css.rs`) and must keep the same pairings — see [`docs/WEB_UI.md`](../../docs/WEB_UI.md) § Theming.
+
 ## Picker order
 
 The picker shows **Dark** and **Light** section headers. Under each, themes are sorted **A–Z** by display name (same order as `theme_selector_entries` / `theme_ordered_list` in `mod.rs`). The tables below match that order.

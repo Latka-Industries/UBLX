@@ -59,6 +59,8 @@ pub struct UiStringsSearchStatus {
     pub search_label: &'static str,
     pub find_label: &'static str,
     pub last_snapshot: &'static str,
+    /// Right-aligned status chip (display-only; `?` opens help).
+    pub help_chip: &'static str,
 }
 
 /// UBLX settings source labels (global vs local config).
@@ -377,6 +379,7 @@ impl UiStrings {
             search_label: "Search (Categories & Contents): ",
             find_label: "Search: ",
             last_snapshot: "Last Snapshot",
+            help_chip: "? — Help",
         }
     }
 

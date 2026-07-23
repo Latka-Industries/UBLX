@@ -5,7 +5,7 @@ use std::fmt;
 use rusqlite::{Connection, Row};
 use serde::{Deserialize, Serialize};
 
-use crate::engine::db_ops::UblxDbStatements;
+use crate::engine::db_ops::{DuplicateGroupingMode, UblxDbStatements, load_duplicate_groups};
 
 /// One snapshot (or lens) row for JSON / tables.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -13,6 +13,9 @@ pub struct EntryRow {
     pub path: String,
     pub category: String,
     pub size: u64,
+    /// Snapshot `mtime_ns` when loaded for detail (viewer footer). Omitted on list rows.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mtime_ns: Option<i64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub zahir: Option<serde_json::Value>,
 }
@@ -23,6 +26,24 @@ pub struct DeltaRow {
     pub created_ns: i64,
     pub path: String,
     pub delta_type: String,
+}
+
+/// One duplicate group for JSON (`GET /duplicates`).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DuplicateGroupRow {
+    /// Stable index within this response (for clients that select by id).
+    pub id: usize,
+    /// Left-pane label (shortest path in the group — same as TUI).
+    pub label: String,
+    pub paths: Vec<String>,
+}
+
+/// Duplicate listing payload.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DuplicatesResponse {
+    /// `hash` or `name_size` (matches TUI tab suffix H / N/S).
+    pub mode: String,
+    pub groups: Vec<DuplicateGroupRow>,
 }
 
 /// Filters for listing snapshot entries.
@@ -120,6 +141,38 @@ pub fn list_lens_names(conn: &Connection) -> Result<Vec<String>, anyhow::Error> 
     query_strings(conn, UblxDbStatements::SELECT_LENS_NAMES)
 }
 
+/// Duplicate groups for the catalog (read-only: no on-demand blake3 fill).
+///
+/// Uses stored hashes when present; otherwise `(basename, size)` grouping — same fallback as TUI
+/// when `hash` is off / hashes are missing.
+///
+/// # Errors
+///
+/// Propagates `SQLite` / I/O failures from [`load_duplicate_groups`].
+pub fn list_duplicates(
+    db_path: &std::path::Path,
+    dir_to_ublx: &std::path::Path,
+) -> Result<DuplicatesResponse, anyhow::Error> {
+    let (groups, mode) = load_duplicate_groups(db_path, dir_to_ublx, false)?;
+    let mode = match mode {
+        DuplicateGroupingMode::Hash => "hash",
+        DuplicateGroupingMode::NameSize => "name_size",
+    };
+    let groups = groups
+        .into_iter()
+        .enumerate()
+        .map(|(id, g)| DuplicateGroupRow {
+            id,
+            label: g.representative_name().to_string(),
+            paths: g.paths,
+        })
+        .collect();
+    Ok(DuplicatesResponse {
+        mode: mode.to_string(),
+        groups,
+    })
+}
+
 /// Paths in a named lens (ordered).
 ///
 /// # Errors
@@ -188,6 +241,11 @@ pub fn entry_detail(
         .query_row(rusqlite::params![path], entry_from_row)
         .map_err(|_| CatalogNotFound::path(path))?;
 
+    let mut mstmt = conn.prepare(UblxDbStatements::SELECT_SNAPSHOT_MTIME_BY_PATH)?;
+    row.mtime_ns = mstmt
+        .query_row(rusqlite::params![path], |r| r.get::<_, i64>(0))
+        .ok();
+
     if include_zahir {
         let mut zstmt = conn.prepare(UblxDbStatements::SELECT_SNAPSHOT_ZAHIR_JSON_BY_PATH)?;
         let zahir: Option<String> = zstmt
@@ -240,6 +298,7 @@ fn entry_from_row(row: &Row<'_>) -> rusqlite::Result<EntryRow> {
         path: row.get(0)?,
         category: row.get::<_, Option<String>>(1)?.unwrap_or_default(),
         size: size.max(0).cast_unsigned(),
+        mtime_ns: None,
         zahir: None,
     })
 }

@@ -60,8 +60,10 @@ Thumbs.db
 .env
 .env.*
 !.env.example
-.ublx.toml
 /ublx.*
-ublx-*/
+/ublx-*/
 .nefaxer
 TODO.md
+
+# WASM UI build output (crates/ublx-web/build.sh)
+crates/ublx-web/dist/

@@ -3,6 +3,7 @@
 [![Crates.io](https://img.shields.io/crates/v/ublx.svg)](https://crates.io/crates/ublx)
 [![docs.rs](https://img.shields.io/docsrs/ublx)](https://docs.rs/ublx)
 ![Build](https://github.com/Latka-Industries/UBLX/workflows/Build/badge.svg)
+![UBLX Web](https://github.com/Latka-Industries/UBLX/workflows/UBLX%20Web/badge.svg)
 ![Rust](https://img.shields.io/badge/rust-1.95-orange.svg)
 
 _[Ublx ... Safe when taken as directed.][ubik]_

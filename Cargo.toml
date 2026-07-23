@@ -1,3 +1,8 @@
+[workspace]
+members = [".", "crates/ublx-web"]
+default-members = ["."]
+resolver = "2"
+
 [package]
 name = "ublx"
 version = "0.1.14"
@@ -18,6 +23,12 @@ categories = [
   "text-processing",
   "visualization",
 ]
+# THI-171: one integration crate (`tests/suite`), not one target per `tests/*.rs`.
+autotests = false
+
+[[test]]
+name = "suite"
+path = "tests/suite/mod.rs"
 
 # rustdoc: `zahirscan` with default features off (no `netcdf`).
 [package.metadata.docs.rs]
@@ -26,6 +37,8 @@ no-default-features = true
 [features]
 default = ["zahir-netcdf"]
 zahir-netcdf = ["zahirscan/netcdf"]
+# Embedded / Dir-mounted Leptos UI for `ublx serve` (build UI with crates/ublx-web/build.sh first).
+ui = []
 
 [dependencies]
 anyhow = "1.0.104"

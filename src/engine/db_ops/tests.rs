@@ -1,11 +1,11 @@
-//! Duplicate detection behavior (hash-only grouping).
+//! Duplicate-group extraction (in-memory / temp SQLite).
 
 use std::path::PathBuf;
 
-use rusqlite::Connection;
-use ublx::engine::db_ops::{
+use crate::engine::db_ops::{
     DuplicateGroupingMode, UblxDbSchema, UblxDbStatements, load_duplicate_groups,
 };
+use rusqlite::Connection;
 
 fn test_db_path(name: &str) -> PathBuf {
     let unique = format!(

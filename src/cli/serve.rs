@@ -17,17 +17,25 @@ use serde::{Deserialize, Serialize};
 use crate::app::tokio_rt;
 use crate::cli::catalog::open_catalog_for_read;
 use crate::cli::catalog_read::{
-    EntryListFilter, entry_detail, is_not_found, list_categories, list_delta, list_entries,
-    list_lens_entries, list_lens_names,
+    EntryListFilter, EntryRow, entry_detail, is_not_found, list_categories, list_delta,
+    list_duplicates, list_entries, list_lens_entries, list_lens_names,
 };
 use crate::cli::doctor;
+use crate::cli::settings_api::{self, SettingsPatch};
 use crate::cli_parser::ServeCli;
 use crate::config::{UblxPaths, all_indexed_roots_alphabetical, record_prior_root_selected};
 use crate::handlers::run_snap_pipeline_from_dir_db;
+use crate::handlers::viewing::sectioned_preview_from_zahir;
+use crate::integrations::{ZahirFT, delimiter_from_path_for_viewer, file_type_from_metadata_name};
+use crate::render::kv_tables::{SectionView, parse_json_to_views};
+use crate::render::viewers::{csv_handler, html_escape_minimal, syntect_text};
+use crate::utils::file_content_for_viewer;
 
 /// Live catalog for one serve process — switchable via `/roots/current`.
 struct ServeCatalog {
     dir: PathBuf,
+    /// Catalog file actually opened (for duplicate load and reopen).
+    read_path: PathBuf,
     conn: Connection,
 }
 
@@ -113,6 +121,7 @@ pub fn run(args: &ServeCli) -> Result<(), anyhow::Error> {
     let state: AppState = Arc::new(Mutex::new(AppStateInner {
         catalog: ServeCatalog {
             dir: handle.paths.dir,
+            read_path: handle.read_path,
             conn: handle.conn,
         },
         snapshot: SnapshotJob::idle(),
@@ -129,9 +138,15 @@ pub fn run(args: &ServeCli) -> Result<(), anyhow::Error> {
         .route("/categories", get(get_categories))
         .route("/entries", get(get_entries))
         .route("/entries/{*path}", get(get_entry))
+        .route("/content/{*path}", get(get_entry_content))
         .route("/delta", get(get_delta))
+        .route("/duplicates", get(get_duplicates))
         .route("/lenses", get(get_lenses))
         .route("/lenses/{name}", get(get_lens))
+        .route(
+            "/settings/{scope}",
+            get(get_settings).patch(patch_settings_route),
+        )
         .with_state(state);
 
     tokio_rt::runtime().block_on(panza_run(
@@ -141,8 +156,31 @@ pub fn run(args: &ServeCli) -> Result<(), anyhow::Error> {
         },
         args.serve.clone(),
         api,
-        StaticMount::None,
+        static_mount(),
     ))
+}
+
+/// Optional Leptos UI (`--features ui`): serve `crates/ublx-web/dist` (or `UBLX_WEB_DIST`).
+fn static_mount() -> StaticMount {
+    #[cfg(feature = "ui")]
+    {
+        let dir = std::env::var_os("UBLX_WEB_DIST")
+            .map(PathBuf::from)
+            .unwrap_or_else(|| Path::new(env!("CARGO_MANIFEST_DIR")).join("crates/ublx-web/dist"));
+        if !dir.join("index.html").is_file() {
+            warn!(
+                "feature `ui` enabled but {}/index.html missing — run crates/ublx-web/build.sh",
+                dir.display()
+            );
+        } else {
+            info!("serve UI static mount: {}", dir.display());
+        }
+        StaticMount::Dir(dir)
+    }
+    #[cfg(not(feature = "ui"))]
+    {
+        StaticMount::None
+    }
 }
 
 #[derive(Debug, Serialize)]
@@ -259,6 +297,7 @@ async fn put_current_root(
         ApiError::from(e)
     })?;
     let new_dir = handle.paths.dir;
+    let new_read_path = handle.read_path;
     let new_conn = handle.conn;
     with_inner(&state, |inner| {
         if same_dir(&inner.catalog.dir, &new_dir) {
@@ -266,6 +305,7 @@ async fn put_current_root(
         } else {
             let prev = inner.catalog.dir.display().to_string();
             inner.catalog.dir.clone_from(&new_dir);
+            inner.catalog.read_path = new_read_path;
             inner.catalog.conn = new_conn;
             let _ = record_prior_root_selected(&new_dir);
             info!("serve root switched: {prev} -> {}", new_dir.display());
@@ -341,6 +381,7 @@ fn run_serve_snapshot_job(state: &AppState, dir: &Path, enhance_all: bool) {
             // Only refresh conn if we are still on the same root (switch was blocked while running).
             if same_dir(&inner.catalog.dir, dir) {
                 inner.catalog.conn = handle.conn;
+                inner.catalog.read_path = handle.read_path;
             }
             inner.snapshot.mark_finished(SnapshotState::Done, last);
             info!(
@@ -384,10 +425,174 @@ async fn get_entry(
     AxumPath(path): AxumPath<String>,
     Query(q): Query<EntryQuery>,
 ) -> Result<Response, ApiError> {
-    let path = normalize_entry_path(&path);
+    let path = require_rel_path(&path)?;
+    let dir = current_dir(&state)?;
     with_db(&state, |conn| {
-        json_or_not_found(entry_detail(conn, &path, q.zahir))
+        let row = entry_row(conn, &path, q.zahir)?;
+        if !q.zahir {
+            return Ok(Json(row).into_response());
+        }
+        let typed = settings_api::effective_typed_column_tables(&dir);
+        let (metadata_tables, writing_tables) = entry_table_views(row.zahir.as_ref(), typed);
+        Ok(Json(EntryDetailResponse {
+            row,
+            metadata_tables,
+            writing_tables,
+        })
+        .into_response())
     })
+}
+
+#[derive(Debug, Deserialize)]
+struct EntryContentQuery {
+    /// `text` or `html` (markdown → HTML via pulldown-cmark). Omitted → HTML for Markdown.
+    #[serde(default)]
+    format: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+struct EntryContentResponse {
+    path: String,
+    category: String,
+    /// `text` or `html`
+    format: String,
+    content: String,
+}
+
+async fn get_entry_content(
+    State(state): State<AppState>,
+    AxumPath(path): AxumPath<String>,
+    Query(q): Query<EntryContentQuery>,
+) -> Result<impl IntoResponse, ApiError> {
+    let path = require_rel_path(&path)?;
+    let dir = current_dir(&state)?;
+    let row = with_db(&state, |conn| entry_row(conn, &path, false))?;
+    let abs = resolve_entry_disk_path(&dir, &path)?;
+    let zahir_type = file_type_from_metadata_name(&row.category);
+    let text = file_content_for_viewer(&abs, zahir_type).unwrap_or_else(|| "(empty)".into());
+    let want_html = content_want_html(q.format.as_deref(), zahir_type, &row.path)?;
+    let (format, content) = if want_html {
+        let appearance = settings_api::effective_appearance(&dir);
+        (
+            "html".into(),
+            content_to_html(&text, &row.path, zahir_type, appearance),
+        )
+    } else {
+        ("text".into(), text)
+    };
+
+    Ok(Json(EntryContentResponse {
+        path: row.path,
+        category: row.category,
+        format,
+        content,
+    }))
+}
+
+fn content_want_html(
+    format: Option<&str>,
+    zahir_type: Option<ZahirFT>,
+    path: &str,
+) -> Result<bool, ApiError> {
+    match format.map(str::trim) {
+        Some("html") => Ok(true),
+        Some("text") => Ok(false),
+        None => Ok(matches!(
+            zahir_type,
+            Some(ZahirFT::Markdown | ZahirFT::Csv | ZahirFT::Text)
+        ) || zahir_type.is_some_and(syntect_text::uses_syntect_ft)
+            || delimiter_from_path_for_viewer(path).is_some()),
+        Some(other) => Err(ApiError::bad_request(format!(
+            "invalid format {other:?}; expected text|html"
+        ))),
+    }
+}
+
+fn content_to_html(
+    text: &str,
+    path: &str,
+    zahir_type: Option<ZahirFT>,
+    appearance: crate::themes::Appearance,
+) -> String {
+    match zahir_type {
+        Some(ZahirFT::Markdown) => markdown_to_html(text),
+        Some(ft) if syntect_text::uses_syntect_ft(ft) => {
+            syntect_text::highlight_viewer_html(text, path, ft, appearance)
+        }
+        Some(ZahirFT::Csv) => csv_handler::delimited_to_html(text, path),
+        Some(ZahirFT::Text) => format!("<pre>{}</pre>", html_escape_minimal(text)),
+        _ if delimiter_from_path_for_viewer(path).is_some() => {
+            csv_handler::delimited_to_html(text, path)
+        }
+        _ => format!("<pre>{}</pre>", html_escape_minimal(text)),
+    }
+}
+
+fn markdown_to_html(src: &str) -> String {
+    use pulldown_cmark::{Options, Parser, html};
+    let parser = Parser::new_ext(src, Options::all());
+    let mut out = String::new();
+    html::push_html(&mut out, parser);
+    out
+}
+
+fn entry_row(conn: &Connection, path: &str, include_zahir: bool) -> Result<EntryRow, ApiError> {
+    match entry_detail(conn, path, include_zahir) {
+        Ok(r) => Ok(r),
+        Err(e) if is_not_found(&e) => Err(ApiError::not_found(e)),
+        Err(e) => Err(ApiError::from(e)),
+    }
+}
+
+/// Normalize and reject empty / `..` segments (path-traversal).
+fn require_rel_path(path: &str) -> Result<String, ApiError> {
+    let path = normalize_entry_path(path);
+    if path.is_empty() || path.split('/').any(|s| s == "..") {
+        return Err(ApiError::bad_request("invalid entry path"));
+    }
+    Ok(path)
+}
+
+/// Join catalog-relative path under the current root; reject escapes outside the root.
+fn resolve_entry_disk_path(root: &Path, rel: &str) -> Result<PathBuf, ApiError> {
+    let root = canonicalize_dir(root);
+    let joined = root.join(rel);
+    let canon = joined
+        .canonicalize()
+        .map_err(|e| ApiError::not_found(format!("file not found for {rel}: {e}")))?;
+    if !canon.starts_with(&root) {
+        return Err(ApiError::bad_request("path escapes project root"));
+    }
+    Ok(canon)
+}
+
+#[derive(Debug, Serialize)]
+struct EntryDetailResponse {
+    #[serde(flatten)]
+    row: EntryRow,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    metadata_tables: Option<Vec<SectionView>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    writing_tables: Option<Vec<SectionView>>,
+}
+
+fn entry_table_views(
+    zahir: Option<&serde_json::Value>,
+    typed: crate::config::ColumnStatsDisplay,
+) -> (Option<Vec<SectionView>>, Option<Vec<SectionView>>) {
+    let Some(value) = zahir else {
+        return (None, None);
+    };
+    let preview = sectioned_preview_from_zahir(value);
+    let metadata_tables = preview.metadata.as_deref().and_then(|json| {
+        let views = parse_json_to_views(json, typed);
+        (!views.is_empty()).then_some(views)
+    });
+    let writing_tables = preview.writing.as_deref().and_then(|json| {
+        let views = parse_json_to_views(json, typed);
+        (!views.is_empty()).then_some(views)
+    });
+    (metadata_tables, writing_tables)
 }
 
 async fn get_delta(
@@ -397,6 +602,14 @@ async fn get_delta(
     with_db(&state, |conn| {
         Ok(Json(list_delta(conn, q.delta_type.as_deref())?))
     })
+}
+
+async fn get_duplicates(State(state): State<AppState>) -> Result<impl IntoResponse, ApiError> {
+    let (dir, read_path) = with_inner(&state, |inner| {
+        Ok((inner.catalog.dir.clone(), inner.catalog.read_path.clone()))
+    })?;
+    let body = list_duplicates(&read_path, &dir).map_err(ApiError::from)?;
+    Ok(Json(body))
 }
 
 async fn get_lenses(State(state): State<AppState>) -> Result<impl IntoResponse, ApiError> {
@@ -410,6 +623,29 @@ async fn get_lens(
     with_db(&state, |conn| {
         json_or_not_found(list_lens_entries(conn, &name))
     })
+}
+
+async fn get_settings(
+    State(state): State<AppState>,
+    AxumPath(scope): AxumPath<String>,
+) -> Result<impl IntoResponse, ApiError> {
+    let dir = current_dir(&state)?;
+    let view = settings_api::get_settings_view(&dir, &scope).map_err(ApiError::bad_request)?;
+    Ok(Json(view))
+}
+
+async fn patch_settings_route(
+    State(state): State<AppState>,
+    AxumPath(scope): AxumPath<String>,
+    Json(patch): Json<SettingsPatch>,
+) -> Result<impl IntoResponse, ApiError> {
+    let dir = current_dir(&state)?;
+    let view = settings_api::patch_settings(&dir, &scope, &patch).map_err(ApiError::bad_request)?;
+    info!(
+        "serve settings patched: scope={scope} dir={}",
+        dir.display()
+    );
+    Ok(Json(view))
 }
 
 fn with_db<T>(
@@ -477,6 +713,13 @@ impl ApiError {
     fn conflict(message: impl Into<String>) -> Self {
         Self {
             status: StatusCode::CONFLICT,
+            message: message.into(),
+        }
+    }
+
+    fn bad_request(message: impl Into<String>) -> Self {
+        Self {
+            status: StatusCode::BAD_REQUEST,
             message: message.into(),
         }
     }

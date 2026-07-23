@@ -19,6 +19,7 @@ use syntect::util::LinesWithEndings;
 
 use crate::engine::db_ops::UblxDbCategory;
 use crate::integrations::ZahirFT;
+use crate::render::viewers::html_escape::html_escape_minimal;
 use crate::themes::{self, Appearance, SYNTECT_THEME_KEYS};
 
 static DEFAULT_SYNTAX_SET: LazyLock<SyntaxSet> = LazyLock::new(SyntaxSet::load_defaults_newlines);
@@ -127,6 +128,35 @@ fn pick_syntax<'a>(
             .unwrap_or_else(|| plain(default)),
         ZahirFT::Code => pick_syntax_by_path(default, extra, path, raw),
         _ => plain(default),
+    }
+}
+
+/// Snapshot categories that use syntect in the Viewer (same set as TUI `viewer_uses_syntect_highlight`).
+#[must_use]
+pub fn uses_syntect_ft(ft: ZahirFT) -> bool {
+    matches!(
+        ft,
+        ZahirFT::Json
+            | ZahirFT::Toml
+            | ZahirFT::Yaml
+            | ZahirFT::Xml
+            | ZahirFT::Html
+            | ZahirFT::Ini
+            | ZahirFT::Log
+            | ZahirFT::Code
+    )
+}
+
+/// Host HTML for web Viewer — same grammar/theme pick as [`highlight_viewer_with_appearance`].
+#[must_use]
+pub fn highlight_viewer_html(raw: &str, path: &str, ft: ZahirFT, appearance: Appearance) -> String {
+    let default = &*DEFAULT_SYNTAX_SET;
+    let extra = &*EXTRA_SYNTAX_SET;
+    let (ss, syntax) = pick_syntax(default, extra, ft, path, raw);
+    let theme = theme_for_appearance(appearance);
+    match syntect::html::highlighted_html_for_string(raw, ss, syntax, theme) {
+        Ok(html) => html,
+        Err(_) => format!("<pre>{}</pre>", html_escape_minimal(raw)),
     }
 }
 

@@ -9,6 +9,7 @@ mod output;
 mod query;
 mod remote;
 mod serve;
+mod settings_api;
 
 pub use catalog::{
     CatalogHandle, CatalogPaths, open_catalog_for_read, resolve_catalog_paths,

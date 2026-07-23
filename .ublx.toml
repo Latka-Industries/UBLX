@@ -1,0 +1,12 @@
+exclude = ["target", "object", "dist"]
+show_hidden_files = true
+hash = true
+theme = "Oblivion Ink"
+enable_enhance_all = true
+bg_opacity = 0.92
+run_snapshot_on_startup = true
+
+[layout]
+left_pct = 10
+middle_pct = 30
+right_pct = 60
