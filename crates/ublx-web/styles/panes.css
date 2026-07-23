@@ -1,0 +1,241 @@
+/* —— 3 panes: bordered boxes like ratatui Block + Borders::ALL —— */
+.three-pane {
+  display: grid;
+  grid-template-columns: minmax(11rem, 18%) minmax(14rem, 32%) 1fr;
+  height: 100%;
+  min-height: 0;
+  gap: 0.4rem;
+  padding: 0.4rem;
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.panel-frame {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  overflow-x: hidden;
+  border: 1px solid hsl(var(--border));
+  background: hsl(var(--background));
+}
+
+.panel--focused .panel-frame {
+  border-color: hsl(var(--primary));
+}
+
+.panel-titlebar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  flex: 0 0 auto;
+  padding: 0.35rem 0.45rem 0.3rem;
+}
+
+.panel-inner,
+.panel-pad {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--secondary-foreground) / 0.55) hsl(var(--muted));
+}
+
+.panel-inner {
+  display: flex;
+  flex-direction: column;
+}
+
+.panel-pad {
+  padding: 0.45rem 0.55rem;
+  display: flex;
+  flex-direction: column;
+}
+
+.panel-inner::-webkit-scrollbar,
+.panel-pad::-webkit-scrollbar {
+  width: 0.55rem;
+  height: 0.55rem;
+}
+
+.panel-inner::-webkit-scrollbar-track,
+.panel-pad::-webkit-scrollbar-track {
+  background: hsl(var(--muted));
+  border-left: 1px solid hsl(var(--border) / 0.5);
+}
+
+.panel-inner::-webkit-scrollbar-thumb,
+.panel-pad::-webkit-scrollbar-thumb {
+  background: hsl(var(--secondary));
+  border: 1px solid hsl(var(--primary) / 0.35);
+  border-radius: 999px;
+}
+
+.panel-inner::-webkit-scrollbar-thumb:hover,
+.panel-pad::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--primary) / 0.35);
+  border-color: hsl(var(--primary));
+}
+
+.panel-inner::-webkit-scrollbar-corner,
+.panel-pad::-webkit-scrollbar-corner {
+  background: hsl(var(--muted));
+}
+
+.panel-list {
+  list-style: none;
+  margin: 0;
+  padding: 0.15rem 0 0.35rem;
+}
+
+.panel-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  width: 100%;
+  margin: 0;
+  padding: 0.2rem 0.55rem;
+  border: 0;
+  background: transparent;
+  color: hsl(var(--foreground));
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+/* Selection class is the only row highlight — never leave a stuck :focus ghost after click. */
+.panel-row:focus,
+.panel-row:focus-visible {
+  outline: none;
+}
+
+.panel-row:focus:not(.panel-row--selected),
+.panel-row:focus-visible:not(.panel-row--selected) {
+  background: transparent;
+  color: hsl(var(--foreground));
+}
+
+.panel-row:hover {
+  background: hsl(var(--secondary) / 0.45);
+}
+
+/* Selected row in an unfocused pane — keep state visible, don't compete with the cursor. */
+.panel-row--selected {
+  background: hsl(var(--secondary) / 0.3);
+  color: hsl(var(--foreground));
+}
+
+.panel-row--selected .panel-row__sym {
+  color: hsl(var(--muted-foreground));
+  font-weight: 600;
+}
+
+/* Active cursor: full selected chrome only in the focused pane. */
+.panel--focused .panel-row--selected {
+  background: hsl(var(--secondary));
+  color: hsl(var(--secondary-foreground));
+}
+
+.panel--focused .panel-row--selected .panel-row__sym {
+  color: hsl(var(--secondary-foreground));
+  font-weight: 700;
+}
+
+.panel-row__sym {
+  flex: 0 0 0.75rem;
+  color: hsl(var(--primary));
+  font-weight: 700;
+}
+
+.panel-row__text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pane-empty {
+  margin: 0;
+  padding: 0.45rem 0.55rem;
+  color: hsl(var(--muted-foreground));
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.right-pane {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow-x: hidden;
+}
+
+.right-pane-chrome {
+  border-bottom: 1px solid hsl(var(--border) / 0.5);
+}
+
+.right-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  flex: 1;
+}
+
+.entry-viewer {
+  min-width: 0;
+  max-width: 100%;
+  width: 100%;
+}
+
+/* CSV: pane does not scroll — frozen H/V bars drive translate on the table. */
+.panel-pad:has(.csv-viewer) {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.entry-viewer:has(.csv-viewer),
+.csv-viewer-host {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+}
+
+.panel-pad:has(.img-viewer-host) {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.entry-viewer:has(.img-viewer-host) {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+}
+
+.csv-viewer-host > .csv-viewer {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.entry-viewer__note {
+  padding: 0;
+}
+

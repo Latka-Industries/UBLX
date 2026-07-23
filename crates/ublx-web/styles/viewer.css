@@ -1,0 +1,342 @@
+/* —— Markdown Viewer (host HTML via /content/...) —— */
+.md-viewer {
+  margin-top: 0.35rem;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  color: hsl(var(--foreground));
+}
+
+.md-viewer > *:first-child {
+  margin-top: 0;
+}
+
+.md-viewer h1,
+.md-viewer h2,
+.md-viewer h3,
+.md-viewer h4,
+.md-viewer h5,
+.md-viewer h6 {
+  margin: 1rem 0 0.4rem;
+  font-weight: 700;
+  color: hsl(var(--foreground));
+  line-height: 1.25;
+}
+
+.md-viewer h1 {
+  font-size: 1.35rem;
+}
+
+.md-viewer h2 {
+  font-size: 1.2rem;
+}
+
+.md-viewer h3 {
+  font-size: 1.05rem;
+}
+
+.md-viewer p,
+.md-viewer ul,
+.md-viewer ol,
+.md-viewer blockquote,
+.md-viewer pre {
+  margin: 0.45rem 0;
+}
+
+.md-viewer ul,
+.md-viewer ol {
+  padding-left: 1.35rem;
+}
+
+.md-viewer a {
+  color: hsl(var(--search));
+}
+
+.md-viewer code {
+  font-family: var(--font-mono);
+  font-size: 0.85em;
+  padding: 0.05rem 0.25rem;
+  background: hsl(var(--table-stripe));
+  border-radius: var(--radius);
+}
+
+.md-viewer pre {
+  padding: 0.55rem 0.65rem;
+  overflow-x: auto;
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius);
+}
+
+.md-viewer pre code {
+  padding: 0;
+  background: transparent;
+}
+
+.md-viewer blockquote {
+  margin-left: 0;
+  padding: 0.15rem 0.75rem;
+  border-left: 3px solid hsl(var(--border));
+  color: hsl(var(--muted-foreground));
+}
+
+.md-viewer table {
+  margin: 0.55rem 0;
+}
+
+.md-viewer hr {
+  border: none;
+  border-top: 1px solid hsl(var(--border));
+  margin: 0.85rem 0;
+}
+
+.md-viewer img {
+  max-width: 100%;
+  height: auto;
+}
+
+/* —— Image / SVG / embedded cover (host HTML → <img src=/content?format=raw|cover>) —— */
+.img-viewer-host {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  align-items: center;
+  justify-content: center;
+  overflow: auto;
+}
+
+.img-viewer-host .img-viewer {
+  display: flex;
+  max-width: 100%;
+  max-height: 100%;
+  align-items: center;
+  justify-content: center;
+  padding: 0.35rem;
+}
+
+.img-viewer-host .img-viewer__img {
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  background:
+    linear-gradient(45deg, hsl(var(--muted) / 0.45) 25%, transparent 25%),
+    linear-gradient(-45deg, hsl(var(--muted) / 0.45) 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, hsl(var(--muted) / 0.45) 75%),
+    linear-gradient(-45deg, transparent 75%, hsl(var(--muted) / 0.45) 75%);
+  background-size: 16px 16px;
+  background-position:
+    0 0,
+    0 8px,
+    8px -8px,
+    -8px 0;
+}
+
+.img-viewer-host .img-viewer__empty {
+  margin: 0.75rem;
+  color: hsl(var(--muted-foreground));
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+}
+
+/* —— Code / syntect Viewer (host HTML; theme bg lives in syntect markup) —— */
+.code-viewer {
+  margin-top: 0.35rem;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: hidden;
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
+.code-viewer pre {
+  margin: 0;
+  padding: 0;
+  max-width: 100%;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  font: inherit;
+  border: none;
+  border-radius: 0;
+}
+
+/* —— CSV / delimited + plain Text Viewer ——
+   Frozen top H-bar + side V-bar; pinned header; body moves via translate. */
+.csv-viewer {
+  --csv-bar: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.csv-viewer__note {
+  flex: 0 0 auto;
+  margin: 0 0 0.5rem;
+  color: hsl(var(--muted-foreground));
+  font-size: 0.85rem;
+}
+
+.csv-viewer__shell {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--csv-bar);
+  grid-template-rows: var(--csv-bar) minmax(0, 1fr);
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+}
+
+.csv-viewer__hbar,
+.csv-viewer__vbar {
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--primary) / 0.85) hsl(var(--muted));
+}
+
+.csv-viewer__hbar {
+  grid-column: 1;
+  grid-row: 1;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.csv-viewer__corner {
+  grid-column: 2;
+  grid-row: 1;
+  background: hsl(var(--muted));
+}
+
+.csv-viewer__viewport {
+  grid-column: 1;
+  grid-row: 2;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.csv-viewer__head {
+  flex: 0 0 auto;
+  overflow: hidden;
+  z-index: 1;
+  background: hsl(var(--card));
+  border-bottom: 1px solid hsl(var(--border));
+}
+
+.csv-viewer__head-inner {
+  width: max-content;
+  min-width: 100%;
+  will-change: transform;
+}
+
+.csv-viewer__body {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.csv-viewer__vbar {
+  grid-column: 2;
+  grid-row: 2;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.csv-viewer__hbar::-webkit-scrollbar {
+  height: var(--csv-bar);
+}
+
+.csv-viewer__vbar::-webkit-scrollbar {
+  width: var(--csv-bar);
+}
+
+.csv-viewer__hbar::-webkit-scrollbar-thumb,
+.csv-viewer__vbar::-webkit-scrollbar-thumb {
+  background: hsl(var(--primary) / 0.55);
+  border-radius: 2px;
+}
+
+.csv-viewer__hspacer {
+  height: 1px;
+}
+
+.csv-viewer__vspacer {
+  width: 1px;
+}
+
+.csv-viewer__inner {
+  width: max-content;
+  min-width: 100%;
+  will-change: transform;
+}
+
+.csv-viewer .kv-table {
+  width: max-content;
+  min-width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+  table-layout: fixed;
+}
+
+/* max-width must match WEB_CELL_ELLIPSIS_CHARS in csv_handler.rs */
+.csv-viewer .kv-table th,
+.csv-viewer .kv-table td {
+  max-width: 36ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 0.2rem 0.55rem;
+  text-align: left;
+  vertical-align: top;
+  box-sizing: border-box;
+}
+
+.csv-viewer__head .kv-table th {
+  background: hsl(var(--card));
+  font-weight: 600;
+}
+
+.csv-viewer [data-tip] {
+  cursor: help;
+}
+
+.text-viewer {
+  margin-top: 0.35rem;
+}
+
+.text-viewer pre {
+  margin: 0;
+  padding: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
+.windowed-text-viewer__hint {
+  margin: 0.5rem 0 0;
+  font-size: 0.75rem;
+  opacity: 0.65;
+}
+
+.detail-pre {
+  margin: 0;
+  padding: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font: inherit;
+  font-size: 0.85rem;
+  line-height: 1.4;
+  color: hsl(var(--foreground));
+}
+
