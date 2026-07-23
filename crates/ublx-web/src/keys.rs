@@ -5,7 +5,7 @@ use web_sys::KeyboardEvent;
 use crate::nav::MainMode;
 use crate::panes::RightTab;
 
-/// Actions the web shell handles (PR #1 hotkeys). Viewer-find / Command Mode later.
+/// Actions the web shell handles. Command Mode later.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum WebAction {
     SearchStart,
@@ -30,14 +30,45 @@ pub(crate) enum WebAction {
     HelpAbsorb,
     /// Cycle middle-pane content sort (`s`) — Snapshot / Dupes / Delta.
     CycleContentSort,
+    /// Right-pane preview: scroll down / PDF next page (Shift+J / Shift+↓).
+    ScrollPreviewDown,
+    /// Right-pane preview: scroll up / PDF previous page (Shift+K / Shift+↑).
+    ScrollPreviewUp,
+    /// Right-pane preview: top / PDF first page (Shift+B).
+    PreviewTop,
+    /// Right-pane preview: bottom / PDF last page (Shift+E).
+    PreviewBottom,
+    /// Open / re-edit Viewer find (Shift+S).
+    ViewerFindOpen,
+    /// Next find match (`n` while find committed).
+    ViewerFindNext,
+    /// Previous find match (`N` while find committed).
+    ViewerFindPrev,
+    /// Clear Viewer find (Esc while committed).
+    ViewerFindClear,
+}
+
+/// Extra keymap gates for Viewer find (TUI `KeyActionContext` subset).
+#[derive(Clone, Copy, Debug, Default)]
+pub(crate) struct FindKeyCtx {
+    /// Find bar committed (n/N / Esc clear).
+    pub committed: bool,
+    /// Catalog `/` search is typing — block Shift+S.
+    pub catalog_search_active: bool,
+    /// False in Settings (TUI).
+    pub allow: bool,
 }
 
 /// Map a keydown to a [`WebAction`]. Returns `None` when the event should pass through.
 ///
-/// Caller must skip invoking this while a form field (including catalog search input) is focused.
+/// Caller must skip invoking this while a form field (including catalog / find inputs) is focused.
 /// When `help_open`, only help navigation / close / toggle are returned.
 #[must_use]
-pub(crate) fn action_from_keydown(ev: &KeyboardEvent, help_open: bool) -> Option<WebAction> {
+pub(crate) fn action_from_keydown(
+    ev: &KeyboardEvent,
+    help_open: bool,
+    find: FindKeyCtx,
+) -> Option<WebAction> {
     let key = ev.key();
     let code = ev.code();
     let ctrl = ev.ctrl_key() || ev.meta_key();
@@ -78,6 +109,37 @@ pub(crate) fn action_from_keydown(ev: &KeyboardEvent, help_open: bool) -> Option
         return Some(WebAction::CycleRightTab);
     }
 
+    // Viewer find: Shift+S open; n/N next/prev when committed; Esc clears committed.
+    if shift && !ctrl && find.allow && !find.catalog_search_active {
+        match key.as_str() {
+            "S" | "s" => return Some(WebAction::ViewerFindOpen),
+            _ => {}
+        }
+    }
+    if find.committed && !ctrl {
+        if key == "Escape" {
+            return Some(WebAction::ViewerFindClear);
+        }
+        if !shift && (key == "n" || key == "N") {
+            return Some(WebAction::ViewerFindNext);
+        }
+        if shift && (key == "N" || key == "n" || code == "KeyN") {
+            return Some(WebAction::ViewerFindPrev);
+        }
+    }
+
+    // Preview scroll / PDF page nav (TUI Shift+J/K/B/E + Shift+arrows).
+    // After Shift+S handling so find open wins over nothing on S.
+    if shift && !ctrl {
+        match (key.as_str(), code.as_str()) {
+            ("J" | "j", _) | (_, "ArrowDown") => return Some(WebAction::ScrollPreviewDown),
+            ("K" | "k", _) | (_, "ArrowUp") => return Some(WebAction::ScrollPreviewUp),
+            ("B" | "b", _) => return Some(WebAction::PreviewTop),
+            ("E" | "e", _) => return Some(WebAction::PreviewBottom),
+            _ => {}
+        }
+    }
+
     // Mode digits via `code` (layout-stable) + numpad.
     if !ctrl && !shift {
         let digit_mode = match code.as_str() {
@@ -99,7 +161,7 @@ pub(crate) fn action_from_keydown(ev: &KeyboardEvent, help_open: bool) -> Option
             "/" if !shift => return Some(WebAction::SearchStart),
             "~" => return Some(WebAction::MainModeToggle),
             "Tab" if !shift => return Some(WebAction::FocusCycle),
-            "Escape" => return None, // reserved; search handles its own Esc
+            "Escape" => return None, // catalog search input handles its own Esc
             _ => {}
         }
     }
@@ -129,7 +191,6 @@ pub(crate) fn action_from_keydown(ev: &KeyboardEvent, help_open: bool) -> Option
         }
         "g" if !ctrl && !shift && key == "g" => return Some(WebAction::ListTop),
         "g" if !ctrl && key == "G" => return Some(WebAction::ListBottom),
-        // Plain `s` cycles sort; Shift+S reserved for viewer find (later mini-PR).
         "s" if !ctrl && !shift && key == "s" => return Some(WebAction::CycleContentSort),
         _ => {}
     }

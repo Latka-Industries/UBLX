@@ -19,6 +19,7 @@ mod shell;
 mod sort;
 mod theme;
 mod viewer;
+mod viewer_find;
 
 use leptos::prelude::*;
 use leptos::task::spawn_local;

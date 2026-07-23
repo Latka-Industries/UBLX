@@ -193,9 +193,9 @@ Right pane is not a list-focus target. Focused pane: focused border + active tit
 | Viewer markdown | full md pipeline | stub | **#6** |
 | Viewer code | syntect | syntect HTML | **#7** |
 | Viewer tables/CSV | pretty / csv | HTML table / Text `<pre>` | **#8** |
-| Viewer images | raster / svg | stub | **#9** |
-| Viewer PDF/video | optional tools | stub | **#10** |
-| Viewer find | Shift+S strip | missing | **#11** |
+| Viewer images | raster / svg + covers | `<img>` via `/content?format=raw|cover` | **#9** |
+| Viewer PDF/video | optional tools + Shift+J/K pages | PNG preview + PDF page keys / footer | **#10** |
+| Viewer find | Shift+S strip | landed | **#11** |
 | Settings | controls + TOML; default **Local** | landed (no bg_opacity control) | — |
 | Embedded ship | one binary | Dir / `UBLX_WEB_DIST` | **#16** |
 

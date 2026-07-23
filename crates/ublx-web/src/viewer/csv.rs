@@ -1,4 +1,4 @@
-//! Viewer tab: markdown / syntect / CSV / text HTML (host) and placeholders for other categories.
+//! CSV Viewer: frozen header/scrollbars and cell tooltips.
 
 use std::rc::Rc;
 
@@ -10,135 +10,11 @@ use wasm_bindgen::JsCast;
 use wasm_bindgen::closure::Closure;
 use web_sys::HtmlElement;
 
-use crate::api::{EntryContent, fetch_entry_content};
-
-/// Zahir catalog category for markdown (`FileType::Markdown.as_metadata_name()`).
-const MARKDOWN_CATEGORY: &str = "Markdown";
-
-/// Categories that use syntect in the TUI Viewer (`viewer_uses_syntect_highlight`).
-const SYNTECT_CATEGORIES: &[&str] = &["JSON", "TOML", "YAML", "XML", "HTML", "INI", "Log", "Code"];
-
-const CSV_CATEGORY: &str = "CSV";
-const TEXT_CATEGORY: &str = "Text";
-
-/// True when catalog category is Zahir Markdown (same gate as TUI viewer).
-pub(crate) fn is_markdown_category(category: &str) -> bool {
-    category == MARKDOWN_CATEGORY
-}
-
-pub(crate) fn is_syntect_category(category: &str) -> bool {
-    SYNTECT_CATEGORIES.contains(&category)
-}
-
-pub(crate) fn is_csv_category(category: &str) -> bool {
-    category == CSV_CATEGORY
-}
-
-pub(crate) fn is_text_category(category: &str) -> bool {
-    category == TEXT_CATEGORY
-}
-
-fn uses_html_viewer(category: &str, path: &str) -> bool {
-    is_markdown_category(category)
-        || is_syntect_category(category)
-        || is_csv_category(category)
-        || is_text_category(category)
-        || path_looks_delimited(path)
-}
-
-fn path_looks_delimited(path: &str) -> bool {
-    path.rsplit_once('.')
-        .map(|(_, ext)| {
-            matches!(
-                ext.to_ascii_lowercase().as_str(),
-                "csv" | "tsv" | "tab" | "psv"
-            )
-        })
-        .unwrap_or(false)
-}
-
-fn viewer_html_class(category: &str, path: &str) -> &'static str {
-    if is_markdown_category(category) {
-        "md-viewer"
-    } else if is_csv_category(category) || path_looks_delimited(path) {
-        "csv-viewer"
-    } else if is_text_category(category) {
-        "text-viewer"
-    } else {
-        "code-viewer"
-    }
-}
-
-#[component]
-pub(crate) fn EntryViewer(path: String, category: String) -> impl IntoView {
-    let html_viewer = uses_html_viewer(&category, &path);
-    let class = viewer_html_class(&category, &path);
-
-    view! {
-        <div class="entry-viewer">
-            {if html_viewer {
-                view! { <HostHtmlBody path=path class=class/> }.into_any()
-            } else {
-                view! {
-                    <p class="pane-empty entry-viewer__note">
-                        "(viewer — preview for this category not available over serve yet)"
-                    </p>
-                }
-                .into_any()
-            }}
-        </div>
-    }
-}
-
-#[component]
-fn HostHtmlBody(path: String, class: &'static str) -> impl IntoView {
-    let path_for_fetch = path.clone();
-    let content = LocalResource::new(move || {
-        let p = path_for_fetch.clone();
-        async move { fetch_entry_content(&p, Some("html")).await }
-    });
-
-    view! {
-        <Suspense fallback=move || {
-            view! { <p class="pane-empty">"Loading…"</p> }
-        }>
-            {move || match content.get() {
-                None => view! { <p class="pane-empty">"…"</p> }.into_any(),
-                Some(Err(e)) => view! { <p class="pane-empty">{e}</p> }.into_any(),
-                Some(Ok(body)) => view! { <ContentBody body=body class=class/> }.into_any(),
-            }}
-        </Suspense>
-    }
-}
-
-#[component]
-fn ContentBody(body: EntryContent, class: &'static str) -> impl IntoView {
-    if body.format == "html" {
-        if class == "csv-viewer" {
-            view! { <CsvHtmlFragment html=body.content/> }.into_any()
-        } else {
-            view! { <HtmlFragment class=class html=body.content/> }.into_any()
-        }
-    } else {
-        view! { <pre class="detail-pre">{body.content}</pre> }.into_any()
-    }
-}
-
-/// Trusted host HTML into a div (markdown / syntect / text).
-#[component]
-fn HtmlFragment(class: &'static str, html: String) -> impl IntoView {
-    let node_ref = NodeRef::<Div>::new();
-    Effect::new(move |_| {
-        if let Some(el) = node_ref.get() {
-            el.set_inner_html(&html);
-        }
-    });
-    view! { <div class=class node_ref=node_ref></div> }
-}
+use crate::viewer_find::ViewerFind;
 
 /// CSV host HTML + frozen H/V scroll + shadcn tooltip for truncated cells.
 #[component]
-fn CsvHtmlFragment(html: String) -> impl IntoView {
+pub(super) fn CsvHtmlFragment(html: String) -> impl IntoView {
     let node_ref = NodeRef::<Div>::new();
     let (tip_open, set_tip_open) = signal(false);
     let (tip_text, set_tip_text) = signal(String::new());
@@ -150,6 +26,9 @@ fn CsvHtmlFragment(html: String) -> impl IntoView {
             el.set_inner_html(&html);
             wire_csv_frozen_scroll(&el);
             wire_csv_tip_signals(&el, set_tip_open, set_tip_text, set_tip_x, set_tip_y);
+            if let Some(find) = use_context::<ViewerFind>() {
+                find.bump_content();
+            }
         }
     });
 
@@ -199,7 +78,7 @@ fn listen_scroll(el: &HtmlElement, on_scroll: Rc<dyn Fn()>) {
     cb.forget();
 }
 
-/// Frozen top H-bar + side V-bar; table follows via `translate(-x, -y)`.
+/// Frozen top H-bar + side V-bar; pinned header (X only) + body (X/Y) via translate.
 fn wire_csv_frozen_scroll(root: &web_sys::HtmlDivElement) {
     let Some(hbar) = qs_html(root, ".csv-viewer__hbar") else {
         return;
@@ -219,9 +98,14 @@ fn wire_csv_frozen_scroll(root: &web_sys::HtmlDivElement) {
     let Some(body) = qs_html(root, ".csv-viewer__body") else {
         return;
     };
+    let head_inner = qs_html(root, ".csv-viewer__head-inner");
+    let viewport = qs_html(root, ".csv-viewer__viewport").unwrap_or_else(|| body.clone());
+
+    sync_csv_column_widths(root);
 
     let apply_transform: Rc<dyn Fn()> = Rc::new({
         let inner = inner.clone();
+        let head_inner = head_inner.clone();
         let hbar = hbar.clone();
         let vbar = vbar.clone();
         move || {
@@ -230,6 +114,11 @@ fn wire_csv_frozen_scroll(root: &web_sys::HtmlDivElement) {
             let _ = inner
                 .style()
                 .set_property("transform", &format!("translate(-{x}px, -{y}px)"));
+            if let Some(ref head) = head_inner {
+                let _ = head
+                    .style()
+                    .set_property("transform", &format!("translateX(-{x}px)"));
+            }
         }
     });
 
@@ -237,8 +126,14 @@ fn wire_csv_frozen_scroll(root: &web_sys::HtmlDivElement) {
         let hspacer = hspacer.clone();
         let vspacer = vspacer.clone();
         let inner = inner.clone();
+        let head_inner = head_inner.clone();
         move || {
-            let w = inner.scroll_width().max(0);
+            let body_w = inner.scroll_width().max(0);
+            let head_w = head_inner
+                .as_ref()
+                .map(|h| h.scroll_width().max(0))
+                .unwrap_or(0);
+            let w = body_w.max(head_w);
             let h = inner.scroll_height().max(0);
             let _ = hspacer.style().set_property("width", &format!("{w}px"));
             let _ = vspacer.style().set_property("height", &format!("{h}px"));
@@ -270,19 +165,133 @@ fn wire_csv_frozen_scroll(root: &web_sys::HtmlDivElement) {
         }
         apply_wheel();
     }) as Box<dyn FnMut(_)>);
-    let _ = body.add_event_listener_with_callback("wheel", on_wheel.as_ref().unchecked_ref());
+    let _ = viewport.add_event_listener_with_callback("wheel", on_wheel.as_ref().unchecked_ref());
     on_wheel.forget();
 
     if let Some(window) = web_sys::window() {
         let sync_resize = Rc::clone(&sync_spacers);
         let apply_resize = Rc::clone(&apply_transform);
+        let root = root.clone();
         let on_resize = Closure::wrap(Box::new(move |_: web_sys::Event| {
+            sync_csv_column_widths(&root);
             sync_resize();
             apply_resize();
         }) as Box<dyn FnMut(_)>);
         let _ =
             window.add_event_listener_with_callback("resize", on_resize.as_ref().unchecked_ref());
         on_resize.forget();
+    }
+}
+
+/// Align head/body column widths so the pinned header lines up with the data.
+fn sync_csv_column_widths(root: &web_sys::HtmlDivElement) {
+    let Some(head_table) = root
+        .query_selector(".csv-viewer__head table")
+        .ok()
+        .flatten()
+        .and_then(|n| n.dyn_into::<web_sys::HtmlTableElement>().ok())
+    else {
+        return;
+    };
+    let Some(body_table) = root
+        .query_selector(".csv-viewer__body table")
+        .ok()
+        .flatten()
+        .and_then(|n| n.dyn_into::<web_sys::HtmlTableElement>().ok())
+    else {
+        return;
+    };
+    let head_rows = head_table.rows();
+    let body_rows = body_table.rows();
+    let Some(head_row) = head_rows.item(0) else {
+        return;
+    };
+    let Ok(head_row) = head_row.dyn_into::<web_sys::HtmlTableRowElement>() else {
+        return;
+    };
+    let head_cells = head_row.cells();
+    let col_count = head_cells.length() as usize;
+    if col_count == 0 {
+        return;
+    }
+
+    // Clear prior fixed widths so natural content can re-measure.
+    for i in 0..col_count {
+        if let Some(cell) = head_cells.item(i as u32)
+            && let Ok(el) = cell.dyn_into::<HtmlElement>()
+        {
+            let _ = el.style().remove_property("width");
+            let _ = el.style().remove_property("min-width");
+        }
+    }
+    for r in 0..body_rows.length() {
+        let Some(row) = body_rows.item(r) else {
+            continue;
+        };
+        let Ok(row) = row.dyn_into::<web_sys::HtmlTableRowElement>() else {
+            continue;
+        };
+        let cells = row.cells();
+        for i in 0..col_count {
+            if let Some(cell) = cells.item(i as u32)
+                && let Ok(el) = cell.dyn_into::<HtmlElement>()
+            {
+                let _ = el.style().remove_property("width");
+                let _ = el.style().remove_property("min-width");
+            }
+        }
+    }
+
+    let mut widths = vec![0_i32; col_count];
+    for (i, width) in widths.iter_mut().enumerate() {
+        if let Some(cell) = head_cells.item(i as u32)
+            && let Ok(el) = cell.dyn_into::<HtmlElement>()
+        {
+            *width = (*width).max(el.offset_width());
+        }
+    }
+    // Sample up to first ~40 body rows for width (enough for typical headers).
+    let sample = body_rows.length().min(40);
+    for r in 0..sample {
+        let Some(row) = body_rows.item(r) else {
+            continue;
+        };
+        let Ok(row) = row.dyn_into::<web_sys::HtmlTableRowElement>() else {
+            continue;
+        };
+        let cells = row.cells();
+        for (i, width) in widths.iter_mut().enumerate() {
+            if let Some(cell) = cells.item(i as u32)
+                && let Ok(el) = cell.dyn_into::<HtmlElement>()
+            {
+                *width = (*width).max(el.offset_width());
+            }
+        }
+    }
+
+    for (i, &width) in widths.iter().enumerate() {
+        let w = format!("{}px", width.max(1));
+        if let Some(cell) = head_cells.item(i as u32)
+            && let Ok(el) = cell.dyn_into::<HtmlElement>()
+        {
+            let _ = el.style().set_property("width", &w);
+            let _ = el.style().set_property("min-width", &w);
+        }
+        for r in 0..body_rows.length() {
+            let Some(row) = body_rows.item(r) else {
+                continue;
+            };
+            let Ok(row) = row.dyn_into::<web_sys::HtmlTableRowElement>() else {
+                continue;
+            };
+            let cells = row.cells();
+            if let Some(cell) = cells.item(i as u32)
+                && let Ok(el) = cell.dyn_into::<HtmlElement>()
+            {
+                let _ = el.style().set_property("width", &w);
+                let _ = el.style().set_property("min-width", &w);
+            }
+        }
     }
 }
 

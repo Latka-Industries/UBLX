@@ -1,4 +1,4 @@
-//! Bordered 3-pane layout (ratatui `Block`-style) and right-pane tabs.
+//! Panel chrome, path lists, and entry/overview right panes.
 
 use leptos::prelude::*;
 use wasm_bindgen::JsCast;
@@ -6,57 +6,19 @@ use wasm_bindgen::closure::Closure;
 use web_sys::{ScrollIntoViewOptions, ScrollLogicalPosition};
 
 use crate::api::{EntryDetail, format_bytes, format_timestamp_ns};
-use crate::focus::{PaneFocus, UiNav, install_list_nav, string_list_nav};
+use crate::focus::{PreviewKeysBus, UiNav, install_list_nav, string_list_nav};
 use crate::kv_tables::KvTables;
 use crate::nav::MainMode;
 use crate::search;
 use crate::sort::ContentSortCtx;
 use crate::viewer::EntryViewer;
+use crate::viewer_find::{ViewerFind, ViewerFindStrip, install_highlight_effect};
 
-/// Shared 3-pane TUI layout — bordered boxes with title nodes.
-/// Pane focus lives in [`UiNav`] (keyboard + click).
-#[component]
-pub(crate) fn ThreePane(
-    left_title: &'static str,
-    middle_title: &'static str,
-    left: AnyView,
-    middle: AnyView,
-    right: AnyView,
-) -> impl IntoView {
-    let nav = UiNav::expect();
-    let focus = nav.pane;
-    let set_focus = nav.set_pane;
-
-    view! {
-        <div class="three-pane">
-            <PanelBox
-                title=left_title
-                focused=Signal::derive(move || focus.get() == PaneFocus::Left)
-                on_focus=Callback::new(move |_| set_focus.set(PaneFocus::Left))
-            >
-                {left}
-            </PanelBox>
-            <PanelBox
-                title=middle_title
-                focused=Signal::derive(move || focus.get() == PaneFocus::Middle)
-                on_focus=Callback::new(move |_| set_focus.set(PaneFocus::Middle))
-            >
-                {middle}
-            </PanelBox>
-            <PanelBox
-                title="Right"
-                hide_default_title=true
-                focused=Signal::derive(|| false)
-                on_focus=Callback::new(|_| {})
-            >
-                {right}
-            </PanelBox>
-        </div>
-    }
-}
+use super::RightTab;
+use super::status::{PdfPageStatusNode, RightTabBtn, TextWindowStatusNode, TreeCollapseStatusNode};
 
 #[component]
-fn PanelBox(
+pub(super) fn PanelBox(
     title: &'static str,
     focused: Signal<bool>,
     on_focus: Callback<()>,
@@ -120,25 +82,6 @@ pub(crate) fn PanelRow(
                 <span class="panel-row__text">{label.clone()}</span>
             </button>
         </li>
-    }
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) enum RightTab {
-    Viewer,
-    Templates,
-    Metadata,
-    Writing,
-}
-
-impl RightTab {
-    fn label(self) -> &'static str {
-        match self {
-            Self::Viewer => "Viewer",
-            Self::Templates => "Templates",
-            Self::Metadata => "Metadata",
-            Self::Writing => "Writing",
-        }
     }
 }
 
@@ -346,6 +289,16 @@ pub(crate) fn PathsPane(
 pub(crate) fn EntryRightPane(detail: Signal<Option<EntryDetail>>) -> impl IntoView {
     let (tab, set_tab) = signal(RightTab::Viewer);
     let tabs = crate::focus::RightTabBus::expect();
+    let preview = PreviewKeysBus::expect();
+    let find = ViewerFind::expect();
+    install_highlight_effect(find, tab);
+
+    // Remounted Metadata / Writing / Templates bodies need a find re-scan.
+    Effect::new(move |_| {
+        let _ = tab.get();
+        let _ = detail.get();
+        find.bump_content();
+    });
 
     let available = move |t: RightTab, d: &Option<EntryDetail>| match t {
         RightTab::Viewer => true,
@@ -446,7 +399,7 @@ pub(crate) fn EntryRightPane(detail: Signal<Option<EntryDetail>>) -> impl IntoVi
                                     let path = path.clone();
                                     let category = category.clone();
                                     view! {
-                                        <EntryViewer path=path category=category/>
+                                        <EntryViewer path=path category=category size=size/>
                                     }
                                     .into_any()
                                 }
@@ -481,46 +434,62 @@ pub(crate) fn EntryRightPane(detail: Signal<Option<EntryDetail>>) -> impl IntoVi
                                 }
                             }}
                         </div>
-                        <Show when=move || tab.get() == RightTab::Viewer>
-                            <div class="right-pane-footer" aria-label="Size and modified time">
-                                <span class="status-node">{size_label.clone()}</span>
-                                {if show_mtime {
-                                    view! {
-                                        <span class="status-node">{mtime_label.clone()}</span>
-                                    }
-                                    .into_any()
-                                } else {
-                                    ().into_any()
-                                }}
-                            </div>
-                        </Show>
+                        {move || {
+                            let viewer_tab = tab.get() == RightTab::Viewer;
+                            let find_strip = find.strip_visible.get();
+                            let tree_ctl = preview.tree.get().is_some();
+                            // Size/mtime on Viewer; also keep bumper when a collapsible tree is up
+                            // (Directory Viewer or Metadata schema) so Collapse all has a home.
+                            if !viewer_tab && !find_strip && !tree_ctl {
+                                return ().into_any();
+                            }
+                            let size_label = size_label.clone();
+                            let mtime_label = mtime_label.clone();
+                            let show_size_mtime = viewer_tab || tree_ctl;
+                            view! {
+                                <div class="right-pane-footer" aria-label="Viewer status">
+                                    <div class="right-pane-footer__start">
+                                        {if find_strip {
+                                            view! { <ViewerFindStrip/> }.into_any()
+                                        } else {
+                                            ().into_any()
+                                        }}
+                                    </div>
+                                    <div class="right-pane-footer__end">
+                                        {if show_size_mtime {
+                                            view! {
+                                                <Show when=move || preview.pdf.get().is_some()>
+                                                    <PdfPageStatusNode/>
+                                                </Show>
+                                                <Show when=move || preview.text_win.get().is_some()>
+                                                    <TextWindowStatusNode/>
+                                                </Show>
+                                                <Show when=move || preview.tree.get().is_some()>
+                                                    <TreeCollapseStatusNode/>
+                                                </Show>
+                                                <span class="status-node">{size_label}</span>
+                                                {if show_mtime {
+                                                    view! {
+                                                        <span class="status-node">{mtime_label}</span>
+                                                    }
+                                                    .into_any()
+                                                } else {
+                                                    ().into_any()
+                                                }}
+                                            }
+                                            .into_any()
+                                        } else {
+                                            ().into_any()
+                                        }}
+                                    </div>
+                                </div>
+                            }
+                            .into_any()
+                        }}
                     }
                     .into_any()
                 }}
             </Show>
         </div>
-    }
-}
-
-#[component]
-fn RightTabBtn(
-    tab: RightTab,
-    current: ReadSignal<RightTab>,
-    set: WriteSignal<RightTab>,
-) -> impl IntoView {
-    view! {
-        <button
-            type="button"
-            class=move || {
-                if current.get() == tab {
-                    "tab-node tab-node--active tab-node--sm"
-                } else {
-                    "tab-node tab-node--sm"
-                }
-            }
-            on:click=move |_| set.set(tab)
-        >
-            {tab.label()}
-        </button>
     }
 }
