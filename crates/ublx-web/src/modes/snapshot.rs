@@ -5,6 +5,7 @@ use std::sync::Arc;
 use leptos::prelude::*;
 
 use crate::api::{EntryRow, fetch_entry_detail, get_json};
+use crate::catalog_refresh::CatalogRefresh;
 use crate::focus::{UiNav, install_list_nav, string_list_nav};
 use crate::nav::MainMode;
 use crate::panes::{EntryRightPane, PanelRow, PathsPane, ThreePane};
@@ -23,16 +24,23 @@ struct SlimEntry {
 #[component]
 pub(crate) fn SnapshotMode() -> impl IntoView {
     let search = CatalogSearch::expect();
-    let categories = LocalResource::new(|| async move {
-        get_json::<Vec<String>>("/categories")
-            .await
-            .unwrap_or_default()
+    let refresh = CatalogRefresh::expect();
+    let categories = LocalResource::new(move || {
+        let _ = refresh.tick.get();
+        async move {
+            get_json::<Vec<String>>("/categories")
+                .await
+                .unwrap_or_default()
+        }
     });
     // Full catalog once — needed so category visibility can see matches in other categories.
-    let entries = LocalResource::new(|| async move {
-        get_json::<Vec<EntryRow>>("/entries")
-            .await
-            .unwrap_or_default()
+    let entries = LocalResource::new(move || {
+        let _ = refresh.tick.get();
+        async move {
+            get_json::<Vec<EntryRow>>("/entries")
+                .await
+                .unwrap_or_default()
+        }
     });
     let (selected_cat, set_selected_cat) = signal::<Option<String>>(None);
     let (selected_path, set_selected_path) = signal::<Option<String>>(None);

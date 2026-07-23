@@ -69,7 +69,8 @@ struct HelpSection {
 const DIGIT_ROW_KEY: &str = "1 2 7 8 9";
 const DIGIT_ROW_DESC: &str = "Jump to Main Tab when that tab is visible.";
 
-const FOOTNOTE: &str = "Only bindings that work in the web UI are listed. Space menus and Command Mode land in later mini-PRs.";
+const FOOTNOTE: &str =
+    "Only bindings that work in the web UI are listed. Command Mode lands in a later mini-PR.";
 
 const GENERAL_BROWSER: &[(&str, &str)] = &[
     ("~", "Alternate between Main tabs"),
@@ -106,8 +107,28 @@ const RIGHT_PANE: &[(&str, &str)] = &[
     ),
 ];
 
+const QUICK_ACTIONS: &[(&str, &str)] = &[
+    ("Spacebar", "Open quick-actions for the focused row"),
+    ("o", "Open file in a new browser tab"),
+    ("p", "Enhance policy (directory Auto / Manual)"),
+    ("z", "Enhance with ZahirScan"),
+    ("l", "Add to Lens (picker or new)"),
+    ("c", "Copy Path"),
+    ("j", "Copy Zahir JSON"),
+    ("r", "Rename file or lens"),
+    ("d", "Delete file; remove from lens; delete lens"),
+];
+
+const QUICK_ACTIONS_DUPES: &[(&str, &str)] = &[
+    ("Spacebar", "Open quick-actions for the focused path"),
+    ("o / c", "Open in tab / Copy Path"),
+    ("i", "Ignore — hide path in Duplicates for this session"),
+    ("d", "Delete file (confirm)"),
+];
+
 const MULTISELECT: &[(&str, &str)] = &[
     ("Spacebar", "Toggle row for multi-select"),
+    ("a", "Bulk menu — Add to Lens / Rename / Delete / Enhance"),
     ("Esc", "Exit Multi-select mode"),
 ];
 
@@ -130,6 +151,11 @@ const SNAPSHOT_SECTIONS: &[HelpSection] = &[
         include_digit_row: false,
     },
     HelpSection {
+        title: "Quick Actions (Spacebar)",
+        rows: QUICK_ACTIONS,
+        include_digit_row: false,
+    },
+    HelpSection {
         title: "Multi-select (Ctrl+Space)",
         rows: MULTISELECT,
         include_digit_row: false,
@@ -146,6 +172,11 @@ const DUPLICATES_SECTIONS: &[HelpSection] = &[
     HelpSection {
         title: "Right Pane",
         rows: RIGHT_PANE,
+        include_digit_row: false,
+    },
+    HelpSection {
+        title: "Quick Actions (Spacebar)",
+        rows: QUICK_ACTIONS_DUPES,
         include_digit_row: false,
     },
 ];

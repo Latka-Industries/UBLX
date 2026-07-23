@@ -2,7 +2,7 @@
 //!
 //! **Ctrl+Space** enter/exit (Snapshot / Lenses + contents focus only).
 //! **Space** toggles the cursor row while active. **Esc** exits.
-//! Bulk / Space menus → mini-PR 14.
+//! **a** / Space menus → [`crate::space_menu`].
 
 use std::collections::HashSet;
 

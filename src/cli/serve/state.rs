@@ -102,6 +102,38 @@ pub(super) fn current_dir(state: &AppState) -> Result<PathBuf, ApiError> {
     with_inner(state, |inner| Ok(inner.catalog.dir.clone()))
 }
 
+/// Reject mutations while a background snapshot is writing.
+pub(super) fn ensure_snapshot_idle(state: &AppState) -> Result<(), ApiError> {
+    with_inner(state, |inner| {
+        if inner.snapshot.is_running() {
+            return Err(ApiError::conflict(
+                "snapshot in progress; wait for GET /snapshot to leave running before mutating",
+            ));
+        }
+        Ok(())
+    })
+}
+
+/// Re-open the catalog connection after an out-of-band DB write (module helpers open their own conn).
+pub(super) fn reopen_catalog(state: &AppState) -> Result<(), ApiError> {
+    let dir = current_dir(state)?;
+    let handle = crate::cli::catalog::open_catalog_for_read(&dir).map_err(ApiError::from)?;
+    with_inner(state, |inner| {
+        inner.catalog.dir = handle.paths.dir;
+        inner.catalog.read_path = handle.read_path;
+        inner.catalog.conn = handle.conn;
+        Ok(())
+    })
+}
+
+/// Catalog root + DB path for mutation helpers (`modules::file_ops` / `lenses` / `enhancer`).
+pub(super) fn mutation_paths(state: &AppState) -> Result<(PathBuf, PathBuf), ApiError> {
+    ensure_snapshot_idle(state)?;
+    let dir = current_dir(state)?;
+    let db = crate::config::UblxPaths::new(&dir).db();
+    Ok((dir, db))
+}
+
 pub(super) fn canonicalize_dir(dir: &Path) -> PathBuf {
     dir.canonicalize().unwrap_or_else(|_| dir.to_path_buf())
 }

@@ -29,6 +29,7 @@ serde_json = "1"
 wasm-bindgen = "0.2"
 wasm-bindgen-futures = "0.4"
 web-sys = { version = "0.3", features = [
+  "Clipboard",
   "CssStyleDeclaration",
   "Document",
   "DomTokenList",
@@ -40,12 +41,14 @@ web-sys = { version = "0.3", features = [
   "HtmlDivElement",
   "HtmlImageElement",
   "HtmlInputElement",
+  "HtmlTextAreaElement",
   "HtmlTableElement",
   "HtmlTableRowElement",
   "History",
   "KeyboardEvent",
   "Location",
   "MouseEvent",
+  "Navigator",
   "Node",
   "NodeList",
   "ScrollIntoViewOptions",
