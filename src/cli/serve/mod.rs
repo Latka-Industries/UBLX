@@ -29,9 +29,7 @@ use self::catalog::{
     get_categories, get_delta, get_duplicates, get_entries, get_entry, get_lens, get_lenses,
 };
 use self::content::get_entry_content;
-use self::fs::{
-    post_bulk_rename, post_delete, post_enhance, post_enhance_policy, post_rename,
-};
+use self::fs::{post_bulk_rename, post_delete, post_enhance, post_enhance_policy, post_rename};
 use self::lenses_mut::{
     delete_lens_paths, delete_lens_route, patch_lens, post_lens, post_lens_paths,
 };
