@@ -51,7 +51,7 @@ async fn run_snapshot(ctx: CommandModeCtx) {
             ctx.flash("Snapshot started…");
             poll_snapshot(ctx).await;
         }
-        Err(e) => ctx.flash(e),
+        Err(e) => ctx.flash_err(e),
     }
 }
 
@@ -62,11 +62,10 @@ async fn poll_snapshot(ctx: CommandModeCtx) {
             Ok(st) if st.state.eq_ignore_ascii_case("running") => continue,
             Ok(st) if st.state.eq_ignore_ascii_case("done") => {
                 ctx.refresh.bump();
-                let msg = st
-                    .last
-                    .map(|l| format!("Snapshot done +{} ~{} -{}", l.added, l.modified, l.removed))
-                    .unwrap_or_else(|| "Snapshot done".into());
-                ctx.flash(msg);
+                match st.last {
+                    Some(l) => ctx.flash_snapshot(l.added, l.modified, l.removed),
+                    None => ctx.flash("Snapshot done"),
+                }
                 return;
             }
             Ok(st) if st.state.eq_ignore_ascii_case("failed") => {
@@ -74,7 +73,7 @@ async fn poll_snapshot(ctx: CommandModeCtx) {
                     .last
                     .and_then(|l| l.error)
                     .unwrap_or_else(|| "Snapshot failed".into());
-                ctx.flash(msg);
+                ctx.flash_err(msg);
                 return;
             }
             Ok(_) => {
@@ -83,12 +82,12 @@ async fn poll_snapshot(ctx: CommandModeCtx) {
                 return;
             }
             Err(e) => {
-                ctx.flash(e);
+                ctx.flash_err(e);
                 return;
             }
         }
     }
-    ctx.flash("Snapshot still running — check later");
+    ctx.flash_warn("Snapshot still running — check later");
 }
 
 async fn run_reload(ctx: CommandModeCtx) {
@@ -140,7 +139,7 @@ async fn open_theme_picker(ctx: CommandModeCtx) {
             }));
             apply_theme_preview(ctx);
         }
-        Err(e) => ctx.flash(e),
+        Err(e) => ctx.flash_err(e),
     }
 }
 
@@ -148,14 +147,14 @@ async fn open_root_picker(ctx: CommandModeCtx) {
     match fetch_roots().await {
         Ok(rows) => {
             if rows.is_empty() {
-                ctx.flash("No indexed roots");
+                ctx.flash_warn("No indexed roots");
                 return;
             }
             let selected = rows.iter().position(|r| r.current).unwrap_or(0);
             let paths: Vec<String> = rows.into_iter().map(|r| r.path).collect();
             ctx.picker.set(Some(Picker::Root { paths, selected }));
         }
-        Err(e) => ctx.flash(e),
+        Err(e) => ctx.flash_err(e),
     }
 }
 
@@ -209,7 +208,7 @@ pub(super) fn submit_picker(ctx: CommandModeCtx) {
                     }
                     Err(e) => {
                         apply_theme_css_body(&restore);
-                        ctx.flash(e);
+                        ctx.flash_err(e);
                     }
                 }
             });
@@ -227,7 +226,7 @@ pub(super) fn submit_picker(ctx: CommandModeCtx) {
                             let _ = w.location().reload();
                         }
                     }
-                    Err(e) => ctx.flash(e),
+                    Err(e) => ctx.flash_err(e),
                 }
             });
         }

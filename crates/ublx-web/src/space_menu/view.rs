@@ -28,9 +28,6 @@ pub(crate) fn SpaceMenuPopup() -> impl IntoView {
     });
 
     view! {
-        <Show when=move || menu.toast.get().is_some()>
-            <div class="space-menu-toast" role="status">{move || menu.toast.get().unwrap_or_default()}</div>
-        </Show>
         <Show when=move || menu.visible.get()>
             <div
                 class="space-menu-overlay"

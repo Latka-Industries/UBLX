@@ -15,10 +15,9 @@ use crate::catalog_refresh::CatalogRefresh;
 use crate::focus::PaneFocus;
 use crate::multiselect::MultiselectCtx;
 use crate::nav::MainMode;
+use crate::toast::ToastCtx;
 
-use super::helpers::{
-    absolute_path, basename, bulk_paths, open_in_browser, sleep_ms, write_clipboard,
-};
+use super::helpers::{absolute_path, basename, bulk_paths, open_in_browser, write_clipboard};
 use super::kinds::{
     MenuRow, Pending, SpaceMenuKind, label_with_hotkey, menu_rows, menu_rows_for_kind,
     pending_allows_navigation,
@@ -29,7 +28,6 @@ pub(crate) struct SpaceMenuCtx {
     pub visible: RwSignal<bool>,
     pub kind: RwSignal<Option<SpaceMenuKind>>,
     pub selected: RwSignal<usize>,
-    pub toast: RwSignal<Option<String>>,
     pub middle_path: RwSignal<Option<String>>,
     pub left_label: RwSignal<Option<String>>,
     pub ignored: RwSignal<HashSet<String>>,
@@ -39,15 +37,19 @@ pub(crate) struct SpaceMenuCtx {
     /// Stored handles — keyboard path runs outside Leptos owner (`expect_context` would panic).
     refresh: CatalogRefresh,
     multiselect: MultiselectCtx,
+    toasts: ToastCtx,
 }
 
 impl SpaceMenuCtx {
-    pub(crate) fn provide(refresh: CatalogRefresh, multiselect: MultiselectCtx) -> Self {
+    pub(crate) fn provide(
+        refresh: CatalogRefresh,
+        multiselect: MultiselectCtx,
+        toasts: ToastCtx,
+    ) -> Self {
         let ctx = Self {
             visible: RwSignal::new(false),
             kind: RwSignal::new(None),
             selected: RwSignal::new(0),
-            toast: RwSignal::new(None),
             middle_path: RwSignal::new(None),
             left_label: RwSignal::new(None),
             ignored: RwSignal::new(HashSet::new()),
@@ -55,6 +57,7 @@ impl SpaceMenuCtx {
             pending: RwSignal::new(None),
             refresh,
             multiselect,
+            toasts,
         };
         provide_context(ctx);
         ctx
@@ -72,12 +75,15 @@ impl SpaceMenuCtx {
     }
 
     pub(crate) fn flash(self, msg: impl Into<String>) {
-        self.toast.set(Some(msg.into()));
-        let toast = self.toast;
-        spawn_local(async move {
-            sleep_ms(1800).await;
-            toast.set(None);
-        });
+        self.toasts.info(msg);
+    }
+
+    pub(crate) fn flash_warn(self, msg: impl Into<String>) {
+        self.toasts.warn(msg);
+    }
+
+    pub(crate) fn flash_err(self, msg: impl Into<String>) {
+        self.toasts.error(msg);
     }
 
     pub(crate) fn open(self, kind: SpaceMenuKind) {
@@ -510,7 +516,7 @@ impl SpaceMenuCtx {
             }
             _ => {
                 self.close();
-                self.flash(format!("{} — not wired", row.label));
+                self.flash_warn(format!("{} — not wired", row.label));
             }
         }
     }
@@ -526,7 +532,7 @@ impl SpaceMenuCtx {
         };
         let name = draft.trim().to_string();
         if name.is_empty() {
-            self.flash("name is empty");
+            self.flash_warn("name is empty");
             return;
         }
         self.close();
@@ -557,7 +563,7 @@ impl SpaceMenuCtx {
         };
         let name = draft.trim().to_string();
         if name.is_empty() {
-            self.flash("lens name is empty");
+            self.flash_warn("lens name is empty");
             return;
         }
         self.close();
@@ -579,7 +585,7 @@ impl SpaceMenuCtx {
         };
         let lines: Vec<&str> = draft.lines().map(str::trim).collect();
         if lines.len() != paths.len() || lines.iter().any(|l| l.is_empty()) {
-            self.flash(format!(
+            self.flash_warn(format!(
                 "need {} non-empty basename lines (got {})",
                 paths.len(),
                 lines.len()
@@ -634,7 +640,7 @@ impl SpaceMenuCtx {
     fn bulk_paths_or_flash(self, ms: MultiselectCtx) -> Option<Vec<String>> {
         let paths = bulk_paths(ms);
         if paths.is_empty() {
-            self.flash("No rows selected");
+            self.flash_warn("No rows selected");
             None
         } else {
             Some(paths)
@@ -690,7 +696,7 @@ fn spawn_api(
                 }
                 ctx.flash(msg);
             }
-            Err(e) => ctx.flash(e),
+            Err(e) => ctx.flash_err(e),
         }
     });
 }
@@ -700,7 +706,7 @@ fn copy_text(ctx: SpaceMenuCtx, text: String, ok: &str) {
     spawn_local(async move {
         match write_clipboard(&text).await {
             Ok(()) => ctx.flash(ok),
-            Err(e) => ctx.flash(e),
+            Err(e) => ctx.flash_err(e),
         }
     });
 }
@@ -710,12 +716,12 @@ async fn copy_zahir_json(ctx: SpaceMenuCtx, path: &str) {
         Ok(Some(v)) => match serde_json::to_string_pretty(&v) {
             Ok(s) => match write_clipboard(&s).await {
                 Ok(()) => ctx.flash("Copied Zahir JSON"),
-                Err(e) => ctx.flash(e),
+                Err(e) => ctx.flash_err(e),
             },
-            Err(e) => ctx.flash(e.to_string()),
+            Err(e) => ctx.flash_err(e.to_string()),
         },
-        Ok(None) => ctx.flash("No Zahir JSON for this entry"),
-        Err(e) => ctx.flash(e),
+        Ok(None) => ctx.flash_warn("No Zahir JSON for this entry"),
+        Err(e) => ctx.flash_err(e),
     }
 }
 

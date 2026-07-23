@@ -46,9 +46,6 @@ pub(crate) fn CommandModePopup() -> impl IntoView {
     });
 
     view! {
-        <Show when=move || cmd.toast.get().is_some()>
-            <div class="command-mode-toast" role="status">{move || cmd.toast.get().unwrap_or_default()}</div>
-        </Show>
         <Show when=move || cmd.menu_visible.get() || cmd.picker.get().is_some()>
             <div
                 class="command-mode-overlay"

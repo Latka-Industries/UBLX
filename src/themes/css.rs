@@ -74,6 +74,7 @@ pub fn tokens_from_palette(palette: &Palette) -> ThemeCss {
     insert(&mut vars, "--brand", palette.title_brand);
     insert(&mut vars, "--hint", palette.hint);
     insert(&mut vars, "--search", palette.search_text);
+    insert(&mut vars, "--notification", palette.notification_bg);
     insert(&mut vars, "--delta-added", palette.delta_added);
     insert(&mut vars, "--delta-mod", palette.delta_mod);
     insert(&mut vars, "--delta-removed", palette.delta_removed);
