@@ -184,7 +184,7 @@ Right pane is not a list-focus target. Focused pane: focused border + active tit
 | Target | TUI truth | Web today | Mini-PR (see [`WEB_UI.md`](WEB_UI.md)) |
 | ------ | --------- | --------- | -------------------------------------- |
 | Keyboard / focus | arrows, hjkl, digits, pane + right-pane keys | landed | **#1** |
-| Help overlay | `?` mode-aware | landed | **#2** |
+| Help overlay | `?` mode-aware sections | landed — **extend in the same mini-PR** as new keys/overlays | **2** (+ ongoing) |
 | Theme | `ThemeStyles` + `Palette` (same fg/bg pairs) | live CSS tokens | **#3** |
 | Middle counter | `title_bottom` **RIGHT** `n/N` | PathsPane end-aligned | — |
 | Middle sort | node **left of** counter + `s` | landed | **#4** |

@@ -91,6 +91,7 @@ Rules:
 | Markdown / code / image / … | Ported viewers in the Viewer tab |
 | Settings | Scope · controls · live read-only TOML (no TOML text editor); default scope **Local** |
 | Theme | Same `Palette` fields the TUI paints, exposed as CSS tokens |
+| `?` help | Mode-aware sections/bindings — keep [`help.rs`](../crates/ublx-web/src/help.rs) in step with [`src/render/overlays/help.rs`](../src/render/overlays/help.rs) |
 
 ---
 
@@ -193,6 +194,15 @@ Mouse click remains supported; keyboard is first-class.
 
 One concern per PR. Order is dependency-aware; titles are suggestions.
 
+### Hard rule — `?` help stays in lockstep
+
+Every mini-PR that adds or changes a **keybinding, selection model, overlay, or Viewer affordance** must also update the web `?` help overlay in the **same PR** — same spirit as the TUI (`src/render/overlays/help.rs`):
+
+- Add / adjust rows in [`crates/ublx-web/src/help.rs`](../crates/ublx-web/src/help.rs) for the modes that gain the feature (General / Viewer / Multi-select / QA / Settings / …).
+- Match TUI section placement and wording where the binding exists in both; omit TUI-only actions that do not work over serve.
+- Do **not** leave stale footnotes (“lands in a later PR”) once the feature ships.
+- Mini-PR numbers in docs/comments: write `mini-PR 13`, never bare `#13` (GitHub auto-links issue numbers).
+
 | # | PR onto `dev` | Delivers | Notes / anchors |
 | - | ------------- | -------- | --------------- |
 | **1** | **Keyboard focus + hotkeys** | ✅ Landed (#43) | [`keys.rs`](../crates/ublx-web/src/keys.rs) + [`focus.rs`](../crates/ublx-web/src/focus.rs) |
@@ -207,9 +217,9 @@ One concern per PR. Order is dependency-aware; titles are suggestions.
 | **10** | **PDF / video / tool-backed** | ✅ Landed — PDF/video PNG via `/content?format=raw`; web Shift+J/K/B/E = preview scroll (TUI) or PDF pages when a PDF is open; `Page n / N` footer; tool-missing under `<img>` | [`pdf_preview`](../src/render/viewers/pdf_preview.rs), [`video_preview`](../src/render/viewers/video_preview.rs); [`viewer.rs`](../crates/ublx-web/src/viewer.rs) |
 | **11** | **Viewer find** | ✅ Landed — Shift+S find strip on right `title_bottom`; Enter / `n`/`N` / Esc; DOM marks | [`viewer_find.rs`](../crates/ublx-web/src/viewer_find.rs) |
 | **12** | **Preview / file body API** | ✅ Landed (#59) — windowed `/content` (`offset`/`limit`); stub `EXT file` labels; CSV pinned header; Metadata sticky headers; collapsible directory/schema trees + Expand/Collapse; Epub/Audio cover Viewer | [`serve.rs`](../src/cli/serve.rs) `/content`; [`viewer.rs`](../crates/ublx-web/src/viewer.rs); [`schema.rs`](../src/render/kv_tables/schema.rs) |
-| **13** | **Multi-select** | Ctrl+Space enter/exit; Space toggle rows on Snapshot / Lenses contents (not Dupes); selection chrome | [`ui/multiselect.rs`](../src/ui/multiselect.rs) |
-| **14** | **Space / context menu** | Quick-actions popup (open, folder, copy, rename, delete, lens, …) for current / multi selection | [`ui/menus/`](../src/ui/menus/); may need serve-side mutations |
-| **15** | **Command Mode** | Ctrl+a overlay — TUI command palette actions that apply over serve | [`config/command_mode.rs`](../src/config/command_mode.rs), ctrl chord |
+| **13** | **Multi-select** | Ctrl+Space enter/exit; Space toggle rows on Snapshot / Lenses contents (not Dupes); selection chrome; **`?` Multi-select section** | [`ui/multiselect.rs`](../src/ui/multiselect.rs); TUI [`HELP_MULTISELECT`](../src/render/overlays/help.rs) → web [`help.rs`](../crates/ublx-web/src/help.rs) |
+| **14** | **Space / context menu** | Quick-actions popup (open, folder, copy, rename, delete, lens, …) for current / multi selection; **`?` QA rows** | [`ui/menus/`](../src/ui/menus/); may need serve-side mutations |
+| **15** | **Command Mode** | Ctrl+a overlay — TUI command palette actions that apply over serve; **`?` Command section** | [`config/command_mode.rs`](../src/config/command_mode.rs), ctrl chord |
 | **16** | **`StaticMount::Embedded`** | Ship `--features ui` as one binary; Dir remains for `mise run web` | panza `Embedded`; build.sh → embed |
 
 **Ops / chrome follow-ups** (separate PRs after or interleaved when small):
@@ -225,7 +235,7 @@ One concern per PR. Order is dependency-aware; titles are suggestions.
 - Catalog fetch cache across main-tab switches — [THI-168](https://linear.app/thicclatka/issue/THI-168/web-ui-cache-catalog-fetches-across-main-tab-switches-v021)
 - Font selection (CSS `--font-mono` / Settings) — [THI-169](https://linear.app/thicclatka/issue/THI-169/web-ui-font-selection-post-v020)
 
-Do **not** expand a mini-PR into “finish the whole Viewer stack” — keep each PR reviewable.
+Do **not** expand a mini-PR into “finish the whole Viewer stack” — keep each PR reviewable. Do **include** the matching `?` help rows in that same PR when keys or overlays change.
 
 ---
 

@@ -70,7 +70,7 @@ const DIGIT_ROW_KEY: &str = "1 2 7 8 9";
 const DIGIT_ROW_DESC: &str = "Jump to Main Tab when that tab is visible.";
 
 const FOOTNOTE: &str =
-    "Only bindings that work in the web UI are listed. Find and menus land in later PRs.";
+    "Only bindings that work in the web UI are listed. Multi-select, Space menus, and Command Mode land in later mini-PRs.";
 
 const GENERAL_BROWSER: &[(&str, &str)] = &[
     ("~", "Alternate between Main tabs"),
