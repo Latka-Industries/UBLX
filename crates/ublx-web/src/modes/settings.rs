@@ -6,9 +6,10 @@ use leptos::task::spawn_local;
 use crate::api::{
     SettingsLayoutPatch, SettingsPatch, SettingsScope, SettingsView, fetch_settings, patch_settings,
 };
+use crate::command_mode::CommandModeCtx;
 use crate::focus::{ListNav, UiNav, install_list_nav};
 use crate::panes::{PanelRow, ThreePane};
-use crate::theme::{ThemeCssView, apply_theme_css};
+use crate::theme::apply_theme_css_body;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 enum FocusedOption {
@@ -95,9 +96,11 @@ pub(crate) fn SettingsMode() -> impl IntoView {
     let (focus, set_focus) = signal(None::<FocusedOption>);
     let (err, set_err) = signal(None::<String>);
     let (busy, set_busy) = signal(false);
+    let command_mode = CommandModeCtx::expect();
 
     let loaded = LocalResource::new(move || {
         let s = scope.get();
+        let _ = command_mode.theme_committed.get();
         async move { fetch_settings(s).await }
     });
 
@@ -112,11 +115,7 @@ pub(crate) fn SettingsMode() -> impl IntoView {
         if let Some(res) = loaded.get() {
             match res {
                 Ok(v) => {
-                    apply_theme_css(&ThemeCssView::from_parts(
-                        v.css.name.clone(),
-                        v.css.appearance.clone(),
-                        v.css.vars.clone(),
-                    ));
+                    apply_theme_css_body(&v.css);
                     set_live.set(Some(v));
                     set_err.set(None);
                 }
@@ -135,11 +134,7 @@ pub(crate) fn SettingsMode() -> impl IntoView {
         spawn_local(async move {
             match patch_settings(s, &patch).await {
                 Ok(v) => {
-                    apply_theme_css(&ThemeCssView::from_parts(
-                        v.css.name.clone(),
-                        v.css.appearance.clone(),
-                        v.css.vars.clone(),
-                    ));
+                    apply_theme_css_body(&v.css);
                     set_live.set(Some(v));
                     set_err.set(None);
                 }
@@ -257,32 +252,24 @@ pub(crate) fn SettingsMode() -> impl IntoView {
                                             }
                                         >
                                             <span class="settings-inline-row__label">"theme"</span>
-                                            <select
-                                                class="settings-select"
+                                            <button
+                                                type="button"
+                                                class="settings-select settings-theme-trigger"
                                                 prop:disabled=move || busy.get()
-                                                on:change=move |ev| {
+                                                on:mousedown=move |ev| {
+                                                    // Keep focus on the row; avoid stealing from the shell keybus.
+                                                    ev.prevent_default();
+                                                }
+                                                on:click=move |_| {
                                                     set_focus.set(Some(FocusedOption::Theme));
-                                                    let name = event_target_value(&ev);
-                                                    apply.run(SettingsPatch {
-                                                        theme: Some(name),
-                                                        ..Default::default()
-                                                    });
+                                                    command_mode
+                                                        .open_theme_selector(scope.get_untracked());
                                                 }
                                             >
-                                                {v.themes
-                                                    .iter()
-                                                    .map(|name| {
-                                                        let selected = name == &v.theme;
-                                                        let value = name.clone();
-                                                        let label = name.clone();
-                                                        view! {
-                                                            <option value=value selected=selected>
-                                                                {label}
-                                                            </option>
-                                                        }
-                                                    })
-                                                    .collect_view()}
-                                            </select>
+                                                {move || {
+                                                    live.get().map(|cur| cur.theme).unwrap_or_default()
+                                                }}
+                                            </button>
                                         </li>
                                         <li
                                             class=move || {

@@ -89,19 +89,7 @@ fn theme_option_row(
     selected_theme_index: usize,
     current_theme: &themes::Palette,
 ) -> ListItem<'static> {
-    let swatch = match theme.appearance {
-        themes::Appearance::Light => {
-            themes::lighten_rgb(theme.swatch, UI_CONSTANTS.swatch_light_theme_text)
-        }
-        themes::Appearance::Dark => {
-            let pct = if current_theme.appearance == themes::Appearance::Light {
-                UI_CONSTANTS.swatch_lighten_dark_on_light_popup
-            } else {
-                UI_CONSTANTS.swatch_lighten
-            };
-            themes::adjust_surface_rgb(theme.swatch, pct, theme.appearance)
-        }
-    };
+    let swatch = themes::theme_selector_swatch(theme, current_theme);
     let swatch_style = Style::default().fg(swatch).bg(swatch);
     let (row_style, pad_style) =
         row_styles(theme_row_index, theme, selected_theme_index, current_theme);

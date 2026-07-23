@@ -99,7 +99,7 @@ pub(super) async fn get_entry_content(
 
     // Directory / Zarr store path: structured tree for web (TUI still uses `tree` text).
     if abs.is_dir() {
-        return directory_tree_content_response(&row, &abs);
+        return Ok(directory_tree_content_response(&row, &abs));
     }
 
     let text = file_content_for_viewer(&abs, zahir_type).unwrap_or_else(|| "(empty)".into());
@@ -144,11 +144,11 @@ pub(super) async fn get_entry_content(
     .into_response())
 }
 
-fn directory_tree_content_response(row: &EntryRow, abs: &Path) -> Result<Response, ApiError> {
+fn directory_tree_content_response(row: &EntryRow, abs: &Path) -> Response {
     let roots = directory_tree_nodes(abs);
     let tree: Vec<TreeNodeView> = roots.iter().map(tree_node_to_view).collect();
     let content = tree_roots_to_lines(&roots).join("\n");
-    Ok(Json(EntryContentResponse {
+    Json(EntryContentResponse {
         path: row.path.clone(),
         category: row.category.clone(),
         format: "tree".into(),
@@ -161,7 +161,7 @@ fn directory_tree_content_response(row: &EntryRow, abs: &Path) -> Result<Respons
         total_bytes: None,
         tree: Some(tree),
     })
-    .into_response())
+    .into_response()
 }
 
 fn content_want_html(

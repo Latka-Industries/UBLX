@@ -33,6 +33,24 @@ pub struct SettingsLayoutControl {
     pub right_pct: u16,
 }
 
+/// Theme picker row for Command Mode / TUI-parity UI (Dark · Light sections + swatches).
+#[derive(Debug, Clone, Serialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum ThemePickerRow {
+    Section {
+        label: String,
+    },
+    Theme {
+        name: String,
+        /// `"dark"` | `"light"`.
+        appearance: String,
+        /// HSL components for `hsl(…)` (no `hsl()` wrapper).
+        swatch: String,
+        /// Full palette tokens for live preview while highlighting.
+        css: themes::ThemeCss,
+    },
+}
+
 #[derive(Debug, Clone, Serialize)]
 pub struct SettingsView {
     pub scope: String,
@@ -45,6 +63,8 @@ pub struct SettingsView {
     /// Theme name for this scope's controls (dropdown value).
     pub theme: String,
     pub themes: Vec<String>,
+    /// Dark / Light sectioned list with swatch tokens (Command Mode picker).
+    pub theme_picker: Vec<ThemePickerRow>,
     pub bg_opacity: f32,
     /// `none` | `abbrev` | `full` — display overlay value (Local = merged).
     pub typed_column_tables: String,
@@ -70,6 +90,27 @@ fn theme_names() -> Vec<&'static str> {
     themes::theme_ordered_list()
         .iter()
         .map(|p| p.name)
+        .collect()
+}
+
+fn theme_picker_rows(popup_theme_name: &str) -> Vec<ThemePickerRow> {
+    let popup = themes::get(Some(popup_theme_name));
+    themes::theme_selector_entries()
+        .iter()
+        .map(|entry| match entry {
+            themes::SelectorEntry::Section(label) => ThemePickerRow::Section {
+                label: (*label).to_string(),
+            },
+            themes::SelectorEntry::Item(theme) => ThemePickerRow::Theme {
+                name: theme.name.to_string(),
+                appearance: match theme.appearance {
+                    themes::Appearance::Dark => "dark".into(),
+                    themes::Appearance::Light => "light".into(),
+                },
+                swatch: themes::theme_selector_swatch_token(theme, popup),
+                css: themes::tokens_from_palette(theme),
+            },
+        })
         .collect()
 }
 
@@ -238,6 +279,7 @@ pub fn get_settings_view(dir: &Path, scope_str: &str) -> Result<SettingsView, St
     let typed_column_tables =
         typed_column_tables_toml_value(overlay_typed_column_tables(&display_overlay)).to_string();
     let css = effective_theme_css(dir, &name_refs);
+    let theme_picker = theme_picker_rows(&theme);
 
     Ok(SettingsView {
         scope: match scope {
@@ -251,6 +293,7 @@ pub fn get_settings_view(dir: &Path, scope_str: &str) -> Result<SettingsView, St
         layout,
         theme,
         themes: names,
+        theme_picker,
         bg_opacity,
         typed_column_tables,
         css,

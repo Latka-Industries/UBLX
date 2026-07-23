@@ -3,6 +3,7 @@
 mod catalog;
 mod content;
 mod error;
+mod export;
 mod fs;
 mod lenses_mut;
 mod roots;
@@ -29,6 +30,7 @@ use self::catalog::{
     get_categories, get_delta, get_duplicates, get_entries, get_entry, get_lens, get_lenses,
 };
 use self::content::get_entry_content;
+use self::export::{post_export_lenses, post_export_zahir};
 use self::fs::{post_bulk_rename, post_delete, post_enhance, post_enhance_policy, post_rename};
 use self::lenses_mut::{
     delete_lens_paths, delete_lens_route, patch_lens, post_lens, post_lens_paths,
@@ -87,6 +89,8 @@ pub fn run(args: &ServeCli) -> Result<(), anyhow::Error> {
         .route("/fs/delete", post(post_delete))
         .route("/fs/enhance", post(post_enhance))
         .route("/fs/enhance-policy", post(post_enhance_policy))
+        .route("/export/zahir", post(post_export_zahir))
+        .route("/export/lenses", post(post_export_lenses))
         .route(
             "/settings/{scope}",
             get(get_settings).patch(patch_settings_route),

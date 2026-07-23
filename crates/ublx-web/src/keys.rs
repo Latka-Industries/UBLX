@@ -5,7 +5,7 @@ use web_sys::KeyboardEvent;
 use crate::nav::MainMode;
 use crate::panes::RightTab;
 
-/// Actions the web shell handles. Command Mode later.
+/// Actions the web shell handles.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum WebAction {
     SearchStart,
@@ -64,6 +64,14 @@ pub(crate) enum WebAction {
     SpaceMenuHotkey(char),
     /// Menu open — swallow unmatched keys.
     SpaceMenuAbsorb,
+    /// Ctrl+leader — start Command Mode chord.
+    CommandModeBegin,
+    CommandModeClose,
+    CommandModeHotkey(char),
+    CommandModeMoveUp,
+    CommandModeMoveDown,
+    CommandModeSubmit,
+    CommandModeAbsorb,
 }
 
 /// Extra keymap gates for Viewer find (TUI `KeyActionContext` subset).
@@ -95,6 +103,18 @@ pub(crate) struct SpaceMenuKeyCtx {
     pub can_open: bool,
 }
 
+/// Extra keymap gates for Command Mode (Ctrl+leader).
+#[derive(Clone, Copy, Debug, Default)]
+pub(crate) struct CommandModeKeyCtx {
+    /// Chord pending, menu open, or theme/root picker open.
+    pub active: bool,
+    /// Theme / root picker (j/k Enter instead of letter actions).
+    pub picker: bool,
+    /// Help, Space menu, Settings, catalog search — do not begin chord.
+    pub blocked: bool,
+    pub leader: char,
+}
+
 /// Map a keydown to a [`WebAction`]. Returns `None` when the event should pass through.
 ///
 /// Caller must skip invoking this while a form field (including catalog / find inputs) is focused.
@@ -106,6 +126,7 @@ pub(crate) fn action_from_keydown(
     find: FindKeyCtx,
     ms: MultiselectKeyCtx,
     space: SpaceMenuKeyCtx,
+    cmd: CommandModeKeyCtx,
 ) -> Option<WebAction> {
     let key = ev.key();
     let code = ev.code();
@@ -141,6 +162,48 @@ pub(crate) fn action_from_keydown(
         }
         // Swallow other keys while help is open (match TUI overlay).
         return Some(WebAction::HelpAbsorb);
+    }
+
+    // Command Mode chord / pickers (before Space menu so Esc closes the right overlay).
+    if cmd.active {
+        if !ctrl && key == "Escape" {
+            return Some(WebAction::CommandModeClose);
+        }
+        if cmd.picker {
+            if !ctrl && !shift && (key == "Enter" || key == " ") {
+                return Some(WebAction::CommandModeSubmit);
+            }
+            if !ctrl && !shift {
+                match key.as_str() {
+                    "ArrowUp" | "k" | "K" => return Some(WebAction::CommandModeMoveUp),
+                    "ArrowDown" | "j" | "J" => return Some(WebAction::CommandModeMoveDown),
+                    _ => {}
+                }
+                match code.as_str() {
+                    "ArrowUp" => return Some(WebAction::CommandModeMoveUp),
+                    "ArrowDown" => return Some(WebAction::CommandModeMoveDown),
+                    _ => {}
+                }
+            }
+            return Some(WebAction::CommandModeAbsorb);
+        }
+        if !ctrl && !shift && key.len() == 1 {
+            let c = key.chars().next()?.to_ascii_lowercase();
+            if c.is_ascii_alphabetic() {
+                return Some(WebAction::CommandModeHotkey(c));
+            }
+        }
+        return Some(WebAction::CommandModeAbsorb);
+    }
+
+    // Ctrl+leader begins Command Mode (not in Settings / help / search / Space menu).
+    if ctrl && !shift && !cmd.blocked {
+        let leader = cmd.leader.to_ascii_lowercase();
+        let hit = key.to_ascii_lowercase().starts_with(leader)
+            || code.eq_ignore_ascii_case(&format!("Key{}", leader.to_ascii_uppercase()));
+        if hit {
+            return Some(WebAction::CommandModeBegin);
+        }
     }
 
     if space.open {

@@ -69,8 +69,7 @@ struct HelpSection {
 const DIGIT_ROW_KEY: &str = "1 2 7 8 9";
 const DIGIT_ROW_DESC: &str = "Jump to Main Tab when that tab is visible.";
 
-const FOOTNOTE: &str =
-    "Only bindings that work in the web UI are listed. Command Mode lands in a later mini-PR.";
+const FOOTNOTE: &str = "Only bindings that work in the web UI are listed. Ctrl+a opens Command Mode (Snapshot / Lenses / Dupes).";
 
 const GENERAL_BROWSER: &[(&str, &str)] = &[
     ("~", "Alternate between Main tabs"),
@@ -132,6 +131,16 @@ const MULTISELECT: &[(&str, &str)] = &[
     ("Esc", "Exit Multi-select mode"),
 ];
 
+const COMMAND_MODE: &[(&str, &str)] = &[
+    ("d", "Run duplicate detection"),
+    ("t", "Theme selector"),
+    ("s", "Take snapshot"),
+    ("r", "Reload config from disk"),
+    ("x", "Export Zahir JSON (ublx-export/)"),
+    ("l", "Export lenses as Markdown (ublx-lenses/)"),
+    ("p", "Switch UBLX project"),
+];
+
 const GENERAL_SETTINGS: &[(&str, &str)] = &[
     ("h | l · ← →", "Focus Scope or Options pane"),
     ("j | k · ↑ ↓", "Move in the focused list (Scope / Options)"),
@@ -160,6 +169,11 @@ const SNAPSHOT_SECTIONS: &[HelpSection] = &[
         rows: MULTISELECT,
         include_digit_row: false,
     },
+    HelpSection {
+        title: "Command Mode (Ctrl+a)",
+        rows: COMMAND_MODE,
+        include_digit_row: false,
+    },
 ];
 
 /// Duplicates: same chrome as Snapshot but no multi-select (TUI).
@@ -177,6 +191,11 @@ const DUPLICATES_SECTIONS: &[HelpSection] = &[
     HelpSection {
         title: "Quick Actions (Spacebar)",
         rows: QUICK_ACTIONS_DUPES,
+        include_digit_row: false,
+    },
+    HelpSection {
+        title: "Command Mode (Ctrl+a)",
+        rows: COMMAND_MODE,
         include_digit_row: false,
     },
 ];

@@ -8,6 +8,7 @@
 
 mod api;
 mod catalog_refresh;
+mod command_mode;
 mod focus;
 mod help;
 mod keys;
@@ -30,7 +31,7 @@ use wasm_bindgen::prelude::wasm_bindgen;
 
 use crate::api::{SettingsScope, fetch_settings, load_catalog_flags};
 use crate::shell::Shell;
-use crate::theme::{ThemeCssView, apply_theme_css};
+use crate::theme::apply_theme_css_body;
 
 #[wasm_bindgen(start)]
 pub fn main() {
@@ -48,11 +49,7 @@ fn App() -> impl IntoView {
     Effect::new(move |_| {
         spawn_local(async move {
             if let Ok(v) = fetch_settings(SettingsScope::Local).await {
-                apply_theme_css(&ThemeCssView::from_parts(
-                    v.css.name,
-                    v.css.appearance,
-                    v.css.vars,
-                ));
+                apply_theme_css_body(&v.css);
             }
         });
     });

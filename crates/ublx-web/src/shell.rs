@@ -6,11 +6,12 @@ use web_sys::KeyboardEvent;
 
 use crate::api::{CatalogFlags, format_timestamp_ns};
 use crate::catalog_refresh::CatalogRefresh;
+use crate::command_mode::{CommandModeCtx, CommandModePopup};
 use crate::focus::{PaneFocus, PdfPageNav, PreviewKeysBus, RightTabBus, UiNav};
 use crate::help::{HelpModal, HelpOverlay};
 use crate::keys::{
-    FindKeyCtx, MultiselectKeyCtx, SpaceMenuKeyCtx, WebAction, action_from_keydown,
-    typing_in_form_field,
+    CommandModeKeyCtx, FindKeyCtx, MultiselectKeyCtx, SpaceMenuKeyCtx, WebAction,
+    action_from_keydown, typing_in_form_field,
 };
 use crate::modes::{DeltaMode, DuplicatesMode, LensesMode, SettingsMode, SnapshotMode};
 use crate::multiselect::MultiselectCtx;
@@ -34,6 +35,7 @@ pub(crate) fn Shell(flags: CatalogFlags) -> impl IntoView {
     let catalog_refresh = CatalogRefresh::provide();
     let space_menu = SpaceMenuCtx::provide(catalog_refresh, multiselect);
     space_menu.catalog_root.set(flags.get_value().root.clone());
+    let command_mode = CommandModeCtx::provide(catalog_refresh, set_mode);
 
     // Deep-link may name a tab that is hidden for this catalog — fall back to Snapshot.
     Effect::new(move |_| {
@@ -58,12 +60,29 @@ pub(crate) fn Shell(flags: CatalogFlags) -> impl IntoView {
         let _ = mode.get();
         multiselect.clear();
         space_menu.close();
+        command_mode.close_all();
     });
 
     // Leaving contents pane exits multi-select (TUI FocusCategories / Tab).
     Effect::new(move |_| {
         if nav.pane.get() != PaneFocus::Middle && multiselect.active.get_untracked() {
             multiselect.clear();
+        }
+    });
+
+    // Chord chrome hint while waiting for the second key (before menu).
+    Effect::new(move |_| {
+        let pending = command_mode.pending.get() && !command_mode.menu_visible.get();
+        if let Some(el) = web_sys::window()
+            .and_then(|w| w.document())
+            .and_then(|d| d.query_selector(".tui-shell").ok().flatten())
+        {
+            let list = el.class_list();
+            if pending {
+                let _ = list.add_1("tui-shell--chord-pending");
+            } else {
+                let _ = list.remove_1("tui-shell--chord-pending");
+            }
         }
     });
 
@@ -84,13 +103,15 @@ pub(crate) fn Shell(flags: CatalogFlags) -> impl IntoView {
         let preview = preview;
         let multiselect = multiselect;
         let space_menu = space_menu;
+        let command_mode = command_mode;
         let closure = wasm_bindgen::closure::Closure::wrap(Box::new(move |ev: KeyboardEvent| {
             let menu_open = space_menu.visible.get_untracked();
+            let cmd_active = command_mode.is_active();
             // Rename / bulk-rename inputs need normal typing; their own on:keydown handles Enter/Esc.
-            if typing_in_form_field() && !menu_open {
+            if typing_in_form_field() && !menu_open && !cmd_active {
                 return;
             }
-            if typing_in_form_field() && menu_open {
+            if typing_in_form_field() && (menu_open || cmd_active) {
                 return;
             }
             let help_open = help.visible.get_untracked();
@@ -112,13 +133,23 @@ pub(crate) fn Shell(flags: CatalogFlags) -> impl IntoView {
                     MainMode::Snapshot | MainMode::Lenses | MainMode::Duplicates
                 ),
             };
-            let Some(action) = action_from_keydown(&ev, help_open, find_ctx, ms_ctx, space_ctx)
+            let cmd_ctx = CommandModeKeyCtx {
+                active: cmd_active,
+                picker: command_mode.picker_open(),
+                blocked: help_open
+                    || menu_open
+                    || search.active.get_untracked()
+                    || m == MainMode::Settings,
+                leader: command_mode.leader.get_untracked(),
+            };
+            let Some(action) =
+                action_from_keydown(&ev, help_open, find_ctx, ms_ctx, space_ctx, cmd_ctx)
             else {
                 return;
             };
             ev.prevent_default();
             // Capture-phase: stop other handlers (focused <button> Enter, etc.) from stealing keys.
-            if menu_open {
+            if menu_open || cmd_active {
                 ev.stop_immediate_propagation();
             }
             dispatch_action(
@@ -136,6 +167,7 @@ pub(crate) fn Shell(flags: CatalogFlags) -> impl IntoView {
                     help,
                     multiselect,
                     space_menu,
+                    command_mode,
                 },
             );
         }) as Box<dyn FnMut(_)>);
@@ -188,6 +220,7 @@ pub(crate) fn Shell(flags: CatalogFlags) -> impl IntoView {
 
         <HelpModal mode=mode/>
         <SpaceMenuPopup/>
+        <CommandModePopup/>
     }
 }
 
@@ -205,6 +238,7 @@ struct KeybusCtx {
     help: HelpOverlay,
     multiselect: MultiselectCtx,
     space_menu: SpaceMenuCtx,
+    command_mode: CommandModeCtx,
 }
 
 fn dispatch_action(action: WebAction, ctx: KeybusCtx) {
@@ -212,13 +246,28 @@ fn dispatch_action(action: WebAction, ctx: KeybusCtx) {
     match action {
         WebAction::HelpToggle => {
             ctx.space_menu.close();
+            ctx.command_mode.close_all();
             ctx.help.toggle();
         }
         WebAction::HelpClose => ctx.help.close(),
         WebAction::HelpSectionNext => ctx.help.cycle_section(ctx.mode.get_untracked(), 1),
         WebAction::HelpSectionPrev => ctx.help.cycle_section(ctx.mode.get_untracked(), -1),
         WebAction::HelpAbsorb => {}
+        WebAction::CommandModeBegin => {
+            ctx.help.close();
+            ctx.space_menu.close();
+            ctx.command_mode.begin_chord();
+        }
+        WebAction::CommandModeClose => ctx.command_mode.close_all(),
+        WebAction::CommandModeHotkey(c) => {
+            let _ = ctx.command_mode.submit_hotkey(c);
+        }
+        WebAction::CommandModeMoveUp => ctx.command_mode.picker_move(-1),
+        WebAction::CommandModeMoveDown => ctx.command_mode.picker_move(1),
+        WebAction::CommandModeSubmit => ctx.command_mode.picker_submit(),
+        WebAction::CommandModeAbsorb => {}
         WebAction::SpaceMenuOpen => {
+            ctx.command_mode.close_all();
             let _ = ctx.space_menu.try_open_qa(
                 ctx.mode.get_untracked(),
                 ctx.nav.pane.get_untracked(),
@@ -247,11 +296,13 @@ fn dispatch_action(action: WebAction, ctx: KeybusCtx) {
         WebAction::SearchStart => {
             ctx.find.clear();
             ctx.space_menu.close();
+            ctx.command_mode.close_all();
             ctx.search.start();
         }
         WebAction::ViewerFindOpen => {
             ctx.search.set_active.set(false);
             ctx.space_menu.close();
+            ctx.command_mode.close_all();
             ctx.find.start();
         }
         WebAction::ViewerFindNext => ctx.find.next(),
@@ -259,6 +310,7 @@ fn dispatch_action(action: WebAction, ctx: KeybusCtx) {
         WebAction::ViewerFindClear => ctx.find.clear(),
         WebAction::MultiselectToggleMode => {
             ctx.space_menu.close();
+            ctx.command_mode.close_all();
             let _ = ctx.multiselect.try_toggle_mode(
                 ctx.mode.get_untracked(),
                 ctx.nav.pane.get_untracked() == PaneFocus::Middle,
@@ -274,6 +326,7 @@ fn dispatch_action(action: WebAction, ctx: KeybusCtx) {
             ctx.multiselect.clear();
         }
         WebAction::MultiselectOpenBulk => {
+            ctx.command_mode.close_all();
             let _ = ctx.space_menu.try_open_bulk(
                 ctx.mode.get_untracked(),
                 ctx.multiselect.active.get_untracked(),
