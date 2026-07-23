@@ -14,4 +14,5 @@ wasm-bindgen \
   --out-name ublx_web \
   "$ROOT/target/wasm32-unknown-unknown/release/ublx_web.wasm"
 cp "$CRATE/index.html" "$CRATE/styles.css" "$OUT/"
+cp -R "$CRATE/styles" "$OUT/styles"
 echo "built $OUT (open via: cargo run -p ublx --features ui -- serve . --open)"

@@ -1,0 +1,94 @@
+/* —— help overlay (`?`) —— */
+.help-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: hsl(var(--background) / 0.72);
+}
+
+.help-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  width: min(42rem, 100%);
+  max-height: min(36rem, 90vh);
+  padding: 0.75rem 0.9rem 0.85rem;
+  border: 1px solid hsl(var(--border));
+  background: hsl(var(--card));
+  color: hsl(var(--card-foreground));
+  box-shadow: 0 0.5rem 1.5rem hsl(var(--background) / 0.55);
+}
+
+.help-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.help-title {
+  font-weight: 700;
+  color: hsl(var(--primary));
+}
+
+.help-hint {
+  color: hsl(var(--muted-foreground));
+  font-size: 0.8rem;
+}
+
+.help-blurb {
+  margin: 0;
+  color: hsl(var(--muted-foreground));
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
+.help-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.help-table-wrap {
+  min-height: 0;
+  overflow: auto;
+  border: 1px solid hsl(var(--border) / 0.7);
+}
+
+.help-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.help-table th,
+.help-table td {
+  padding: 0.35rem 0.55rem;
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid hsl(var(--border) / 0.45);
+}
+
+.help-table th {
+  color: hsl(var(--muted-foreground));
+  font-weight: 600;
+  background: hsl(var(--muted) / 0.55);
+}
+
+.help-key {
+  width: 38%;
+  white-space: nowrap;
+  color: hsl(var(--primary));
+  font-weight: 600;
+}
+
+.help-footnote {
+  margin: 0;
+  color: hsl(var(--muted-foreground));
+  font-size: 0.75rem;
+  line-height: 1.35;
+}

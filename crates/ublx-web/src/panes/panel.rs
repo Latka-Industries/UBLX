@@ -1,4 +1,4 @@
-//! Bordered 3-pane layout (ratatui `Block`-style) and right-pane tabs.
+//! Panel chrome, path lists, and entry/overview right panes.
 
 use leptos::prelude::*;
 use wasm_bindgen::JsCast;
@@ -6,7 +6,7 @@ use wasm_bindgen::closure::Closure;
 use web_sys::{ScrollIntoViewOptions, ScrollLogicalPosition};
 
 use crate::api::{EntryDetail, format_bytes, format_timestamp_ns};
-use crate::focus::{PaneFocus, PreviewKeysBus, UiNav, install_list_nav, string_list_nav};
+use crate::focus::{PreviewKeysBus, UiNav, install_list_nav, string_list_nav};
 use crate::kv_tables::KvTables;
 use crate::nav::MainMode;
 use crate::search;
@@ -14,50 +14,11 @@ use crate::sort::ContentSortCtx;
 use crate::viewer::EntryViewer;
 use crate::viewer_find::{ViewerFind, ViewerFindStrip, install_highlight_effect};
 
-/// Shared 3-pane TUI layout — bordered boxes with title nodes.
-/// Pane focus lives in [`UiNav`] (keyboard + click).
-#[component]
-pub(crate) fn ThreePane(
-    left_title: &'static str,
-    middle_title: &'static str,
-    left: AnyView,
-    middle: AnyView,
-    right: AnyView,
-) -> impl IntoView {
-    let nav = UiNav::expect();
-    let focus = nav.pane;
-    let set_focus = nav.set_pane;
-
-    view! {
-        <div class="three-pane">
-            <PanelBox
-                title=left_title
-                focused=Signal::derive(move || focus.get() == PaneFocus::Left)
-                on_focus=Callback::new(move |_| set_focus.set(PaneFocus::Left))
-            >
-                {left}
-            </PanelBox>
-            <PanelBox
-                title=middle_title
-                focused=Signal::derive(move || focus.get() == PaneFocus::Middle)
-                on_focus=Callback::new(move |_| set_focus.set(PaneFocus::Middle))
-            >
-                {middle}
-            </PanelBox>
-            <PanelBox
-                title="Right"
-                hide_default_title=true
-                focused=Signal::derive(|| false)
-                on_focus=Callback::new(|_| {})
-            >
-                {right}
-            </PanelBox>
-        </div>
-    }
-}
+use super::RightTab;
+use super::status::{PdfPageStatusNode, RightTabBtn, TextWindowStatusNode, TreeCollapseStatusNode};
 
 #[component]
-fn PanelBox(
+pub(super) fn PanelBox(
     title: &'static str,
     focused: Signal<bool>,
     on_focus: Callback<()>,
@@ -121,25 +82,6 @@ pub(crate) fn PanelRow(
                 <span class="panel-row__text">{label.clone()}</span>
             </button>
         </li>
-    }
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) enum RightTab {
-    Viewer,
-    Templates,
-    Metadata,
-    Writing,
-}
-
-impl RightTab {
-    fn label(self) -> &'static str {
-        match self {
-            Self::Viewer => "Viewer",
-            Self::Templates => "Templates",
-            Self::Metadata => "Metadata",
-            Self::Writing => "Writing",
-        }
     }
 }
 
@@ -549,230 +491,5 @@ pub(crate) fn EntryRightPane(detail: Signal<Option<EntryDetail>>) -> impl IntoVi
                 }}
             </Show>
         </div>
-    }
-}
-
-#[component]
-fn PdfPageStatusNode() -> impl IntoView {
-    let preview = PreviewKeysBus::expect();
-    let (editing, set_editing) = signal(false);
-    let (draft, set_draft) = signal(String::new());
-    let input_ref = NodeRef::<leptos::html::Input>::new();
-
-    Effect::new(move |_| {
-        if !editing.get() {
-            return;
-        }
-        if let Some(el) = input_ref.get() {
-            let _ = el.focus();
-            el.select();
-        }
-    });
-
-    let start_edit = move |_| {
-        let Some(ctl) = preview.pdf.get_untracked() else {
-            return;
-        };
-        set_draft.set(ctl.page.get_untracked().max(1).to_string());
-        set_editing.set(true);
-    };
-
-    let commit = move || {
-        let Some(ctl) = preview.pdf.get_untracked() else {
-            set_editing.set(false);
-            return;
-        };
-        let raw = draft.get_untracked();
-        let trimmed = raw.trim();
-        if !trimmed.is_empty()
-            && let Ok(n) = trimmed.parse::<u32>()
-        {
-            ctl.goto.run(n);
-        }
-        set_editing.set(false);
-    };
-
-    let cancel = move || {
-        set_editing.set(false);
-    };
-
-    view! {
-        <span
-            class=move || {
-                if editing.get() {
-                    "status-node status-node--page status-node--page-editing"
-                } else {
-                    "status-node status-node--button status-node--page"
-                }
-            }
-            title="Click to jump to page"
-            on:click=move |ev| {
-                if editing.get_untracked() {
-                    return;
-                }
-                ev.prevent_default();
-                start_edit(());
-            }
-        >
-            "Page "
-            <Show
-                when=move || editing.get()
-                fallback=move || {
-                    view! {
-                        <span class="status-node__page-num">
-                            {move || {
-                                preview
-                                    .pdf
-                                    .get()
-                                    .map(|c| c.page.get().max(1))
-                                    .unwrap_or(1)
-                            }}
-                        </span>
-                    }
-                }
-            >
-                <input
-                    node_ref=input_ref
-                    class="status-node__page-input"
-                    type="text"
-                    inputmode="numeric"
-                    pattern="[0-9]*"
-                    prop:value=move || draft.get()
-                    size=move || {
-                        let digits = preview
-                            .pdf
-                            .get()
-                            .and_then(|c| c.page_count.get())
-                            .unwrap_or_else(|| {
-                                preview.pdf.get().map(|c| c.page.get()).unwrap_or(1)
-                            })
-                            .to_string()
-                            .len();
-                        digits.clamp(2, 6) as u32
-                    }
-                    aria-label="Page number"
-                    on:input=move |ev| {
-                        set_draft.set(event_target_value(&ev));
-                    }
-                    on:keydown=move |ev| {
-                        ev.stop_propagation();
-                        match ev.key().as_str() {
-                            "Enter" => {
-                                ev.prevent_default();
-                                commit();
-                            }
-                            "Escape" => {
-                                ev.prevent_default();
-                                cancel();
-                            }
-                            _ => {}
-                        }
-                    }
-                    on:blur=move |_| commit()
-                    on:click=move |ev| ev.stop_propagation()
-                />
-            </Show>
-            {move || {
-                preview.pdf.get().and_then(|c| c.page_count.get()).map(|n| {
-                    view! { <span>{format!(" / {n}")}</span> }.into_any()
-                })
-            }}
-        </span>
-    }
-}
-
-#[component]
-fn TextWindowStatusNode() -> impl IntoView {
-    let preview = PreviewKeysBus::expect();
-    view! {
-        <span class="status-node status-node--window" title="Byte window (Shift+J/K)">
-            {move || {
-                let Some(ctl) = preview.text_win.get() else {
-                    return String::new();
-                };
-                let off = ctl.offset.get();
-                let len = ctl.byte_len.get();
-                let tot = ctl.total.get();
-                let end = if len == 0 {
-                    off
-                } else {
-                    off.saturating_add(len - 1)
-                };
-                format!(
-                    "{}–{} / {}",
-                    format_bytes(off),
-                    format_bytes(end),
-                    format_bytes(tot)
-                )
-            }}
-        </span>
-    }
-}
-
-#[component]
-fn TreeCollapseStatusNode() -> impl IntoView {
-    let preview = PreviewKeysBus::expect();
-    view! {
-        <button
-            type="button"
-            class="status-node status-node--button"
-            title="Expand all tree nodes"
-            prop:disabled=move || {
-                preview
-                    .tree
-                    .get()
-                    .is_none_or(|c| !c.can_expand.get())
-            }
-            on:click=move |ev| {
-                ev.prevent_default();
-                if let Some(ctl) = preview.tree.get_untracked() {
-                    ctl.expand_all.run(());
-                }
-            }
-        >
-            "Expand all"
-        </button>
-        <button
-            type="button"
-            class="status-node status-node--button"
-            title="Collapse all tree nodes"
-            prop:disabled=move || {
-                preview
-                    .tree
-                    .get()
-                    .is_none_or(|c| !c.can_collapse.get())
-            }
-            on:click=move |ev| {
-                ev.prevent_default();
-                if let Some(ctl) = preview.tree.get_untracked() {
-                    ctl.collapse_all.run(());
-                }
-            }
-        >
-            "Collapse all"
-        </button>
-    }
-}
-
-#[component]
-fn RightTabBtn(
-    tab: RightTab,
-    current: ReadSignal<RightTab>,
-    set: WriteSignal<RightTab>,
-) -> impl IntoView {
-    view! {
-        <button
-            type="button"
-            class=move || {
-                if current.get() == tab {
-                    "tab-node tab-node--active tab-node--sm"
-                } else {
-                    "tab-node tab-node--sm"
-                }
-            }
-            on:click=move |_| set.set(tab)
-        >
-            {tab.label()}
-        </button>
     }
 }
