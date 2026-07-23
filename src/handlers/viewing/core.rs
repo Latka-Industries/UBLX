@@ -2,6 +2,7 @@
 //! Moved from layout so "get the data that goes into the view" lives with other handlers.
 
 use serde_json::{self, Value};
+use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::Arc;
@@ -45,6 +46,74 @@ pub(crate) fn tree_subprocess_for_path(full_path_ref: &Path) -> Result<String, S
         }
         Err(e) => Err(format!("tree not available: {e}")),
     }
+}
+
+/// Caps for structured directory trees (web collapsible Viewer).
+struct DirTreeLimits;
+impl DirTreeLimits {
+    const MAX_DEPTH: u32 = 8;
+    const MAX_NODES: usize = 2_000;
+}
+
+/// Walk `root` into nested [`TreeNode`]s for the web Viewer (TUI still uses `tree` text).
+#[must_use]
+pub fn directory_tree_nodes(root: &Path) -> Vec<crate::render::kv_tables::TreeNode> {
+    let mut budget = DirTreeLimits::MAX_NODES;
+    walk_dir_nodes(root, 0, &mut budget)
+}
+
+fn walk_dir_nodes(
+    dir: &Path,
+    depth: u32,
+    budget: &mut usize,
+) -> Vec<crate::render::kv_tables::TreeNode> {
+    use crate::render::kv_tables::TreeNode;
+
+    if depth >= DirTreeLimits::MAX_DEPTH || *budget == 0 {
+        return Vec::new();
+    }
+    let Ok(rd) = fs::read_dir(dir) else {
+        return Vec::new();
+    };
+    let mut entries: Vec<_> = rd.filter_map(Result::ok).collect();
+    entries.sort_by_key(|e| {
+        let is_dir = e.file_type().map(|t| t.is_dir()).unwrap_or(false);
+        (!is_dir, e.file_name())
+    });
+
+    let mut out = Vec::new();
+    for ent in entries {
+        if *budget == 0 {
+            out.push(TreeNode {
+                label: "…".into(),
+                value: Some("truncated".into()),
+                children: Vec::new(),
+                branch: false,
+            });
+            break;
+        }
+        *budget = budget.saturating_sub(1);
+        let name = ent.file_name().to_string_lossy().into_owned();
+        let path = ent.path();
+        let is_dir = ent.file_type().map(|t| t.is_dir()).unwrap_or(false);
+        if is_dir {
+            let children = walk_dir_nodes(&path, depth + 1, budget);
+            out.push(TreeNode {
+                label: name,
+                value: None,
+                children,
+                branch: true,
+            });
+        } else {
+            out.push(TreeNode {
+                label: name,
+                value: None,
+                children: Vec::new(),
+                branch: false,
+            });
+        }
+    }
+    out
 }
 
 pub(crate) fn zahir_json_string_for_path(db_path: &Path, rel_path: &str) -> String {

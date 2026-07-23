@@ -7,7 +7,7 @@ use crate::config::ColumnStatsDisplay;
 
 use super::format;
 use super::parse_ctx::KvParseCtx;
-use super::sections::{ContentsSection, Section, parse_json_sections_with_ctx};
+use super::sections::{ContentsSection, Section, TreeNode, parse_json_sections_with_ctx};
 
 /// One rendered Metadata / Writing section for clients that cannot draw ratatui tables.
 #[derive(Clone, Debug, Serialize, PartialEq, Eq)]
@@ -31,12 +31,30 @@ pub enum SectionView {
         title: String,
         values: Vec<String>,
     },
+    /// Nested schema tree (collapsible in the web UI).
+    Tree {
+        title: String,
+        roots: Vec<TreeNodeView>,
+    },
 }
 
 #[derive(Clone, Debug, Serialize, PartialEq, Eq)]
 pub struct KvRowView {
     pub key: String,
     pub value: String,
+}
+
+/// One schema tree node for HTTP / web UI.
+#[derive(Clone, Debug, Serialize, PartialEq, Eq)]
+pub struct TreeNodeView {
+    pub label: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub value: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub children: Vec<TreeNodeView>,
+    /// Collapsible even with no children (directories).
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub branch: bool,
 }
 
 /// Parse Metadata / Writing JSON into [`SectionView`]s (abbrev/full/none via `typed_column_tables`).
@@ -83,6 +101,19 @@ fn section_to_view(section: &Section, max_array_inline: usize) -> SectionView {
             title: list.title.clone(),
             values: list.values.clone(),
         },
+        Section::Tree(tree) => SectionView::Tree {
+            title: tree.title.clone(),
+            roots: tree.roots.iter().map(tree_node_to_view).collect(),
+        },
+    }
+}
+
+pub fn tree_node_to_view(node: &TreeNode) -> TreeNodeView {
+    TreeNodeView {
+        label: node.label.clone(),
+        value: node.value.clone(),
+        children: node.children.iter().map(tree_node_to_view).collect(),
+        branch: node.branch,
     }
 }
 

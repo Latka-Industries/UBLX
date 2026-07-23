@@ -241,6 +241,8 @@ fn dispatch_action(action: WebAction, ctx: KeybusCtx) {
 fn apply_preview_keys(preview: PreviewKeysBus, nav: PdfPageNav) {
     if let Some(ctl) = preview.pdf.get_untracked() {
         ctl.apply.run(nav);
+    } else if let Some(ctl) = preview.text_win.get_untracked() {
+        ctl.apply.run(nav);
     } else {
         scroll_right_preview(nav);
     }

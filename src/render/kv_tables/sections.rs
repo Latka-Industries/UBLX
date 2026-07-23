@@ -31,17 +31,34 @@ pub struct ContentsSection {
     pub sub_title: bool,
 }
 
-/// Single-column list with no header (e.g. `common_pivots`, schema tree).
+/// Single-column list with no header (e.g. `common_pivots`).
 pub struct SingleColumnListSection {
     pub title: String,
     pub values: Vec<String>,
 }
 
-/// Either a key/value table, a multi-column contents table, or a single-column list.
+/// One node in a Metadata schema tree (web: collapsible; TUI: flattened lines).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct TreeNode {
+    pub label: String,
+    pub value: Option<String>,
+    pub children: Vec<TreeNode>,
+    /// Collapsible in the web UI even when [`children`] is empty (e.g. empty directory).
+    pub branch: bool,
+}
+
+/// Nested schema tree section (`schema` key).
+pub struct TreeSection {
+    pub title: String,
+    pub roots: Vec<TreeNode>,
+}
+
+/// Either a key/value table, a multi-column contents table, a single-column list, or a schema tree.
 pub enum Section {
     KeyValue(KvSection),
     Contents(ContentsSection),
     SingleColumnList(SingleColumnListSection),
+    Tree(TreeSection),
 }
 
 impl Section {
@@ -52,6 +69,7 @@ impl Section {
             Section::KeyValue(kv) => kv.title.as_deref(),
             Section::Contents(c) => Some(c.title.as_str()),
             Section::SingleColumnList(list) => Some(list.title.as_str()),
+            Section::Tree(tree) => Some(tree.title.as_str()),
         }
     }
 
@@ -62,6 +80,11 @@ impl Section {
             Section::KeyValue(kv) => (kv.title.is_some(), 1, kv.rows.len()),
             Section::Contents(c) => (true, 1, c.entries.len()),
             Section::SingleColumnList(list) => (true, 0, list.values.len()),
+            Section::Tree(tree) => (
+                true,
+                0,
+                super::schema::tree_roots_to_lines(&tree.roots).len(),
+            ),
         }
     }
 
@@ -71,7 +94,7 @@ impl Section {
         match self {
             Section::KeyValue(kv) => kv.sub_title,
             Section::Contents(c) => c.sub_title,
-            Section::SingleColumnList(_) => false,
+            Section::SingleColumnList(_) | Section::Tree(_) => false,
         }
     }
 }
@@ -197,6 +220,12 @@ pub fn visual_lines_from_sections(sections: &[Section], max_array_inline: usize)
                 lines.push(list.title.clone());
                 for s in &list.values {
                     lines.push(s.clone());
+                }
+            }
+            Section::Tree(tree) => {
+                lines.push(tree.title.clone());
+                for s in super::schema::tree_roots_to_lines(&tree.roots) {
+                    lines.push(s);
                 }
             }
         }

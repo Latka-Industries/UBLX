@@ -10,8 +10,12 @@ use wasm_bindgen::JsCast;
 use wasm_bindgen::closure::Closure;
 use web_sys::HtmlElement;
 
-use crate::api::{EntryContent, encode_entry_path, fetch_entry_content, fetch_entry_content_page};
-use crate::focus::{PdfPageCtl, PdfPageNav, PreviewKeysBus};
+use crate::api::{
+    CONTENT_WINDOW_BYTES, CONTENT_WINDOW_MIN_FILE_BYTES, EntryContent, encode_entry_path,
+    fetch_entry_content, fetch_entry_content_page, fetch_entry_content_window,
+};
+use crate::focus::{PdfPageCtl, PdfPageNav, PreviewKeysBus, TextWindowCtl};
+use crate::kv_tables::CollapsibleTree;
 use crate::viewer_find::ViewerFind;
 
 /// Zahir catalog category for markdown (`FileType::Markdown.as_metadata_name()`).
@@ -25,6 +29,7 @@ const TEXT_CATEGORY: &str = "Text";
 const IMAGE_CATEGORY: &str = "Image";
 const PDF_CATEGORY: &str = "PDF";
 const VIDEO_CATEGORY: &str = "Video";
+const DIRECTORY_CATEGORY: &str = "Directory";
 /// Audio / Epub show embedded cover art in the TUI Viewer when present.
 const COVER_CATEGORIES: &[&str] = &["Audio", "Epub"];
 
@@ -58,7 +63,18 @@ pub(crate) fn is_video_category(category: &str) -> bool {
 }
 
 pub(crate) fn is_cover_category(category: &str) -> bool {
-    COVER_CATEGORIES.contains(&category)
+    COVER_CATEGORIES
+        .iter()
+        .any(|c| category.eq_ignore_ascii_case(c))
+}
+
+pub(crate) fn is_directory_category(category: &str) -> bool {
+    category == DIRECTORY_CATEGORY || category.eq_ignore_ascii_case("Zarr")
+}
+
+fn path_looks_epub(path: &str) -> bool {
+    path.rsplit_once('.')
+        .is_some_and(|(_, ext)| ext.eq_ignore_ascii_case("epub"))
 }
 
 fn uses_html_viewer(category: &str, path: &str) -> bool {
@@ -70,6 +86,7 @@ fn uses_html_viewer(category: &str, path: &str) -> bool {
         || is_pdf_category(category)
         || is_video_category(category)
         || is_cover_category(category)
+        || path_looks_epub(path)
         || path_looks_delimited(path)
         || path_looks_svg(path)
 }
@@ -101,6 +118,7 @@ fn viewer_html_class(category: &str, path: &str) -> &'static str {
         || is_pdf_category(category)
         || is_video_category(category)
         || is_cover_category(category)
+        || path_looks_epub(path)
         || path_looks_svg(path)
     {
         "img-viewer-host"
@@ -110,25 +128,198 @@ fn viewer_html_class(category: &str, path: &str) -> &'static str {
 }
 
 #[component]
-pub(crate) fn EntryViewer(path: String, category: String) -> impl IntoView {
+pub(crate) fn EntryViewer(path: String, category: String, size: u64) -> impl IntoView {
     let html_viewer = uses_html_viewer(&category, &path);
     let class = viewer_html_class(&category, &path);
     let is_pdf = is_pdf_category(&category);
+    let is_cover = is_cover_category(&category) || path_looks_epub(&path);
+    let windowed = wants_byte_window(&category, size);
 
     view! {
         <div class="entry-viewer">
             {if is_pdf {
                 view! { <PdfViewer path=path/> }.into_any()
+            } else if is_cover {
+                view! { <CoverViewer path=path/> }.into_any()
+            } else if is_directory_category(&category) {
+                view! { <DirectoryTreeViewer path=path/> }.into_any()
+            } else if windowed {
+                view! { <WindowedTextViewer path=path size=size/> }.into_any()
             } else if html_viewer {
                 view! { <HostHtmlBody path=path class=class/> }.into_any()
             } else {
-                view! {
-                    <p class="pane-empty entry-viewer__note">
-                        "(viewer — preview for this category not available over serve yet)"
-                    </p>
-                }
-                .into_any()
+                // Same body as TUI: `file_content_for_viewer` → e.g. "PARQUET file" / tet info.
+                view! { <HostTextBody path=path/> }.into_any()
             }}
+        </div>
+    }
+}
+
+/// Audio / Epub: embedded cover via `/content?format=cover` (same bytes as TUI).
+#[component]
+fn CoverViewer(path: String) -> impl IntoView {
+    let (load_err, set_load_err) = signal::<Option<String>>(None);
+    let src = format!("/content/{}?format=cover", encode_entry_path(&path));
+    let alt = path.clone();
+
+    view! {
+        <div class="img-viewer-host cover-viewer">
+            <div class="img-viewer">
+                <img
+                    class="img-viewer__img"
+                    src=src.clone()
+                    alt=alt
+                    loading="lazy"
+                    on:error=move |_| {
+                        let src = src.clone();
+                        wasm_bindgen_futures::spawn_local(async move {
+                            let msg = match gloo_net::http::Request::get(&src).send().await {
+                                Ok(resp) if !resp.ok() => resp
+                                    .json::<serde_json::Value>()
+                                    .await
+                                    .ok()
+                                    .and_then(|v| {
+                                        v.get("error").and_then(|e| e.as_str()).map(str::to_owned)
+                                    })
+                                    .unwrap_or_else(|| {
+                                        format!("failed to load cover ({})", resp.status())
+                                    }),
+                                Ok(_) => "(no embedded cover)".into(),
+                                Err(e) => e.to_string(),
+                            };
+                            set_load_err.set(Some(msg));
+                        });
+                    }
+                    on:load=move |_| set_load_err.set(None)
+                />
+            </div>
+            <Show when=move || load_err.get().is_some()>
+                <p class="img-viewer__empty">{move || load_err.get().unwrap_or_default()}</p>
+            </Show>
+        </div>
+    }
+}
+
+/// Directory / Zarr store Viewer: collapsible fs tree from `/content` (`format=tree`).
+#[component]
+fn DirectoryTreeViewer(path: String) -> impl IntoView {
+    let path_for_fetch = path.clone();
+    let content = LocalResource::new(move || {
+        let p = path_for_fetch.clone();
+        async move { fetch_entry_content(&p, None).await }
+    });
+
+    view! {
+        <Suspense fallback=move || {
+            view! { <p class="pane-empty">"Loading…"</p> }
+        }>
+            {move || match content.get() {
+                None => view! { <p class="pane-empty">"…"</p> }.into_any(),
+                Some(Err(e)) => view! { <p class="pane-empty">{e}</p> }.into_any(),
+                Some(Ok(body)) => {
+                    if let Some(roots) = body.tree.filter(|t| !t.is_empty()) {
+                        view! { <CollapsibleTree roots=roots/> }.into_any()
+                    } else if body.content.is_empty() {
+                        view! { <p class="pane-empty">(empty)</p> }.into_any()
+                    } else {
+                        view! {
+                            <div class="text-viewer">
+                                <pre class="detail-pre">{body.content}</pre>
+                            </div>
+                        }
+                        .into_any()
+                    }
+                }
+            }}
+        </Suspense>
+    }
+}
+
+fn wants_byte_window(category: &str, size: u64) -> bool {
+    size >= CONTENT_WINDOW_MIN_FILE_BYTES
+        && (is_text_category(category) || is_syntect_category(category))
+}
+
+/// Explore #12: plain-text byte windows for large Text/Code (Shift+J/K/B/E).
+#[component]
+fn WindowedTextViewer(path: String, size: u64) -> impl IntoView {
+    let (offset, set_offset) = signal(0_u64);
+    let (byte_len, set_byte_len) = signal(0_u64);
+    let (total, set_total) = signal(size);
+    let (limit, set_limit) = signal(CONTENT_WINDOW_BYTES);
+    let (body, set_body) = signal(String::new());
+    let (err, set_err) = signal::<Option<String>>(None);
+    let preview = PreviewKeysBus::expect();
+
+    Effect::new({
+        let path = path.clone();
+        move |_| {
+            let p = path.clone();
+            let off = offset.get();
+            let lim = limit.get();
+            set_err.set(None);
+            wasm_bindgen_futures::spawn_local(async move {
+                match fetch_entry_content_window(&p, off, lim).await {
+                    Ok(c) => {
+                        set_body.set(c.content);
+                        if let Some(o) = c.offset {
+                            set_offset.set(o);
+                        }
+                        if let Some(n) = c.byte_len {
+                            set_byte_len.set(n);
+                        }
+                        if let Some(t) = c.total_bytes {
+                            set_total.set(t);
+                        }
+                        if let Some(l) = c.limit {
+                            set_limit.set(l);
+                        }
+                    }
+                    Err(e) => set_err.set(Some(e)),
+                }
+            });
+        }
+    });
+
+    Effect::new(move |_| {
+        let ctl = TextWindowCtl {
+            apply: Callback::new(move |nav| {
+                let lim = limit.get_untracked().max(1);
+                let tot = total.get_untracked();
+                let cur = offset.get_untracked();
+                let len = byte_len.get_untracked();
+                let next = match nav {
+                    PdfPageNav::Next => {
+                        let n = cur.saturating_add(len.max(1));
+                        if n >= tot { cur } else { n }
+                    }
+                    PdfPageNav::Prev => cur.saturating_sub(lim),
+                    PdfPageNav::Top => 0,
+                    PdfPageNav::Bottom => tot.saturating_sub(lim),
+                };
+                if next != cur {
+                    set_offset.set(next);
+                }
+            }),
+            offset: offset.into(),
+            byte_len: byte_len.into(),
+            total: total.into(),
+        };
+        preview.text_win.set(Some(ctl));
+        on_cleanup(move || {
+            preview.text_win.set(None);
+        });
+    });
+
+    view! {
+        <div class="text-viewer windowed-text-viewer">
+            <Show when=move || err.get().is_some()>
+                <p class="pane-empty">{move || err.get().unwrap_or_default()}</p>
+            </Show>
+            <pre class="detail-pre">{move || body.get()}</pre>
+            <p class="windowed-text-viewer__hint">
+                "Windowed plain text — Shift+J/K page · Shift+B/E ends"
+            </p>
         </div>
     }
 }
@@ -274,6 +465,7 @@ pub(crate) fn scroll_right_preview(nav: PdfPageNav) {
     };
     let candidates = [
         ".right-pane .csv-viewer__vbar",
+        ".right-pane .csv-viewer__viewport",
         ".right-pane .img-viewer-host:not(.pdf-viewer)",
         ".right-pane .panel-pad",
     ];
@@ -318,6 +510,39 @@ fn HostHtmlBody(path: String, class: &'static str) -> impl IntoView {
                 None => view! { <p class="pane-empty">"…"</p> }.into_any(),
                 Some(Err(e)) => view! { <p class="pane-empty">{e}</p> }.into_any(),
                 Some(Ok(body)) => view! { <ContentBody body=body class=class/> }.into_any(),
+            }}
+        </Suspense>
+    }
+}
+
+/// Plain text from serve (`file_content_for_viewer`) — binary stub labels, tet info, etc.
+#[component]
+fn HostTextBody(path: String) -> impl IntoView {
+    let path_for_fetch = path.clone();
+    let content = LocalResource::new(move || {
+        let p = path_for_fetch.clone();
+        async move { fetch_entry_content(&p, Some("text")).await }
+    });
+
+    view! {
+        <Suspense fallback=move || {
+            view! { <p class="pane-empty">"Loading…"</p> }
+        }>
+            {move || match content.get() {
+                None => view! { <p class="pane-empty">"…"</p> }.into_any(),
+                Some(Err(e)) => view! { <p class="pane-empty">{e}</p> }.into_any(),
+                Some(Ok(body)) => {
+                    if body.content.is_empty() {
+                        view! { <p class="pane-empty">(empty)</p> }.into_any()
+                    } else {
+                        view! {
+                            <div class="text-viewer">
+                                <pre class="detail-pre">{body.content}</pre>
+                            </div>
+                        }
+                        .into_any()
+                    }
+                }
             }}
         </Suspense>
     }
@@ -488,7 +713,7 @@ fn listen_scroll(el: &HtmlElement, on_scroll: Rc<dyn Fn()>) {
     cb.forget();
 }
 
-/// Frozen top H-bar + side V-bar; table follows via `translate(-x, -y)`.
+/// Frozen top H-bar + side V-bar; pinned header (X only) + body (X/Y) via translate.
 fn wire_csv_frozen_scroll(root: &web_sys::HtmlDivElement) {
     let Some(hbar) = qs_html(root, ".csv-viewer__hbar") else {
         return;
@@ -508,9 +733,14 @@ fn wire_csv_frozen_scroll(root: &web_sys::HtmlDivElement) {
     let Some(body) = qs_html(root, ".csv-viewer__body") else {
         return;
     };
+    let head_inner = qs_html(root, ".csv-viewer__head-inner");
+    let viewport = qs_html(root, ".csv-viewer__viewport").unwrap_or_else(|| body.clone());
+
+    sync_csv_column_widths(root);
 
     let apply_transform: Rc<dyn Fn()> = Rc::new({
         let inner = inner.clone();
+        let head_inner = head_inner.clone();
         let hbar = hbar.clone();
         let vbar = vbar.clone();
         move || {
@@ -519,6 +749,11 @@ fn wire_csv_frozen_scroll(root: &web_sys::HtmlDivElement) {
             let _ = inner
                 .style()
                 .set_property("transform", &format!("translate(-{x}px, -{y}px)"));
+            if let Some(ref head) = head_inner {
+                let _ = head
+                    .style()
+                    .set_property("transform", &format!("translateX(-{x}px)"));
+            }
         }
     });
 
@@ -526,8 +761,14 @@ fn wire_csv_frozen_scroll(root: &web_sys::HtmlDivElement) {
         let hspacer = hspacer.clone();
         let vspacer = vspacer.clone();
         let inner = inner.clone();
+        let head_inner = head_inner.clone();
         move || {
-            let w = inner.scroll_width().max(0);
+            let body_w = inner.scroll_width().max(0);
+            let head_w = head_inner
+                .as_ref()
+                .map(|h| h.scroll_width().max(0))
+                .unwrap_or(0);
+            let w = body_w.max(head_w);
             let h = inner.scroll_height().max(0);
             let _ = hspacer.style().set_property("width", &format!("{w}px"));
             let _ = vspacer.style().set_property("height", &format!("{h}px"));
@@ -559,19 +800,133 @@ fn wire_csv_frozen_scroll(root: &web_sys::HtmlDivElement) {
         }
         apply_wheel();
     }) as Box<dyn FnMut(_)>);
-    let _ = body.add_event_listener_with_callback("wheel", on_wheel.as_ref().unchecked_ref());
+    let _ = viewport.add_event_listener_with_callback("wheel", on_wheel.as_ref().unchecked_ref());
     on_wheel.forget();
 
     if let Some(window) = web_sys::window() {
         let sync_resize = Rc::clone(&sync_spacers);
         let apply_resize = Rc::clone(&apply_transform);
+        let root = root.clone();
         let on_resize = Closure::wrap(Box::new(move |_: web_sys::Event| {
+            sync_csv_column_widths(&root);
             sync_resize();
             apply_resize();
         }) as Box<dyn FnMut(_)>);
         let _ =
             window.add_event_listener_with_callback("resize", on_resize.as_ref().unchecked_ref());
         on_resize.forget();
+    }
+}
+
+/// Align head/body column widths so the pinned header lines up with the data.
+fn sync_csv_column_widths(root: &web_sys::HtmlDivElement) {
+    let Some(head_table) = root
+        .query_selector(".csv-viewer__head table")
+        .ok()
+        .flatten()
+        .and_then(|n| n.dyn_into::<web_sys::HtmlTableElement>().ok())
+    else {
+        return;
+    };
+    let Some(body_table) = root
+        .query_selector(".csv-viewer__body table")
+        .ok()
+        .flatten()
+        .and_then(|n| n.dyn_into::<web_sys::HtmlTableElement>().ok())
+    else {
+        return;
+    };
+    let head_rows = head_table.rows();
+    let body_rows = body_table.rows();
+    let Some(head_row) = head_rows.item(0) else {
+        return;
+    };
+    let Ok(head_row) = head_row.dyn_into::<web_sys::HtmlTableRowElement>() else {
+        return;
+    };
+    let head_cells = head_row.cells();
+    let col_count = head_cells.length() as usize;
+    if col_count == 0 {
+        return;
+    }
+
+    // Clear prior fixed widths so natural content can re-measure.
+    for i in 0..col_count {
+        if let Some(cell) = head_cells.item(i as u32)
+            && let Ok(el) = cell.dyn_into::<HtmlElement>()
+        {
+            let _ = el.style().remove_property("width");
+            let _ = el.style().remove_property("min-width");
+        }
+    }
+    for r in 0..body_rows.length() {
+        let Some(row) = body_rows.item(r) else {
+            continue;
+        };
+        let Ok(row) = row.dyn_into::<web_sys::HtmlTableRowElement>() else {
+            continue;
+        };
+        let cells = row.cells();
+        for i in 0..col_count {
+            if let Some(cell) = cells.item(i as u32)
+                && let Ok(el) = cell.dyn_into::<HtmlElement>()
+            {
+                let _ = el.style().remove_property("width");
+                let _ = el.style().remove_property("min-width");
+            }
+        }
+    }
+
+    let mut widths = vec![0_i32; col_count];
+    for (i, width) in widths.iter_mut().enumerate() {
+        if let Some(cell) = head_cells.item(i as u32)
+            && let Ok(el) = cell.dyn_into::<HtmlElement>()
+        {
+            *width = (*width).max(el.offset_width());
+        }
+    }
+    // Sample up to first ~40 body rows for width (enough for typical headers).
+    let sample = body_rows.length().min(40);
+    for r in 0..sample {
+        let Some(row) = body_rows.item(r) else {
+            continue;
+        };
+        let Ok(row) = row.dyn_into::<web_sys::HtmlTableRowElement>() else {
+            continue;
+        };
+        let cells = row.cells();
+        for (i, width) in widths.iter_mut().enumerate() {
+            if let Some(cell) = cells.item(i as u32)
+                && let Ok(el) = cell.dyn_into::<HtmlElement>()
+            {
+                *width = (*width).max(el.offset_width());
+            }
+        }
+    }
+
+    for (i, &width) in widths.iter().enumerate() {
+        let w = format!("{}px", width.max(1));
+        if let Some(cell) = head_cells.item(i as u32)
+            && let Ok(el) = cell.dyn_into::<HtmlElement>()
+        {
+            let _ = el.style().set_property("width", &w);
+            let _ = el.style().set_property("min-width", &w);
+        }
+        for r in 0..body_rows.length() {
+            let Some(row) = body_rows.item(r) else {
+                continue;
+            };
+            let Ok(row) = row.dyn_into::<web_sys::HtmlTableRowElement>() else {
+                continue;
+            };
+            let cells = row.cells();
+            if let Some(cell) = cells.item(i as u32)
+                && let Ok(el) = cell.dyn_into::<HtmlElement>()
+            {
+                let _ = el.style().set_property("width", &w);
+                let _ = el.style().set_property("min-width", &w);
+            }
+        }
     }
 }
 

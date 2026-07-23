@@ -388,6 +388,19 @@ impl TableDrawCtx<'_, '_> {
                         list,
                     );
                 }
+                Section::Tree(tree) => {
+                    let list = SingleColumnListSection {
+                        title: tree.title.clone(),
+                        values: super::schema::tree_roots_to_lines(&tree.roots),
+                    };
+                    self.draw_single_column_list_visible(
+                        section_start,
+                        take_lines,
+                        num_rows,
+                        row_offset,
+                        &list,
+                    );
+                }
             }
             row_offset += num_rows;
         }

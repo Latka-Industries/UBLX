@@ -1,6 +1,7 @@
 //! Shared pane focus + list navigation slots for keyboard control.
 
 use leptos::prelude::*;
+use wasm_bindgen::JsCast;
 
 use crate::panes::RightTab;
 
@@ -107,15 +108,43 @@ pub(crate) struct PdfPageCtl {
     pub page_count: Signal<Option<u32>>,
 }
 
+/// Explore #12: byte-windowed plain text (Shift+J/K/B/E advance windows when mounted).
+#[derive(Clone)]
+pub(crate) struct TextWindowCtl {
+    pub apply: Callback<PdfPageNav>,
+    pub offset: Signal<u64>,
+    pub byte_len: Signal<u64>,
+    pub total: Signal<u64>,
+}
+
+/// Expand / collapse every `.schema-tree` `<details>` in a mounted tree.
+#[derive(Clone)]
+pub(crate) struct TreeCollapseCtl {
+    pub expand_all: Callback<()>,
+    pub collapse_all: Callback<()>,
+    /// True when at least one collapsible node is closed.
+    pub can_expand: Signal<bool>,
+    /// True when at least one collapsible node is open.
+    pub can_collapse: Signal<bool>,
+}
+
 #[derive(Clone, Copy)]
 pub(crate) struct PreviewKeysBus {
     pub pdf: RwSignal<Option<PdfPageCtl>>,
+    pub text_win: RwSignal<Option<TextWindowCtl>>,
+    pub tree: RwSignal<Option<TreeCollapseCtl>>,
 }
 
 impl PreviewKeysBus {
     pub(crate) fn provide() -> Self {
         let pdf = RwSignal::new(None::<PdfPageCtl>);
-        let bus = Self { pdf };
+        let text_win = RwSignal::new(None::<TextWindowCtl>);
+        let tree = RwSignal::new(None::<TreeCollapseCtl>);
+        let bus = Self {
+            pdf,
+            text_win,
+            tree,
+        };
         provide_context(bus);
         bus
     }
@@ -123,6 +152,109 @@ impl PreviewKeysBus {
     pub(crate) fn expect() -> Self {
         expect_context::<Self>()
     }
+}
+
+/// Wire expand/collapse + enabled state to `root` (must contain `.schema-tree__node` details).
+pub(crate) fn install_tree_collapse_on(root: &web_sys::HtmlElement) {
+    let preview = PreviewKeysBus::expect();
+    let (can_expand, set_can_expand) = signal(false);
+    let (can_collapse, set_can_collapse) = signal(false);
+    let root = root.clone();
+
+    let ctl = TreeCollapseCtl {
+        expand_all: Callback::new({
+            let root = root.clone();
+            move |_| {
+                set_tree_details_open(&root, true);
+                sync_tree_open_state(&root, set_can_expand, set_can_collapse);
+            }
+        }),
+        collapse_all: Callback::new({
+            let root = root.clone();
+            move |_| {
+                set_tree_details_open(&root, false);
+                sync_tree_open_state(&root, set_can_expand, set_can_collapse);
+            }
+        }),
+        can_expand: can_expand.into(),
+        can_collapse: can_collapse.into(),
+    };
+    preview.tree.set(Some(ctl));
+
+    // Children may paint after the host mounts — attach toggle listeners next frame.
+    let root_wire = root.clone();
+    let raf = wasm_bindgen::closure::Closure::once(move || {
+        if let Ok(nodes) = root_wire.query_selector_all("details.schema-tree__node") {
+            for i in 0..nodes.length() {
+                let Some(node) = nodes.item(i) else {
+                    continue;
+                };
+                let Ok(details) = node.dyn_into::<web_sys::HtmlDetailsElement>() else {
+                    continue;
+                };
+                let root_toggle = root_wire.clone();
+                let cb = wasm_bindgen::closure::Closure::wrap(Box::new(move |_: web_sys::Event| {
+                    sync_tree_open_state(&root_toggle, set_can_expand, set_can_collapse);
+                })
+                    as Box<dyn FnMut(_)>);
+                let _ =
+                    details.add_event_listener_with_callback("toggle", cb.as_ref().unchecked_ref());
+                cb.forget();
+            }
+        }
+        sync_tree_open_state(&root_wire, set_can_expand, set_can_collapse);
+    });
+    if let Some(win) = web_sys::window() {
+        let _ = win.request_animation_frame(raf.as_ref().unchecked_ref());
+    }
+    std::mem::forget(raf);
+
+    on_cleanup(move || {
+        preview.tree.set(None);
+    });
+}
+
+fn set_tree_details_open(root: &web_sys::HtmlElement, open: bool) {
+    let Ok(nodes) = root.query_selector_all("details.schema-tree__node") else {
+        return;
+    };
+    for i in 0..nodes.length() {
+        let Some(node) = nodes.item(i) else {
+            continue;
+        };
+        if let Ok(details) = node.dyn_into::<web_sys::HtmlDetailsElement>() {
+            details.set_open(open);
+        }
+    }
+}
+
+fn sync_tree_open_state(
+    root: &web_sys::HtmlElement,
+    set_can_expand: WriteSignal<bool>,
+    set_can_collapse: WriteSignal<bool>,
+) {
+    let Ok(nodes) = root.query_selector_all("details.schema-tree__node") else {
+        set_can_expand.set(false);
+        set_can_collapse.set(false);
+        return;
+    };
+    let mut any_open = false;
+    let mut any_closed = false;
+    for i in 0..nodes.length() {
+        let Some(node) = nodes.item(i) else {
+            continue;
+        };
+        let Ok(details) = node.dyn_into::<web_sys::HtmlDetailsElement>() else {
+            continue;
+        };
+        if details.open() {
+            any_open = true;
+        } else {
+            any_closed = true;
+        }
+    }
+    set_can_expand.set(any_closed);
+    set_can_collapse.set(any_open);
 }
 
 /// Build list nav for a `selected: Option<String>` over ordered keys.

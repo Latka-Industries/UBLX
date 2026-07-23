@@ -457,7 +457,7 @@ pub(crate) fn EntryRightPane(detail: Signal<Option<EntryDetail>>) -> impl IntoVi
                                     let path = path.clone();
                                     let category = category.clone();
                                     view! {
-                                        <EntryViewer path=path category=category/>
+                                        <EntryViewer path=path category=category size=size/>
                                     }
                                     .into_any()
                                 }
@@ -493,13 +493,17 @@ pub(crate) fn EntryRightPane(detail: Signal<Option<EntryDetail>>) -> impl IntoVi
                             }}
                         </div>
                         {move || {
-                            let viewer_meta = tab.get() == RightTab::Viewer;
+                            let viewer_tab = tab.get() == RightTab::Viewer;
                             let find_strip = find.strip_visible.get();
-                            if !viewer_meta && !find_strip {
+                            let tree_ctl = preview.tree.get().is_some();
+                            // Size/mtime on Viewer; also keep bumper when a collapsible tree is up
+                            // (Directory Viewer or Metadata schema) so Collapse all has a home.
+                            if !viewer_tab && !find_strip && !tree_ctl {
                                 return ().into_any();
                             }
                             let size_label = size_label.clone();
                             let mtime_label = mtime_label.clone();
+                            let show_size_mtime = viewer_tab || tree_ctl;
                             view! {
                                 <div class="right-pane-footer" aria-label="Viewer status">
                                     <div class="right-pane-footer__start">
@@ -510,10 +514,16 @@ pub(crate) fn EntryRightPane(detail: Signal<Option<EntryDetail>>) -> impl IntoVi
                                         }}
                                     </div>
                                     <div class="right-pane-footer__end">
-                                        {if viewer_meta {
+                                        {if show_size_mtime {
                                             view! {
                                                 <Show when=move || preview.pdf.get().is_some()>
                                                     <PdfPageStatusNode/>
+                                                </Show>
+                                                <Show when=move || preview.text_win.get().is_some()>
+                                                    <TextWindowStatusNode/>
+                                                </Show>
+                                                <Show when=move || preview.tree.get().is_some()>
+                                                    <TreeCollapseStatusNode/>
                                                 </Show>
                                                 <span class="status-node">{size_label}</span>
                                                 {if show_mtime {
@@ -668,6 +678,79 @@ fn PdfPageStatusNode() -> impl IntoView {
                 })
             }}
         </span>
+    }
+}
+
+#[component]
+fn TextWindowStatusNode() -> impl IntoView {
+    let preview = PreviewKeysBus::expect();
+    view! {
+        <span class="status-node status-node--window" title="Byte window (Shift+J/K)">
+            {move || {
+                let Some(ctl) = preview.text_win.get() else {
+                    return String::new();
+                };
+                let off = ctl.offset.get();
+                let len = ctl.byte_len.get();
+                let tot = ctl.total.get();
+                let end = if len == 0 {
+                    off
+                } else {
+                    off.saturating_add(len - 1)
+                };
+                format!(
+                    "{}–{} / {}",
+                    format_bytes(off),
+                    format_bytes(end),
+                    format_bytes(tot)
+                )
+            }}
+        </span>
+    }
+}
+
+#[component]
+fn TreeCollapseStatusNode() -> impl IntoView {
+    let preview = PreviewKeysBus::expect();
+    view! {
+        <button
+            type="button"
+            class="status-node status-node--button"
+            title="Expand all tree nodes"
+            prop:disabled=move || {
+                preview
+                    .tree
+                    .get()
+                    .is_none_or(|c| !c.can_expand.get())
+            }
+            on:click=move |ev| {
+                ev.prevent_default();
+                if let Some(ctl) = preview.tree.get_untracked() {
+                    ctl.expand_all.run(());
+                }
+            }
+        >
+            "Expand all"
+        </button>
+        <button
+            type="button"
+            class="status-node status-node--button"
+            title="Collapse all tree nodes"
+            prop:disabled=move || {
+                preview
+                    .tree
+                    .get()
+                    .is_none_or(|c| !c.can_collapse.get())
+            }
+            on:click=move |ev| {
+                ev.prevent_default();
+                if let Some(ctl) = preview.tree.get_untracked() {
+                    ctl.collapse_all.run(());
+                }
+            }
+        >
+            "Collapse all"
+        </button>
     }
 }
 

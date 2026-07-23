@@ -27,13 +27,15 @@ use crate::cli::settings_api::{self, SettingsPatch};
 use crate::cli_parser::ServeCli;
 use crate::config::{UblxPaths, all_indexed_roots_alphabetical, record_prior_root_selected};
 use crate::handlers::run_snap_pipeline_from_dir_db;
-use crate::handlers::viewing::sectioned_preview_from_zahir;
+use crate::handlers::viewing::{directory_tree_nodes, sectioned_preview_from_zahir};
 use crate::integrations::{ZahirFT, delimiter_from_path_for_viewer, file_type_from_metadata_name};
-use crate::render::kv_tables::{SectionView, parse_json_to_views};
+use crate::render::kv_tables::{
+    SectionView, TreeNodeView, parse_json_to_views, tree_node_to_view, tree_roots_to_lines,
+};
 use crate::render::viewers::{
     csv_handler, html_escape_minimal, images, pdf_preview, svg_preview, syntect_text, video_preview,
 };
-use crate::utils::{file_content_for_viewer, try_extract_cover};
+use crate::utils::{file_content_for_viewer, read_text_byte_window, try_extract_cover};
 
 /// Live catalog for one serve process — switchable via `/roots/current`.
 struct ServeCatalog {
@@ -459,6 +461,12 @@ struct EntryContentQuery {
     /// PDF page (1-based) for `format=raw` / HTML preview. Default `1`.
     #[serde(default)]
     page: Option<u32>,
+    /// Byte offset into the file for a plain-text window (`format=text` only). Explore #12.
+    #[serde(default)]
+    offset: Option<u64>,
+    /// Max bytes to return from `offset` (`format=text` only). Caps at half MiB. Explore #12.
+    #[serde(default)]
+    limit: Option<u64>,
 }
 
 #[derive(Debug, Serialize)]
@@ -474,6 +482,21 @@ struct EntryContentResponse {
     /// PDF page count from `pdfinfo` when available.
     #[serde(skip_serializing_if = "Option::is_none")]
     page_count: Option<u32>,
+    /// Windowed text: start byte in file.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    offset: Option<u64>,
+    /// Windowed text: bytes read (may be < `limit` near EOF).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    byte_len: Option<u64>,
+    /// Windowed text: requested limit.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    limit: Option<u64>,
+    /// Windowed text: file size in bytes.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    total_bytes: Option<u64>,
+    /// Directory / folder Viewer: nested tree for web collapse.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    tree: Option<Vec<TreeNodeView>>,
 }
 
 async fn get_entry_content(
@@ -491,6 +514,16 @@ async fn get_entry_content(
         Some("raw") => return raw_media_response(&abs, zahir_type, q.page),
         Some("cover") => return embedded_cover_response(&abs, zahir_type),
         _ => {}
+    }
+
+    // Explore #12: explicit byte windows for plain text (not HTML / syntect).
+    if let (Some(offset), Some(limit)) = (q.offset, q.limit) {
+        return windowed_text_content_response(&row, &abs, offset, limit, q.format.as_deref());
+    }
+
+    // Directory / Zarr store path: structured tree for web (TUI still uses `tree` text).
+    if abs.is_dir() {
+        return directory_tree_content_response(&row, &abs);
     }
 
     let text = file_content_for_viewer(&abs, zahir_type).unwrap_or_else(|| "(empty)".into());
@@ -526,6 +559,74 @@ async fn get_entry_content(
         content,
         page,
         page_count,
+        offset: None,
+        byte_len: None,
+        limit: None,
+        total_bytes: None,
+        tree: None,
+    })
+    .into_response())
+}
+
+fn directory_tree_content_response(row: &EntryRow, abs: &Path) -> Result<Response, ApiError> {
+    let roots = directory_tree_nodes(abs);
+    let tree: Vec<TreeNodeView> = roots.iter().map(tree_node_to_view).collect();
+    let content = tree_roots_to_lines(&roots).join("\n");
+    Ok(Json(EntryContentResponse {
+        path: row.path.clone(),
+        category: row.category.clone(),
+        format: "tree".into(),
+        content,
+        page: None,
+        page_count: None,
+        offset: None,
+        byte_len: None,
+        limit: None,
+        total_bytes: None,
+        tree: Some(tree),
+    })
+    .into_response())
+}
+
+/// `GET /content/{path}?format=text&offset=N&limit=M` — explore windowing for large text bodies.
+fn windowed_text_content_response(
+    row: &EntryRow,
+    abs: &Path,
+    offset: u64,
+    limit: u64,
+    format: Option<&str>,
+) -> Result<Response, ApiError> {
+    match format.map(str::trim) {
+        None | Some("text") => {}
+        Some("html") => {
+            return Err(ApiError::bad_request(
+                "offset/limit windows are format=text only (HTML/syntect needs full-body or a later slice pipeline)",
+            ));
+        }
+        Some(other) => {
+            return Err(ApiError::bad_request(format!(
+                "offset/limit not supported with format {other:?}"
+            )));
+        }
+    }
+    if limit == 0 {
+        return Err(ApiError::bad_request("limit must be > 0"));
+    }
+    let win = read_text_byte_window(abs, offset, limit).ok_or_else(|| {
+        ApiError::bad_request("could not read byte window (missing file or not a regular file)")
+    })?;
+    Ok(Json(EntryContentResponse {
+        path: row.path.clone(),
+        category: row.category.clone(),
+        format: "text".into(),
+        content: win.text,
+        page: None,
+        page_count: None,
+        offset: Some(win.offset),
+        byte_len: Some(win.byte_len),
+        limit: Some(limit),
+        total_bytes: Some(win.total),
+        tree: None,
     })
     .into_response())
 }
