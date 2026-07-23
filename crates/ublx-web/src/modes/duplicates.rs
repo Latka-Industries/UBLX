@@ -49,6 +49,15 @@ pub(crate) fn DuplicatesMode() -> impl IntoView {
         )
     });
 
+    let path_categories = Signal::derive(move || {
+        entries
+            .get()
+            .unwrap_or_default()
+            .into_iter()
+            .map(|e| (e.path, e.category))
+            .collect::<HashMap<_, _>>()
+    });
+
     let visible_groups = Signal::derive(move || {
         let cat = catalog.get().unwrap_or_default();
         let q = search.trimmed.get();
@@ -200,6 +209,7 @@ pub(crate) fn DuplicatesMode() -> impl IntoView {
                         paths=paths.into()
                         selected=selected_path.into()
                         on_select=Callback::new(move |p| set_selected_path.set(Some(p)))
+                        path_categories=path_categories
                     />
                 </Suspense>
             }

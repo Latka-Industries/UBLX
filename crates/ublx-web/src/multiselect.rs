@@ -2,6 +2,7 @@
 //!
 //! **Ctrl+Space** enter/exit (Snapshot / Lenses + contents focus only).
 //! **Space** toggles the cursor row while active. **Esc** exits.
+//! **Ctrl/Cmd+click** or check-column click — enter + toggle that path.
 //! **a** / Space menus → [`crate::space_menu`].
 
 use std::collections::HashSet;
@@ -74,6 +75,23 @@ impl MultiselectCtx {
                 s.insert(p);
             }
         });
+    }
+
+    /// Mouse: enter multi-select if needed, move cursor, toggle `path`.
+    pub(crate) fn mouse_toggle_path(self, mode: MainMode, path: &str) -> bool {
+        if !Self::applies(mode) {
+            return false;
+        }
+        if !self.active.get_untracked() {
+            self.active.set(true);
+        }
+        self.cursor.set(Some(path.to_string()));
+        self.selected.update(|s| {
+            if !s.remove(path) {
+                s.insert(path.to_string());
+            }
+        });
+        true
     }
 
     pub(crate) fn is_checked(self, path: &str) -> bool {

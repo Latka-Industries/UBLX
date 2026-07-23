@@ -66,6 +66,15 @@ pub(crate) fn LensesMode() -> impl IntoView {
         path_rows(filter_paths(&raw, &q))
     });
 
+    let path_categories = Signal::derive(move || {
+        members
+            .get()
+            .unwrap_or_default()
+            .into_iter()
+            .map(|r| (r.path, r.category))
+            .collect::<std::collections::HashMap<_, _>>()
+    });
+
     let detail = LocalResource::new(move || {
         let path = selected_path.get();
         async move {
@@ -148,6 +157,7 @@ pub(crate) fn LensesMode() -> impl IntoView {
                         paths=paths
                         selected=selected_path.into()
                         on_select=Callback::new(move |p| set_selected_path.set(Some(p)))
+                        path_categories=path_categories
                     />
                 </Suspense>
             }

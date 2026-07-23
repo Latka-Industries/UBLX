@@ -2,10 +2,22 @@
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) enum SpaceMenuKind {
-    File { path: String, lenses: bool },
-    Lens { name: String },
-    Duplicate { path: String },
-    Bulk { lenses: bool },
+    File {
+        path: String,
+        lenses: bool,
+        /// Show **Open in new tab** (images only).
+        open_in_tab: bool,
+    },
+    Lens {
+        name: String,
+    },
+    Duplicate {
+        path: String,
+        open_in_tab: bool,
+    },
+    Bulk {
+        lenses: bool,
+    },
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -81,8 +93,15 @@ pub(super) fn menu_rows_for_kind(kind: Option<&SpaceMenuKind>) -> Vec<MenuRow> {
 
 pub(super) fn menu_rows(kind: &SpaceMenuKind) -> Vec<MenuRow> {
     match kind {
-        SpaceMenuKind::File { lenses, .. } => {
-            let mut v = vec![menu_row("Open", 'o')];
+        SpaceMenuKind::File {
+            lenses,
+            open_in_tab,
+            ..
+        } => {
+            let mut v = Vec::new();
+            if *open_in_tab {
+                v.push(menu_row("Open in new tab", 'o'));
+            }
             if !*lenses {
                 v.push(menu_row("Enhance policy", 'p'));
             }
@@ -103,12 +122,17 @@ pub(super) fn menu_rows(kind: &SpaceMenuKind) -> Vec<MenuRow> {
             v
         }
         SpaceMenuKind::Lens { .. } => vec![menu_row("Rename", 'r'), menu_row("Delete", 'd')],
-        SpaceMenuKind::Duplicate { .. } => vec![
-            menu_row("Delete", 'd'),
-            menu_row("Ignore", 'i'),
-            menu_row("Open", 'o'),
-            menu_row("Copy Path", 'c'),
-        ],
+        SpaceMenuKind::Duplicate { open_in_tab, .. } => {
+            let mut v = vec![
+                menu_row("Delete", 'd'),
+                menu_row("Ignore", 'i'),
+                menu_row("Copy Path", 'c'),
+            ];
+            if *open_in_tab {
+                v.insert(2, menu_row("Open in new tab", 'o'));
+            }
+            v
+        }
         SpaceMenuKind::Bulk { lenses } => vec![
             menu_row(
                 if *lenses {

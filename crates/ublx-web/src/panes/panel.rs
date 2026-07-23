@@ -61,6 +61,12 @@ pub(crate) fn PanelRow(
     label: String,
     selected: Signal<bool>,
     on_select: Callback<()>,
+    /// Double-click → context / bulk menu (middle pane).
+    #[prop(optional)]
+    on_menu: Option<Callback<()>>,
+    /// Ctrl/Cmd+click or check-column click → multi-select toggle.
+    #[prop(optional)]
+    on_toggle: Option<Callback<()>>,
     /// When set, reserve a check column (█ when true) for multi-select chrome.
     #[prop(optional)]
     checked: Option<Signal<bool>>,
@@ -86,10 +92,40 @@ pub(crate) fn PanelRow(
                     // leaves a stuck :focus highlight on the old row.
                     ev.prevent_default();
                 }
-                on:click=move |_| on_select.run(())
+                on:click=move |ev| {
+                    if (ev.ctrl_key() || ev.meta_key())
+                        && let Some(cb) = on_toggle
+                    {
+                        ev.prevent_default();
+                        cb.run(());
+                        return;
+                    }
+                    on_select.run(());
+                }
+                on:dblclick=move |ev| {
+                    ev.prevent_default();
+                    if let Some(cb) = on_menu {
+                        cb.run(());
+                    }
+                }
             >
                 <Show when=move || show_check>
-                    <span class="panel-row__check" aria-hidden="true">
+                    <span
+                        class="panel-row__check"
+                        title="Toggle multi-select"
+                        role="presentation"
+                        on:click=move |ev| {
+                            ev.stop_propagation();
+                            ev.prevent_default();
+                            if let Some(cb) = on_toggle {
+                                cb.run(());
+                            }
+                        }
+                        on:dblclick=move |ev| {
+                            ev.stop_propagation();
+                            ev.prevent_default();
+                        }
+                    >
                         {move || {
                             if checked_sig.get() {
                                 crate::multiselect::CHECK_GLYPH
@@ -179,6 +215,9 @@ pub(crate) fn PathsPane(
     paths: Signal<Vec<(String, String)>>,
     selected: Signal<Option<String>>,
     on_select: Callback<String>,
+    /// Optional path → catalog category (gates Open in new tab).
+    #[prop(optional)]
+    path_categories: Option<Signal<std::collections::HashMap<String, String>>>,
 ) -> impl IntoView {
     let search_q = Signal::derive(move || search::CatalogSearch::expect().trimmed.get());
     let sort_ctx = ContentSortCtx::expect();
@@ -210,6 +249,11 @@ pub(crate) fn PathsPane(
     Effect::new(move |_| {
         let path = selected.get();
         space_menu.middle_path.set(path.clone());
+        let cat = match (&path, path_categories.as_ref()) {
+            (Some(p), Some(cats)) => cats.get().get(p).cloned(),
+            _ => None,
+        };
+        space_menu.middle_category.set(cat);
         if MultiselectCtx::applies(main_mode) {
             multiselect.cursor.set(path);
         }
@@ -259,23 +303,61 @@ pub(crate) fn PathsPane(
                                             let pick = key.clone();
                                             let key_sel = key.clone();
                                             let key_chk = key.clone();
-                                            view! {
-                                                <PanelRow
-                                                    label=label
-                                                    selected=Signal::derive(move || {
-                                                        selected.get().as_ref() == Some(&key_sel)
-                                                    })
-                                                    checked=Signal::derive(move || {
-                                                        MultiselectCtx::applies(main_mode)
-                                                            && multiselect.is_checked(&key_chk)
-                                                    })
-                                                    on_select=Callback::new({
-                                                        let pick = pick.clone();
-                                                        move |_| on_select.run(pick.clone())
-                                                    })
-                                                />
+                                            let pick_menu = key.clone();
+                                            let pick_toggle = key.clone();
+                                            let ms_applies = MultiselectCtx::applies(main_mode);
+                                            let on_select_cb = Callback::new({
+                                                let pick = pick.clone();
+                                                move |_| on_select.run(pick.clone())
+                                            });
+                                            let on_menu_cb = Callback::new({
+                                                let path_categories = path_categories;
+                                                move |_| {
+                                                    let path = pick_menu.clone();
+                                                    on_select.run(path.clone());
+                                                    if let Some(cats) = path_categories.as_ref() {
+                                                        space_menu.middle_category.set(
+                                                            cats.get_untracked().get(&path).cloned(),
+                                                        );
+                                                    }
+                                                    let _ = space_menu
+                                                        .open_from_middle_dblclick(main_mode, &path);
+                                                }
+                                            });
+                                            if ms_applies {
+                                                view! {
+                                                    <PanelRow
+                                                        label=label
+                                                        selected=Signal::derive(move || {
+                                                            selected.get().as_ref() == Some(&key_sel)
+                                                        })
+                                                        checked=Signal::derive(move || {
+                                                            multiselect.is_checked(&key_chk)
+                                                        })
+                                                        on_select=on_select_cb
+                                                        on_toggle=Callback::new(move |_| {
+                                                            let path = pick_toggle.clone();
+                                                            on_select.run(path.clone());
+                                                            let _ = multiselect
+                                                                .mouse_toggle_path(main_mode, &path);
+                                                        })
+                                                        on_menu=on_menu_cb
+                                                    />
+                                                }
+                                                .into_any()
+                                            } else {
+                                                view! {
+                                                    <PanelRow
+                                                        label=label
+                                                        selected=Signal::derive(move || {
+                                                            selected.get().as_ref() == Some(&key_sel)
+                                                        })
+                                                        on_select=on_select_cb
+                                                        on_menu=on_menu_cb
+                                                    />
+                                                }
+                                                .into_any()
                                             }
-                                            .into_any()
                                         }
                                     }
                                 />
@@ -338,7 +420,19 @@ pub(crate) fn EntryRightPane(detail: Signal<Option<EntryDetail>>) -> impl IntoVi
     let tabs = crate::focus::RightTabBus::expect();
     let preview = PreviewKeysBus::expect();
     let find = ViewerFind::expect();
+    let space_menu = SpaceMenuCtx::expect();
     install_highlight_effect(find, tab);
+
+    // Prefer live detail category for Open-in-tab gating when it matches the
+    // middle cursor (avoids stale detail while a new path is fetching).
+    Effect::new(move |_| {
+        let Some(d) = detail.get() else {
+            return;
+        };
+        if space_menu.middle_path.get().as_deref() == Some(d.path.as_str()) {
+            space_menu.middle_category.set(Some(d.category));
+        }
+    });
 
     // Remounted Metadata / Writing / Templates bodies need a find re-scan.
     Effect::new(move |_| {

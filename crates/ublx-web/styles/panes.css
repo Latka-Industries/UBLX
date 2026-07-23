@@ -157,10 +157,17 @@
 }
 
 .panel-row__check {
-  flex: 0 0 0.75rem;
+  flex: 0 0 1rem;
   font-weight: 700;
-  color: hsl(var(--secondary));
+  color: hsl(var(--muted-foreground) / 0.55);
   line-height: 1;
+  text-align: center;
+  cursor: pointer;
+  user-select: none;
+}
+
+.panel-row__check:hover {
+  color: hsl(var(--primary));
 }
 
 .panel-row--checked .panel-row__check {
