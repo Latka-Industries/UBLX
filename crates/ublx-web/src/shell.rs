@@ -27,7 +27,7 @@ use crate::viewer_find::ViewerFind;
 
 #[component]
 pub(crate) fn Shell(flags: CatalogFlags) -> impl IntoView {
-    let flags = StoredValue::new(flags);
+    let flags = RwSignal::new(flags);
     let (mode, set_mode) = use_main_mode();
     let search = CatalogSearch::provide();
     let find = ViewerFind::provide();
@@ -39,15 +39,32 @@ pub(crate) fn Shell(flags: CatalogFlags) -> impl IntoView {
     let catalog = CatalogData::provide(catalog_refresh);
     let toasts = ToastCtx::provide();
     let space_menu = SpaceMenuCtx::provide(catalog_refresh, multiselect, toasts);
-    space_menu.catalog_root.set(flags.get_value().root.clone());
-    let command_mode = CommandModeCtx::provide(catalog_refresh, set_mode, toasts);
+    space_menu
+        .catalog_root
+        .set(flags.get_untracked().root.clone());
+    let command_mode = CommandModeCtx::provide(
+        catalog_refresh,
+        flags,
+        multiselect,
+        space_menu,
+        set_mode,
+        toasts,
+    );
 
     // Tab visibility tracks shared catalog resources (e.g. first lens create shows Lenses).
     // Updated via effects (not read in render) so resource pending states never trip the
     // App-level Suspense boot splash on tab switches.
-    let (has_lenses, set_has_lenses) = signal(flags.get_value().has_lenses);
-    let (has_delta, set_has_delta) = signal(flags.get_value().has_delta);
-    let (has_duplicates, set_has_duplicates) = signal(flags.get_value().has_duplicates);
+    let (has_lenses, set_has_lenses) = signal(flags.get_untracked().has_lenses);
+    let (has_delta, set_has_delta) = signal(flags.get_untracked().has_delta);
+    let (has_duplicates, set_has_duplicates) = signal(flags.get_untracked().has_duplicates);
+    // Soft root switch seeds tab visibility immediately; CatalogData effects refine after refetch.
+    Effect::new(move |_| {
+        let f = flags.get();
+        set_has_lenses.set(f.has_lenses);
+        set_has_delta.set(f.has_delta);
+        set_has_duplicates.set(f.has_duplicates);
+        space_menu.catalog_root.set(f.root.clone());
+    });
     Effect::new(move |_| {
         if let Some(names) = catalog.lens_names.get() {
             set_has_lenses.set(!names.is_empty());
@@ -76,13 +93,12 @@ pub(crate) fn Shell(flags: CatalogFlags) -> impl IntoView {
         });
     });
 
-    // Seed syntect theme name so the first code Viewer fetch matches shell CSS.
+    // Boot + soft root switch: paint the root's local palette (per-root theme, no remount).
     Effect::new(move |_| {
+        let _ = flags.get().root;
         spawn_local(async move {
-            if let Ok(v) = crate::api::fetch_settings(crate::api::SettingsScope::Local).await
-                && !v.theme.is_empty()
-            {
-                command_mode.highlight_theme.set(v.theme);
+            if let Ok(v) = crate::api::fetch_settings(crate::api::SettingsScope::Local).await {
+                command_mode.apply_theme_from_settings(&v);
             }
         });
     });
@@ -255,7 +271,7 @@ pub(crate) fn Shell(flags: CatalogFlags) -> impl IntoView {
             type="button"
             class="project-path"
             title=move || {
-                let root = flags.get_value().root.clone().unwrap_or_default();
+                let root = flags.get().root.clone().unwrap_or_default();
                 if root.is_empty() {
                     "Switch project".into()
                 } else {
@@ -270,7 +286,7 @@ pub(crate) fn Shell(flags: CatalogFlags) -> impl IntoView {
             {
                 move || {
                     flags
-                        .get_value()
+                        .get()
                         .root
                         .clone()
                         .unwrap_or_else(|| "—".into())
@@ -279,12 +295,16 @@ pub(crate) fn Shell(flags: CatalogFlags) -> impl IntoView {
         </button>
 
         <main class="mode-body">
-            {move || match mode.get() {
-                MainMode::Snapshot => view! { <SnapshotMode/> }.into_any(),
-                MainMode::Lenses => view! { <LensesMode/> }.into_any(),
-                MainMode::Delta => view! { <DeltaMode/> }.into_any(),
-                MainMode::Duplicates => view! { <DuplicatesMode/> }.into_any(),
-                MainMode::Settings => view! { <SettingsMode/> }.into_any(),
+            {move || {
+                // Remount mode body when root changes so selection / pane state cannot linger.
+                let _ = flags.get().root.clone();
+                match mode.get() {
+                    MainMode::Snapshot => view! { <SnapshotMode/> }.into_any(),
+                    MainMode::Lenses => view! { <LensesMode/> }.into_any(),
+                    MainMode::Delta => view! { <DeltaMode/> }.into_any(),
+                    MainMode::Duplicates => view! { <DuplicatesMode/> }.into_any(),
+                    MainMode::Settings => view! { <SettingsMode/> }.into_any(),
+                }
             }}
         </main>
 
@@ -309,7 +329,7 @@ struct KeybusCtx {
     preview: PreviewKeysBus,
     mode: ReadSignal<MainMode>,
     set_mode: WriteSignal<MainMode>,
-    flags: StoredValue<CatalogFlags>,
+    flags: RwSignal<CatalogFlags>,
     has_lenses: Signal<bool>,
     has_delta: Signal<bool>,
     has_duplicates: Signal<bool>,
@@ -358,11 +378,11 @@ fn dispatch_action(action: WebAction, ctx: KeybusCtx) {
         WebAction::SpaceMenuMoveDown => ctx.space_menu.move_sel(1),
         WebAction::SpaceMenuSubmit => {
             ctx.space_menu
-                .submit_selected(ctx.flags.get_value().root.clone());
+                .submit_selected(ctx.flags.get_untracked().root.clone());
         }
         WebAction::SpaceMenuClose => ctx.space_menu.close(),
         WebAction::SpaceMenuHotkey(c) => {
-            let root = ctx.flags.get_value().root.clone();
+            let root = ctx.flags.get_untracked().root.clone();
             if !ctx.space_menu.submit_hotkey(c, root) {
                 // No row for this letter — j/k still move the highlight (arrows always move).
                 match c {
@@ -576,7 +596,7 @@ fn TabBtn(label: String, active: Signal<bool>, on_click: Callback<()>) -> impl I
 }
 
 #[component]
-fn FooterNodes(flags: StoredValue<CatalogFlags>, search: CatalogSearch) -> impl IntoView {
+fn FooterNodes(flags: RwSignal<CatalogFlags>, search: CatalogSearch) -> impl IntoView {
     let strip = search.strip_visible;
     let input_ref = NodeRef::<leptos::html::Input>::new();
     let help = HelpOverlay::expect();
@@ -597,7 +617,7 @@ fn FooterNodes(flags: StoredValue<CatalogFlags>, search: CatalogSearch) -> impl 
                     fallback=move || {
                         view! {
                             <Show
-                                when=move || flags.get_value().last_snapshot_ns.is_some()
+                                when=move || flags.get().last_snapshot_ns.is_some()
                                 fallback=|| ().into_any()
                             >
                                 <button
@@ -609,7 +629,7 @@ fn FooterNodes(flags: StoredValue<CatalogFlags>, search: CatalogSearch) -> impl 
                                     {
                                         move || {
                                             flags
-                                                .get_value()
+                                                .get()
                                                 .last_snapshot_ns
                                                 .map(format_timestamp_ns)
                                                 .map(|t| format!("Last Snapshot: {t}"))

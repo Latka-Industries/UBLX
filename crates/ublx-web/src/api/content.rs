@@ -3,7 +3,7 @@
 use serde::Deserialize;
 
 use super::entries::TreeNodeView;
-use super::http::{encode_entry_path, get_json};
+use super::http::{cache_bust_url, encode_entry_path, get_json};
 
 /// Disk file body for Viewer (`GET /content/{path}`).
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Eq)]
@@ -38,6 +38,23 @@ pub(crate) struct EntryContent {
     /// Directory Viewer: nested collapsible tree.
     #[serde(default)]
     pub tree: Option<Vec<TreeNodeView>>,
+}
+
+/// Audio / Epub cover art for an `<img>` src.
+pub(crate) fn content_cover_url(path: &str) -> String {
+    cache_bust_url(&format!(
+        "/content/{}?format=cover",
+        encode_entry_path(path)
+    ))
+}
+
+/// Rasterized PDF page for an `<img>` src (1-based `page`).
+pub(crate) fn content_raw_page_url(path: &str, page: u32) -> String {
+    cache_bust_url(&format!(
+        "/content/{}?format=raw&page={}",
+        encode_entry_path(path),
+        page.max(1)
+    ))
 }
 
 /// Default byte window for large text explore (#12) — matches TUI head/tail chunk.

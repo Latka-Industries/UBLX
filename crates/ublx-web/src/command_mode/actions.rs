@@ -2,13 +2,15 @@
 
 use leptos::prelude::*;
 use leptos::task::spawn_local;
+use wasm_bindgen::JsCast;
 
 use crate::api::{
-    SettingsPatch, SettingsScope, fetch_duplicates, fetch_roots, fetch_settings, patch_settings,
-    post_export_lenses, post_export_zahir, post_snapshot, switch_root,
+    SettingsPatch, SettingsScope, fetch_duplicates, fetch_roots, fetch_settings,
+    load_catalog_flags, patch_settings, post_export_lenses, post_export_zahir, post_snapshot,
+    switch_root,
 };
 use crate::nav::MainMode;
-use crate::snapshot_poll::poll_until_settled;
+use crate::snapshot_poll::{poll_until_settled, watch_snapshot_if_running};
 use crate::theme::apply_theme_css_body;
 
 use super::ctx::{CommandModeCtx, Picker};
@@ -64,7 +66,7 @@ async fn run_reload(ctx: CommandModeCtx) {
         ctx,
         fetch_settings(SettingsScope::Local).await,
         |v| {
-            apply_theme_css_body(&v.css);
+            ctx.apply_theme_from_settings(&v);
             ctx.refresh.bump();
         },
         "Reloaded config",
@@ -177,9 +179,8 @@ pub(super) fn submit_picker(ctx: CommandModeCtx) {
                 };
                 match patch_settings(scope, &patch).await {
                     Ok(v) => {
-                        apply_theme_css_body(&v.css);
-                        ctx.highlight_theme.set(v.theme.clone());
-                        ctx.theme_committed.update(|n| *n = n.wrapping_add(1));
+                        ctx.apply_theme_from_settings(&v);
+                        ctx.mark_theme_committed();
                         ctx.flash(format!("Theme: {name}"));
                     }
                     Err(e) => {
@@ -197,13 +198,38 @@ pub(super) fn submit_picker(ctx: CommandModeCtx) {
                 return;
             };
             ctx.picker.set(None);
+            // Clicking the project path leaves it focused, so Enter would reopen the picker
+            // once the overlay unmounts.
+            if let Some(doc) = web_sys::window().and_then(|w| w.document())
+                && let Some(el) = doc.active_element()
+                && let Ok(html) = el.dyn_into::<web_sys::HtmlElement>()
+            {
+                let _ = html.blur();
+            }
             spawn_local(async move {
                 match switch_root(&dir).await {
                     Ok(cur) => {
-                        ctx.flash(format!("Switched to {}", cur.path));
-                        if let Some(w) = web_sys::window() {
-                            let _ = w.location().reload();
+                        // Soft switch: refresh chrome + catalog in place (no SPA reload).
+                        // Theme first so CSS tokens match the new root before the mode body remounts.
+                        if let Ok(v) = fetch_settings(SettingsScope::Local).await {
+                            ctx.apply_theme_from_settings(&v);
+                            ctx.mark_theme_committed();
                         }
+                        let mut new_flags = load_catalog_flags().await;
+                        // The PUT response is authoritative for the new root.
+                        if new_flags.root.as_deref() != Some(cur.path.as_str()) {
+                            new_flags.root = Some(cur.path.clone());
+                        }
+                        ctx.refresh.bump();
+                        ctx.multiselect.clear();
+                        ctx.space_menu.close();
+                        ctx.flags.set(new_flags);
+                        ctx.space_menu
+                            .catalog_root
+                            .set(ctx.flags.get_untracked().root.clone());
+                        ctx.set_mode.set(MainMode::Snapshot);
+                        ctx.flash(format!("Switched to {}", cur.path));
+                        watch_snapshot_if_running(ctx.refresh, ctx.toasts).await;
                     }
                     Err(e) => ctx.flash_err(e),
                 }

@@ -15,8 +15,9 @@ pub(crate) use catalog::{
     load_catalog_flags,
 };
 pub(crate) use content::{
-    CONTENT_WINDOW_BYTES, CONTENT_WINDOW_MIN_FILE_BYTES, EntryContent, fetch_entry_content,
-    fetch_entry_content_page, fetch_entry_content_themed, fetch_entry_content_window,
+    CONTENT_WINDOW_BYTES, CONTENT_WINDOW_MIN_FILE_BYTES, EntryContent, content_cover_url,
+    content_raw_page_url, fetch_entry_content, fetch_entry_content_page,
+    fetch_entry_content_themed, fetch_entry_content_window,
 };
 pub(crate) use delta::{DeltaCatalog, DeltaKind, DeltaRow, fetch_delta_catalog};
 pub(crate) use entries::{

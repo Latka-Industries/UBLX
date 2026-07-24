@@ -18,6 +18,10 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
 use axum::Router;
+use axum::extract::Request;
+use axum::http::{HeaderValue, header};
+use axum::middleware::{Next, from_fn};
+use axum::response::Response;
 use axum::routing::{get, post};
 use log::info;
 #[cfg(feature = "ui")]
@@ -132,6 +136,8 @@ pub fn run(args: &ServeCli) -> Result<(), anyhow::Error> {
             "/settings/{scope}",
             get(get_settings).patch(patch_settings_route),
         )
+        // Same URL after root switch must not reuse a prior root's JSON/bytes.
+        .layer(from_fn(no_store_cache))
         .with_state(state);
 
     tokio_rt::runtime().block_on(panza_run(
@@ -143,6 +149,15 @@ pub fn run(args: &ServeCli) -> Result<(), anyhow::Error> {
         api,
         static_mount(),
     ))
+}
+
+/// Mark API responses uncacheable — `/settings/local`, `/roots/current`, `/entries`, …
+/// keep the same path when the serve root changes.
+async fn no_store_cache(req: Request, next: Next) -> Response {
+    let mut res = next.run(req).await;
+    res.headers_mut()
+        .insert(header::CACHE_CONTROL, HeaderValue::from_static("no-store"));
+    res
 }
 
 /// Optional Leptos UI (`--features ui`): Embedded by default; `UBLX_WEB_DIST` → Dir (dev loop).

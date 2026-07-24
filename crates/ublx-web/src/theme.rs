@@ -3,12 +3,17 @@
 //! Favicon follows TUI brand chrome: page `background` + `title_brand` (same fields as
 //! `--background` / `--brand`).
 
+use std::cell::RefCell;
 use std::collections::BTreeMap;
 
 use wasm_bindgen::JsCast;
 use web_sys::HtmlElement;
 
 use crate::api::ThemeCssBody;
+
+thread_local! {
+    static APPLIED_VARS: RefCell<Vec<String>> = const { RefCell::new(Vec::new()) };
+}
 
 /// Subset of settings `css` payload used by the shell.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -53,9 +58,18 @@ pub(crate) fn apply_theme_css(css: &ThemeCssView) {
     };
 
     let style = html.style();
-    for (key, value) in &css.vars {
-        let _ = style.set_property(key, value);
-    }
+    // Drop prior palette keys so a smaller theme cannot leave stale vars behind.
+    APPLIED_VARS.with(|prev| {
+        let mut prev = prev.borrow_mut();
+        for key in prev.iter() {
+            let _ = style.remove_property(key);
+        }
+        prev.clear();
+        for (key, value) in &css.vars {
+            let _ = style.set_property(key, value);
+            prev.push(key.clone());
+        }
+    });
 
     let classes = html.class_list();
     if css.appearance.eq_ignore_ascii_case("light") {

@@ -9,7 +9,6 @@ use crate::api::{
 use crate::command_mode::CommandModeCtx;
 use crate::focus::{ListNav, UiNav, install_list_nav};
 use crate::panes::{PanelRow, ThreePane, schedule_scroll_selected_into_view};
-use crate::theme::apply_theme_css_body;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 enum FocusedOption {
@@ -108,10 +107,7 @@ pub(crate) fn SettingsMode() -> impl IntoView {
         spawn_local(async move {
             match fetch_settings(s).await {
                 Ok(v) => {
-                    apply_theme_css_body(&v.css);
-                    if !v.theme.is_empty() {
-                        command_mode.highlight_theme.set(v.theme.clone());
-                    }
+                    command_mode.apply_theme_from_settings(&v);
                     set_live.set(Some(v));
                     set_err.set(None);
                 }
@@ -131,10 +127,7 @@ pub(crate) fn SettingsMode() -> impl IntoView {
         spawn_local(async move {
             match patch_settings(s, &patch).await {
                 Ok(v) => {
-                    apply_theme_css_body(&v.css);
-                    if !v.theme.is_empty() {
-                        command_mode.highlight_theme.set(v.theme.clone());
-                    }
+                    command_mode.apply_theme_from_settings(&v);
                     set_live.set(Some(v));
                     set_err.set(None);
                 }

@@ -69,6 +69,9 @@ pub(crate) struct CommandModeCtx {
     /// Generation so stale chord timers do not open the menu after Esc.
     chord_gen: RwSignal<u32>,
     pub(super) refresh: CatalogRefresh,
+    pub(super) flags: RwSignal<crate::api::CatalogFlags>,
+    pub(super) multiselect: crate::multiselect::MultiselectCtx,
+    pub(super) space_menu: crate::space_menu::SpaceMenuCtx,
     pub(super) set_mode: WriteSignal<MainMode>,
     pub(super) toasts: ToastCtx,
 }
@@ -76,6 +79,9 @@ pub(crate) struct CommandModeCtx {
 impl CommandModeCtx {
     pub(crate) fn provide(
         refresh: CatalogRefresh,
+        flags: RwSignal<crate::api::CatalogFlags>,
+        multiselect: crate::multiselect::MultiselectCtx,
+        space_menu: crate::space_menu::SpaceMenuCtx,
         set_mode: WriteSignal<MainMode>,
         toasts: ToastCtx,
     ) -> Self {
@@ -89,6 +95,9 @@ impl CommandModeCtx {
             highlight_theme: RwSignal::new(String::new()),
             chord_gen: RwSignal::new(0),
             refresh,
+            flags,
+            multiselect,
+            space_menu,
             set_mode,
             toasts,
         };
@@ -174,6 +183,27 @@ impl CommandModeCtx {
 
     pub(crate) fn picker_submit(self) {
         submit_picker(self);
+    }
+
+    /// Paint a `/settings/{scope}` palette and track its name for syntect (`/content?theme=`).
+    ///
+    /// `css.name` is the effective (global∪local) palette; `theme` is only this scope's row value,
+    /// so it can be empty when the theme comes from the other scope.
+    pub(crate) fn apply_theme_from_settings(self, view: &crate::api::SettingsView) {
+        crate::theme::apply_theme_css_body(&view.css);
+        let name = if view.css.name.is_empty() {
+            &view.theme
+        } else {
+            &view.css.name
+        };
+        if !name.is_empty() {
+            self.highlight_theme.set(name.clone());
+        }
+    }
+
+    /// Signal Settings to refetch after we changed the palette elsewhere.
+    pub(crate) fn mark_theme_committed(self) {
+        self.theme_committed.update(|n| *n = n.wrapping_add(1));
     }
 
     /// Open the theme selector overlay (Command Mode `t` / Settings theme control).
