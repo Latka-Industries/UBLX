@@ -43,27 +43,29 @@ pub(crate) fn Shell(flags: CatalogFlags) -> impl IntoView {
     let command_mode = CommandModeCtx::provide(catalog_refresh, set_mode, toasts);
 
     // Tab visibility tracks shared catalog resources (e.g. first lens create shows Lenses).
-    let has_lenses = Signal::derive(move || {
-        catalog
-            .lens_names
-            .get()
-            .map(|n| !n.is_empty())
-            .unwrap_or_else(|| flags.get_value().has_lenses)
+    // Updated via effects (not read in render) so resource pending states never trip the
+    // App-level Suspense boot splash on tab switches.
+    let (has_lenses, set_has_lenses) = signal(flags.get_value().has_lenses);
+    let (has_delta, set_has_delta) = signal(flags.get_value().has_delta);
+    let (has_duplicates, set_has_duplicates) = signal(flags.get_value().has_duplicates);
+    Effect::new(move |_| {
+        if let Some(names) = catalog.lens_names.get() {
+            set_has_lenses.set(!names.is_empty());
+        }
     });
-    let has_delta = Signal::derive(move || {
-        catalog
-            .delta
-            .get()
-            .map(|d| !d.rows.is_empty())
-            .unwrap_or_else(|| flags.get_value().has_delta)
+    Effect::new(move |_| {
+        if let Some(delta) = catalog.delta.get() {
+            set_has_delta.set(!delta.rows.is_empty());
+        }
     });
-    let has_duplicates = Signal::derive(move || {
-        catalog
-            .duplicates
-            .get()
-            .map(|d| !d.groups.is_empty())
-            .unwrap_or_else(|| flags.get_value().has_duplicates)
+    Effect::new(move |_| {
+        if let Some(dupes) = catalog.duplicates.get() {
+            set_has_duplicates.set(!dupes.groups.is_empty());
+        }
     });
+    let has_lenses: Signal<bool> = has_lenses.into();
+    let has_delta: Signal<bool> = has_delta.into();
+    let has_duplicates: Signal<bool> = has_duplicates.into();
 
     // Cold-start / in-flight snapshot: toast + refresh when indexing finishes.
     Effect::new(move |_| {
