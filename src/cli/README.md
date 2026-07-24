@@ -31,6 +31,10 @@ ublx doctor --json
 
 ```bash
 ublx serve . --port 8787
+# Fresh directory (no `.ublx` yet): serve binds immediately and snapshots in the background
+# (same idea as TUI first-run). Opt out with `--no-auto-snapshot` (fail-fast for agents).
+ublx serve . --open
+ublx serve . --no-auto-snapshot   # error if catalog missing
 curl -s http://127.0.0.1:8787/health
 curl -s http://127.0.0.1:8787/roots
 curl -s http://127.0.0.1:8787/roots/current
@@ -55,6 +59,7 @@ curl -s -X PATCH http://127.0.0.1:8787/settings/local \
 ```
 Notes:
 
+- Cold start (THI-172 / v0.2.2): missing catalog → in-memory placeholder + auto `POST`-equivalent snapshot unless `--no-auto-snapshot`; serve also writes `recents/{hash}.txt` (same as TUI session open) so the project switcher lists the root after the DB lands
 - `GET /roots` — indexed projects (same source as TUI switch); `PUT /roots/current` swaps the live catalog (blocked with 409 while a snapshot is `running`)
 - `GET /doctor` — same diagnose report as `ublx doctor --json` for the current root (no `--fix` over HTTP)
 - `POST /snapshot` — **202** + background job (TUI pipeline); `GET /snapshot` for `idle|running|done|failed`; catalog connection is reopened after rename

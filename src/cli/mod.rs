@@ -12,8 +12,8 @@ mod serve;
 mod settings_api;
 
 pub use catalog::{
-    CatalogHandle, CatalogPaths, open_catalog_for_read, resolve_catalog_paths,
-    snapshot_likely_in_progress,
+    CatalogHandle, CatalogPaths, catalog_db_present, open_catalog_for_read,
+    open_placeholder_catalog, resolve_catalog_paths, snapshot_likely_in_progress,
 };
 pub use catalog_read::{CatalogNotFound, DeltaRow, EntryListFilter, EntryRow};
 

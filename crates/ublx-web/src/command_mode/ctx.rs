@@ -70,7 +70,7 @@ pub(crate) struct CommandModeCtx {
     chord_gen: RwSignal<u32>,
     pub(super) refresh: CatalogRefresh,
     pub(super) set_mode: WriteSignal<MainMode>,
-    toasts: ToastCtx,
+    pub(super) toasts: ToastCtx,
 }
 
 impl CommandModeCtx {
@@ -128,10 +128,6 @@ impl CommandModeCtx {
 
     pub(crate) fn flash_err(self, msg: impl Into<String>) {
         self.toasts.error(msg);
-    }
-
-    pub(crate) fn flash_snapshot(self, added: usize, modified: usize, removed: usize) {
-        self.toasts.snapshot_done(added, modified, removed);
     }
 
     /// Start Ctrl+leader wait; menu appears after [`CHORD_MENU_DELAY_MS`] if still pending.

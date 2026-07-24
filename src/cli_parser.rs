@@ -45,6 +45,9 @@ pub struct ServeCli {
     /// Indexed directory whose catalog to serve
     #[arg(value_name = "DIR", default_value = ".")]
     pub dir: PathBuf,
+    /// Fail if no catalog exists (default: start serve and snapshot in the background).
+    #[arg(long = "no-auto-snapshot")]
+    pub no_auto_snapshot: bool,
     #[command(flatten)]
     pub serve: panza::ServeArgs,
 }

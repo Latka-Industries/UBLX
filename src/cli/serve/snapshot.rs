@@ -36,7 +36,18 @@ pub(super) async fn post_snapshot(
     body: Option<Json<SnapshotBody>>,
 ) -> Result<impl IntoResponse, ApiError> {
     let enhance_all = body.is_some_and(|j| j.0.enhance_all);
-    let dir = with_inner(&state, |inner| {
+    begin_snapshot_job(&state, enhance_all)?;
+    let status = with_inner(&state, |inner| Ok(inner.snapshot.status()))?;
+    Ok((StatusCode::ACCEPTED, Json(status)))
+}
+
+/// Mark snapshot `running` and spawn the background pipeline (HTTP `POST` + cold-start).
+///
+/// # Errors
+///
+/// Returns conflict when a snapshot is already running, or lock failure.
+pub(super) fn begin_snapshot_job(state: &AppState, enhance_all: bool) -> Result<(), ApiError> {
+    let dir = with_inner(state, |inner| {
         if inner.snapshot.is_running() {
             return Err(ApiError::conflict("snapshot already running"));
         }
@@ -50,13 +61,11 @@ pub(super) async fn post_snapshot(
         "serve snapshot started: dir={} enhance_all={enhance_all}",
         dir.display()
     );
-    let state_bg = Arc::clone(&state);
+    let state_bg = Arc::clone(state);
     std::thread::spawn(move || {
         run_serve_snapshot_job(&state_bg, &dir, enhance_all);
     });
-
-    let status = with_inner(&state, |inner| Ok(inner.snapshot.status()))?;
-    Ok((StatusCode::ACCEPTED, Json(status)))
+    Ok(())
 }
 
 fn run_serve_snapshot_job(state: &AppState, dir: &Path, enhance_all: bool) {

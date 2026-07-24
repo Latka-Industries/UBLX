@@ -28,8 +28,8 @@ pub(crate) use fs::{
 };
 pub(crate) use http::{encode_entry_path, get_json};
 pub(crate) use roots::{
-    fetch_roots, get_snapshot_status, post_export_lenses, post_export_zahir, post_snapshot,
-    switch_root,
+    SnapshotLast, fetch_roots, get_snapshot_status, post_export_lenses, post_export_zahir,
+    post_snapshot, switch_root,
 };
 pub(crate) use settings::{
     SettingsLayoutPatch, SettingsPatch, SettingsScope, SettingsView, ThemeCssBody, ThemePickerRow,
