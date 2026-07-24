@@ -16,7 +16,7 @@ Work lands as **mini-PRs onto long-lived `dev`**, then a fat PR `dev` → `main`
 
 Optional **embedded catalog browser** for `ublx serve`: the TUI experience in a browser — same chrome, focus model, hotkeys, viewers, and theme personality — not a thin dashboard over JSON.
 
-Default crates.io / Homebrew installs stay **API-only** (`StaticMount::None`). The UI is opt-in via Cargo feature **`ui`**.
+Default crates.io installs stay **API-only** (`StaticMount::None`). Opt in with `cargo install ublx --features ui` (after `build.sh`). **Homebrew** ships with `--features ui` (Embedded) by default.
 
 ---
 
