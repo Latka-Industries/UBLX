@@ -5,7 +5,7 @@ use leptos::prelude::*;
 use crate::api::{DeltaKind, DeltaRow, fetch_delta_catalog, format_timestamp_ns};
 use crate::focus::{ListNav, UiNav, install_list_nav};
 use crate::nav::MainMode;
-use crate::panes::{OverviewRightPane, PathsPane, ThreePane};
+use crate::panes::{OverviewRightPane, PanelRow, PathsPane, ThreePane};
 use crate::search::{CatalogSearch, fuzzy_matches_field};
 use crate::sort::{ContentSortCtx, sort_delta_rows};
 
@@ -82,32 +82,16 @@ pub(crate) fn DeltaMode() -> impl IntoView {
                                 {DeltaKind::ALL
                                     .into_iter()
                                     .map(|k| {
-                                        let label = k.label().to_string();
-                                        let class = k.css_class();
                                         view! {
-                                            <li>
-                                                <button
-                                                    type="button"
-                                                    class=move || {
-                                                        let base = if kind.get() == k {
-                                                            "panel-row panel-row--selected"
-                                                        } else {
-                                                            "panel-row"
-                                                        };
-                                                        format!("{base} {class}")
-                                                    }
-                                                    on:mousedown=move |ev| ev.prevent_default()
-                                                    on:click=move |_| {
-                                                        set_kind.set(k);
-                                                        set_selected_path.set(None);
-                                                    }
-                                                >
-                                                    <span class="panel-row__sym">
-                                                        {move || if kind.get() == k { "›" } else { " " }}
-                                                    </span>
-                                                    <span class="panel-row__text">{label.clone()}</span>
-                                                </button>
-                                            </li>
+                                            <PanelRow
+                                                label=k.label().to_string()
+                                                class_extra=k.css_class()
+                                                selected=Signal::derive(move || kind.get() == k)
+                                                on_select=Callback::new(move |_| {
+                                                    set_kind.set(k);
+                                                    set_selected_path.set(None);
+                                                })
+                                            />
                                         }
                                     })
                                     .collect_view()}

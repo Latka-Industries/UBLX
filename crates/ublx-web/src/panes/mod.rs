@@ -9,7 +9,9 @@ use crate::focus::{PaneFocus, UiNav};
 
 use self::panel::PanelBox;
 
-pub(crate) use self::panel::{EntryRightPane, OverviewRightPane, PanelRow, PathsPane};
+pub(crate) use self::panel::{
+    EntryRightPane, OverviewRightPane, PanelRow, PathsPane, schedule_scroll_selected_into_view,
+};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum RightTab {
