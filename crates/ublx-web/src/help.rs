@@ -1,10 +1,10 @@
 //! Mode-aware `?` help overlay — TUI-shaped sections, web-relevant bindings only.
 
 use leptos::prelude::*;
-use wasm_bindgen::JsCast;
 
 use crate::nav::MainMode;
 
+/// `?` popup visibility + active help section index.
 #[derive(Clone, Copy)]
 pub(crate) struct HelpOverlay {
     pub visible: ReadSignal<bool>,
@@ -261,9 +261,7 @@ pub(crate) fn HelpModal(mode: ReadSignal<MainMode>) -> impl IntoView {
                 aria-modal="true"
                 aria-label="Keyboard help"
                 on:mousedown=move |ev| {
-                    if let Some(t) = ev.target().and_then(|t| t.dyn_into::<web_sys::Element>().ok())
-                        && t.class_list().contains("help-overlay")
-                    {
+                    if crate::util::is_backdrop_click(&ev, "help-overlay") {
                         help.close();
                     }
                 }

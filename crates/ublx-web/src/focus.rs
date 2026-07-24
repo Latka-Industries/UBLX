@@ -30,6 +30,7 @@ pub(crate) struct ListNav {
     pub to_end: Callback<()>,
 }
 
+/// Pane focus + left/middle list-nav callback slots.
 #[derive(Clone, Copy)]
 pub(crate) struct UiNav {
     pub pane: ReadSignal<PaneFocus>,
@@ -76,6 +77,7 @@ impl UiNav {
     }
 }
 
+/// Right-pane tab request / cycle (digits / Tab from keys).
 #[derive(Clone, Copy)]
 pub(crate) struct RightTabBus {
     pub request: ReadSignal<Option<RightTab>>,
@@ -99,6 +101,7 @@ pub(crate) enum PdfPageNav {
     Bottom,
 }
 
+/// Active PDF Viewer page callbacks (registered while mounted).
 #[derive(Clone)]
 pub(crate) struct PdfPageCtl {
     pub apply: Callback<PdfPageNav>,
@@ -128,6 +131,7 @@ pub(crate) struct TreeCollapseCtl {
     pub can_collapse: Signal<bool>,
 }
 
+/// Preview key targets — PDF pages, text windows, schema trees.
 #[derive(Clone, Copy)]
 pub(crate) struct PreviewKeysBus {
     pub pdf: RwSignal<Option<PdfPageCtl>>,

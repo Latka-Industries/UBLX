@@ -37,8 +37,9 @@ no-default-features = true
 [features]
 default = ["zahir-netcdf"]
 zahir-netcdf = ["zahirscan/netcdf"]
-# Embedded / Dir-mounted Leptos UI for `ublx serve` (build UI with crates/ublx-web/build.sh first).
-ui = []
+# Embedded Leptos UI for `ublx serve` (run crates/ublx-web/build.sh before building).
+# Set `UBLX_WEB_DIST` to use Dir mount instead (mise `web` loop).
+ui = ["dep:ublx-web"]
 
 [dependencies]
 anyhow = "1.0.104"
@@ -58,6 +59,9 @@ log = "0.4.31"
 nefaxer = "0.1.12"
 notify = "8.2.0"
 panza = "0.1.1"
+ublx-web = { path = "crates/ublx-web", optional = true, default-features = false, features = [
+  "embed",
+] }
 pulldown-cmark = "0.13.3"
 ratatui = "0.30"
 ratatui-image = { version = "11.0.3", default-features = false, features = [

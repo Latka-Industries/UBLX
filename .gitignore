@@ -67,3 +67,4 @@ TODO.md
 
 # WASM UI build output (crates/ublx-web/build.sh)
 crates/ublx-web/dist/
+crates/ublx-web/node_modules/

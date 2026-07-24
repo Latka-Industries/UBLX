@@ -24,6 +24,7 @@ use super::kinds::{
     pending_allows_navigation,
 };
 
+/// Space / bulk quick-actions overlay — store refresh / multiselect / toast handles.
 #[derive(Clone, Copy)]
 pub(crate) struct SpaceMenuCtx {
     pub visible: RwSignal<bool>,

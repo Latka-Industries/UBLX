@@ -19,11 +19,14 @@ description = "Run ublx headless (--snapshot-only, no TUI)"
 run = "cargo run -- --snapshot-only"
 
 [tasks.web]
-description = "Build ublx-web WASM, then serve . with --features ui --open"
-run = [
-  "./crates/ublx-web/build.sh",
-  "cargo run -p ublx --features ui -- serve . --open",
-]
+description = "Build ublx-web WASM, then serve . with --features ui --open (Dir via UBLX_WEB_DIST)"
+run = """
+#!/usr/bin/env bash
+set -euo pipefail
+./crates/ublx-web/build.sh
+export UBLX_WEB_DIST="$(pwd)/crates/ublx-web/dist"
+cargo run -p ublx --features ui -- serve . --open
+"""
 
 [tasks.web-check]
 description = "fmt + clippy for ublx-web (Leptos / wasm32)"

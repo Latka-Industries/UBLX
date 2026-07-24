@@ -9,6 +9,7 @@ use crate::nav::MainMode;
 const ARROW_UP: char = '\u{2191}';
 const ARROW_DOWN: char = '\u{2193}';
 
+/// Asc / Desc — TUI arrow glyphs are inverted relative to the name.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub(crate) enum SortDirection {
     #[default]
@@ -35,6 +36,7 @@ impl SortDirection {
     }
 }
 
+/// Snapshot / Delta / Dupes middle-pane sort key (cycles with `s`).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub(crate) enum SnapshotSortKey {
     #[default]

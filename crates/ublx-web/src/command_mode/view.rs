@@ -2,7 +2,6 @@
 
 use leptos::prelude::*;
 use leptos::task::spawn_local;
-use wasm_bindgen::JsCast;
 
 use super::ctx::{CommandModeCtx, Picker};
 use super::helpers::sleep_ms;
@@ -53,9 +52,7 @@ pub(crate) fn CommandModePopup() -> impl IntoView {
                 aria-modal="true"
                 aria-label="Command Mode"
                 on:mousedown=move |ev| {
-                    if let Some(t) = ev.target().and_then(|t| t.dyn_into::<web_sys::Element>().ok())
-                        && t.class_list().contains("command-mode-overlay")
-                    {
+                    if crate::util::is_backdrop_click(&ev, "command-mode-overlay") {
                         cmd.close_all();
                     }
                 }

@@ -2,7 +2,7 @@
 
 use leptos::prelude::*;
 
-use crate::api::{fetch_entry_detail, fetch_lens_entries, fetch_lens_names};
+use crate::api::{fetch_entry_detail_opt, fetch_lens_entries, fetch_lens_names};
 use crate::catalog_refresh::CatalogRefresh;
 use crate::focus::{UiNav, install_list_nav, string_list_nav};
 use crate::nav::MainMode;
@@ -77,12 +77,7 @@ pub(crate) fn LensesMode() -> impl IntoView {
 
     let detail = LocalResource::new(move || {
         let path = selected_path.get();
-        async move {
-            match path {
-                Some(p) => fetch_entry_detail(&p).await.ok(),
-                None => None,
-            }
-        }
+        async move { fetch_entry_detail_opt(path).await }
     });
     let detail_signal = Signal::derive(move || detail.get().flatten());
 

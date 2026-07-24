@@ -12,7 +12,7 @@ mod snapshot;
 mod state;
 
 #[cfg(feature = "ui")]
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
 use axum::Router;
@@ -108,22 +108,30 @@ pub fn run(args: &ServeCli) -> Result<(), anyhow::Error> {
     ))
 }
 
-/// Optional Leptos UI (`--features ui`): serve `crates/ublx-web/dist` (or `UBLX_WEB_DIST`).
+/// Optional Leptos UI (`--features ui`): Embedded by default; `UBLX_WEB_DIST` → Dir (dev loop).
 fn static_mount() -> StaticMount {
     #[cfg(feature = "ui")]
     {
-        let dir = std::env::var_os("UBLX_WEB_DIST")
-            .map(PathBuf::from)
-            .unwrap_or_else(|| Path::new(env!("CARGO_MANIFEST_DIR")).join("crates/ublx-web/dist"));
-        if !dir.join("index.html").is_file() {
-            warn!(
-                "feature `ui` enabled but {}/index.html missing — run crates/ublx-web/build.sh",
-                dir.display()
-            );
-        } else {
-            info!("serve UI static mount: {}", dir.display());
+        if let Some(dir) = std::env::var_os("UBLX_WEB_DIST").map(PathBuf::from) {
+            if !dir.join("index.html").is_file() {
+                warn!(
+                    "UBLX_WEB_DIST={}/index.html missing — run crates/ublx-web/build.sh",
+                    dir.display()
+                );
+            } else {
+                info!("serve UI static mount (Dir): {}", dir.display());
+            }
+            return StaticMount::Dir(dir);
         }
-        StaticMount::Dir(dir)
+        let assets = ublx_web::embedded_assets();
+        if assets.contains_key("index.html") {
+            info!("serve UI static mount (Embedded): {} assets", assets.len());
+        } else {
+            warn!(
+                "feature `ui` Embedded map has no index.html — rebuild after crates/ublx-web/build.sh"
+            );
+        }
+        StaticMount::Embedded(assets)
     }
     #[cfg(not(feature = "ui"))]
     {

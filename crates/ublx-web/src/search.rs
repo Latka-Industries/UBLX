@@ -9,6 +9,7 @@ pub(crate) const SEARCH_LABEL: &str = "Search (Categories & Contents): ";
 
 const NO_MATCHES: &str = "(no matches)";
 
+/// Catalog search strip + client-side filter signals (TUI `/`).
 #[derive(Clone, Copy)]
 pub(crate) struct CatalogSearch {
     pub query: ReadSignal<String>,

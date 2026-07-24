@@ -37,32 +37,39 @@ pub(crate) fn is_syntect_category(category: &str) -> bool {
     SYNTECT_CATEGORIES.contains(&category)
 }
 
+/// CSV table Viewer (host HTML).
 pub(crate) fn is_csv_category(category: &str) -> bool {
     category == CSV_CATEGORY
 }
 
+/// Plain text Viewer (`<pre>`).
 pub(crate) fn is_text_category(category: &str) -> bool {
     category == TEXT_CATEGORY
 }
 
+/// Raster / SVG image Viewer (`?format=raw`).
 pub(crate) fn is_image_category(category: &str) -> bool {
     category == IMAGE_CATEGORY
 }
 
+/// PDF page preview Viewer.
 pub(crate) fn is_pdf_category(category: &str) -> bool {
     category == PDF_CATEGORY
 }
 
+/// Video mid-frame preview Viewer.
 pub(crate) fn is_video_category(category: &str) -> bool {
     category == VIDEO_CATEGORY
 }
 
+/// Audio / Epub cover art Viewer.
 pub(crate) fn is_cover_category(category: &str) -> bool {
     COVER_CATEGORIES
         .iter()
         .any(|c| category.eq_ignore_ascii_case(c))
 }
 
+/// Directory / Zarr collapsible tree Viewer.
 pub(crate) fn is_directory_category(category: &str) -> bool {
     category == DIRECTORY_CATEGORY || category.eq_ignore_ascii_case("Zarr")
 }

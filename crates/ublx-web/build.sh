@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Build CSR WASM into ./dist for panza StaticMount::Dir (feature `ui`).
+# Build CSR WASM + Tailwind CSS into ./dist for panza StaticMount
+# (Dir via UBLX_WEB_DIST, or Embedded).
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 CRATE="$(cd "$(dirname "$0")" && pwd)"
@@ -18,4 +19,28 @@ cp "$CRATE/index.html" "$CRATE/styles.css" "$OUT/"
 # as `dist/styles/styles/` and leaves stale `help.css` / etc.).
 rm -rf "$OUT/styles"
 cp -R "$CRATE/styles" "$OUT/styles"
-echo "built $OUT (open via: cargo run -p ublx --features ui -- serve . --open)"
+
+# Built Tailwind utilities (no CDN). Needs Node/npm.
+if ! command -v npm >/dev/null 2>&1; then
+  echo "error: npm required to build Tailwind CSS (install Node.js)" >&2
+  exit 1
+fi
+(
+  cd "$CRATE"
+  if [[ ! -d node_modules/tailwindcss ]]; then
+    if [[ -f package-lock.json ]]; then
+      npm ci
+    else
+      npm install
+    fi
+  fi
+  npx --no-install tailwindcss \
+    -c tailwind.config.js \
+    -i ./styles/tailwind-input.css \
+    -o "$OUT/tailwind.css" \
+    --minify
+)
+
+echo "built $OUT"
+echo "  Dir (dev):   UBLX_WEB_DIST=$OUT cargo run -p ublx --features ui -- serve . --open"
+echo "  Embedded:    cargo build -p ublx --features ui   # then run without UBLX_WEB_DIST"
