@@ -6,24 +6,29 @@ use wasm_bindgen::JsCast;
 
 use super::ctx::SpaceMenuCtx;
 use super::helpers::sleep_ms;
-use super::kinds::{Pending, pending_title};
+use super::kinds::{Pending, pending_allows_navigation, pending_title};
 
 #[component]
 pub(crate) fn SpaceMenuPopup() -> impl IntoView {
     let menu = SpaceMenuCtx::expect();
     let panel_ref = NodeRef::<leptos::html::Div>::new();
 
-    // Focus the panel when the menu opens so Enter / letters aren't lost to a leftover focus target.
+    // Focus panel for list menus; focus + select the text field for rename / new lens / bulk rename.
     Effect::new(move |_| {
         if !menu.visible.get() {
             return;
         }
+        let pending = menu.pending.get();
         let panel_ref = panel_ref;
         spawn_local(async move {
             sleep_ms(0).await;
-            if let Some(el) = panel_ref.get_untracked() {
-                let _ = el.focus();
+            if pending_allows_navigation(pending.as_ref()) {
+                if let Some(el) = panel_ref.get_untracked() {
+                    let _ = el.focus();
+                }
+                return;
             }
+            focus_space_menu_text_field();
         });
     });
 
@@ -238,6 +243,24 @@ fn handle_enter_escape(ev: &web_sys::KeyboardEvent, menu: SpaceMenuCtx, on_enter
     } else if ev.key() == "Escape" {
         ev.prevent_default();
         menu.close();
+    }
+}
+
+fn focus_space_menu_text_field() {
+    let Some(doc) = web_sys::window().and_then(|w| w.document()) else {
+        return;
+    };
+    let Ok(Some(el)) = doc.query_selector(".space-menu-input, .space-menu-textarea") else {
+        return;
+    };
+    if let Ok(input) = el.clone().dyn_into::<web_sys::HtmlInputElement>() {
+        let _ = input.focus();
+        input.select();
+        return;
+    }
+    if let Ok(area) = el.dyn_into::<web_sys::HtmlTextAreaElement>() {
+        let _ = area.focus();
+        area.select();
     }
 }
 
