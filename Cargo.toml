@@ -5,7 +5,7 @@ resolver = "2"
 
 [package]
 name = "ublx"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2024"
 rust-version = "1.95"
 authors = ["AHurowitz <latkaindustries@gmail.com>"]
@@ -23,6 +23,27 @@ categories = [
   "text-processing",
   "visualization",
 ]
+# Force-include gitignored `assets/web-ui/` (filled by build.sh) in the crates.io
+# tarball so `cargo install ublx --features ui` can rust-embed the SPA.
+include = [
+  "/src/**",
+  "/tests/**",
+  "/docs/**",
+  "/assets/**",
+  "/Formula/**",
+  "/.github/**",
+  "/.vscode/**",
+  "/build.rs",
+  "/Cargo.toml",
+  "/Cargo.lock",
+  "/README.md",
+  "/LICENSE-MIT",
+  "/LICENSE-APACHE",
+  "/cspell.json",
+  "/.mise.toml",
+  "/.ublx.toml",
+  "/.gitignore",
+]
 # THI-171: one integration crate (`tests/suite`), not one target per `tests/*.rs`.
 autotests = false
 
@@ -37,10 +58,10 @@ no-default-features = true
 [features]
 default = ["zahir-netcdf"]
 zahir-netcdf = ["zahirscan/netcdf"]
-# Embedded Leptos UI for `ublx serve` (run crates/ublx-web/build.sh before building).
-# Set `UBLX_WEB_DIST` to use Dir mount instead (mise `web` loop).
-# Host embeds `crates/ublx-web/dist/` via rust-embed — no crates.io dep on ublx-web
-# (that workspace crate stays publish = false / WASM-only).
+# Embedded Leptos UI for `ublx serve`. Host rust-embeds `assets/web-ui/`
+# (synced from `crates/ublx-web/dist/` by build.sh). crates.io tarball includes
+# those assets so `cargo install ublx --features ui` works. Set `UBLX_WEB_DIST`
+# for Dir mount (mise `web` loop). `ublx-web` stays publish = false / WASM-only.
 ui = ["dep:rust-embed"]
 
 [dependencies]

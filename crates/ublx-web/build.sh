@@ -40,6 +40,13 @@ fi
     --minify
 )
 
+# Sync into package-local path for rust-embed + crates.io (`cargo install --features ui`).
+EMBED_OUT="$ROOT/assets/web-ui"
+rm -rf "$EMBED_OUT"
+mkdir -p "$(dirname "$EMBED_OUT")"
+cp -a "$OUT" "$EMBED_OUT"
+
 echo "built $OUT"
+echo "synced $EMBED_OUT"
 echo "  Dir (dev):   UBLX_WEB_DIST=$OUT cargo run -p ublx --features ui -- serve . --open"
 echo "  Embedded:    cargo build -p ublx --features ui   # then run without UBLX_WEB_DIST"

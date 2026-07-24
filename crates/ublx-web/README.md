@@ -2,7 +2,7 @@
 
 Leptos CSR + [leptos-shadcn-ui](https://github.com/cloud-shuttle/leptos-shadcn-ui) catalog UI for `ublx serve` (THI-157).
 
-`publish = false` — WASM app only. The host embeds `dist/` via `ublx` feature `ui` / [`web_embed.rs`](../../src/cli/serve/web_embed.rs), not a crates.io dependency.
+`publish = false` — WASM app only. The host embeds via `ublx` feature `ui` / [`web_embed.rs`](../../src/cli/serve/web_embed.rs) reading **`assets/web-ui/`** (synced from `dist/` by `build.sh`). Those assets ship in the crates.io tarball for `cargo install ublx --features ui`.
 
 ## Layout
 
