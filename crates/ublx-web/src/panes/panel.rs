@@ -70,13 +70,30 @@ pub(crate) fn PanelRow(
     /// When set, reserve a check column (█ when true) for multi-select chrome.
     #[prop(optional)]
     checked: Option<Signal<bool>>,
+    /// Extra class tokens (e.g. Delta `delta-added`).
+    #[prop(optional)]
+    class_extra: Option<&'static str>,
 ) -> impl IntoView {
     let show_check = checked.is_some();
     let checked_sig = checked.unwrap_or_else(|| Signal::derive(|| false));
+    let row_ref = NodeRef::<leptos::html::Button>::new();
+
+    // Arrow-key / click selection: keep the highlighted row in the scrollport.
+    Effect::new(move |_| {
+        if !selected.get() {
+            return;
+        }
+        let Some(btn) = row_ref.get() else {
+            return;
+        };
+        schedule_el_into_view(btn.into());
+    });
+
     view! {
         <li>
             <button
                 type="button"
+                node_ref=row_ref
                 class=move || {
                     let mut c = String::from("panel-row");
                     if selected.get() {
@@ -84,6 +101,10 @@ pub(crate) fn PanelRow(
                     }
                     if show_check && checked_sig.get() {
                         c.push_str(" panel-row--checked");
+                    }
+                    if let Some(extra) = class_extra {
+                        c.push(' ');
+                        c.push_str(extra);
                     }
                     c
                 }
@@ -180,26 +201,38 @@ fn usize_digit_width(n: usize) -> usize {
     if n == 0 { 1 } else { n.ilog10() as usize + 1 }
 }
 
-/// After sort reorders the list, keep the highlighted row on-screen (TUI `sort_anchor_path`).
-fn scroll_selected_row_into_view(scroll: &web_sys::HtmlElement) {
-    let Ok(Some(row)) = scroll.query_selector(".panel-row--selected") else {
-        return;
-    };
-    let Ok(html) = row.dyn_into::<web_sys::HtmlElement>() else {
-        return;
-    };
-    let opts = ScrollIntoViewOptions::new();
-    opts.set_block(ScrollLogicalPosition::Nearest);
-    opts.set_inline(ScrollLogicalPosition::Nearest);
-    html.scroll_into_view_with_scroll_into_view_options(&opts);
-}
-
-fn schedule_scroll_selected_into_view(scroll: web_sys::HtmlElement) {
+/// Scroll `el` into its nearest scrollport (`block`/`inline`: nearest).
+pub(crate) fn schedule_el_into_view(el: web_sys::HtmlElement) {
     let Some(window) = web_sys::window() else {
         return;
     };
     let cb = Closure::once_into_js(move || {
-        scroll_selected_row_into_view(&scroll);
+        let opts = ScrollIntoViewOptions::new();
+        opts.set_block(ScrollLogicalPosition::Nearest);
+        opts.set_inline(ScrollLogicalPosition::Nearest);
+        el.scroll_into_view_with_scroll_into_view_options(&opts);
+    });
+    let _ = window.request_animation_frame(cb.as_ref().unchecked_ref());
+}
+
+/// After list reorder / selection change, keep the highlighted row on-screen.
+pub(crate) fn schedule_scroll_selected_into_view(scroll: web_sys::HtmlElement) {
+    let Some(window) = web_sys::window() else {
+        return;
+    };
+    let cb = Closure::once_into_js(move || {
+        let Ok(Some(row)) =
+            scroll.query_selector(".panel-row--selected, .settings-inline-row--selected")
+        else {
+            return;
+        };
+        let Ok(html) = row.dyn_into::<web_sys::HtmlElement>() else {
+            return;
+        };
+        let opts = ScrollIntoViewOptions::new();
+        opts.set_block(ScrollLogicalPosition::Nearest);
+        opts.set_inline(ScrollLogicalPosition::Nearest);
+        html.scroll_into_view_with_scroll_into_view_options(&opts);
     });
     let _ = window.request_animation_frame(cb.as_ref().unchecked_ref());
 }
@@ -262,10 +295,11 @@ pub(crate) fn PathsPane(
     let sort_label = Signal::derive(move || sort_ctx.sort.get().node_text(main_mode));
     let scroll_ref = NodeRef::<leptos::html::Div>::new();
 
-    // TUI `sort_anchor_path`: selection stays on the same path; scroll the viewport to it.
+    // Follow selection (arrows) + TUI `sort_anchor_path` when the list reorders.
     Effect::new(move |_| {
         let _ = sort_ctx.sort.get();
         let _ = paths.get();
+        let _ = selected.get();
         if selected.get_untracked().is_none() {
             return;
         }

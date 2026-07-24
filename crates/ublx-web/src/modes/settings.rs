@@ -8,7 +8,7 @@ use crate::api::{
 };
 use crate::command_mode::CommandModeCtx;
 use crate::focus::{ListNav, UiNav, install_list_nav};
-use crate::panes::{PanelRow, ThreePane};
+use crate::panes::{PanelRow, ThreePane, schedule_scroll_selected_into_view};
 use crate::theme::apply_theme_css_body;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -204,9 +204,17 @@ pub(crate) fn SettingsMode() -> impl IntoView {
                         let path_hint = v.path.clone();
                         let path_title = path_hint.clone();
                         let exists = v.exists;
+                        let scroll_ref = NodeRef::<leptos::html::Div>::new();
+                        Effect::new(move |_| {
+                            let _ = focus.get();
+                            let Some(scroll) = scroll_ref.get() else {
+                                return;
+                            };
+                            schedule_scroll_selected_into_view(scroll.into());
+                        });
                         view! {
                             <div class="paths-pane">
-                                <div class="panel-scroll">
+                                <div class="panel-scroll" node_ref=scroll_ref>
                                     <Show when=move || err.get().is_some()>
                                         <p class="pane-empty settings-err">
                                             {move || err.get().unwrap_or_default()}
