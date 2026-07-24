@@ -43,6 +43,9 @@ pub(super) struct EntryContentQuery {
     /// Max bytes to return from `offset` (`format=text` only). Caps at half MiB. Explore #12.
     #[serde(default)]
     limit: Option<u64>,
+    /// Optional UBLX palette name for syntect HTML (theme picker live preview).
+    #[serde(default)]
+    theme: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -106,7 +109,10 @@ pub(super) async fn get_entry_content(
     let want_html = content_want_html(q.format.as_deref(), zahir_type, &row.path)?;
     let pdf_page = q.page.unwrap_or(1).max(1);
     let (format, content) = if want_html {
-        let palette = settings_api::effective_palette(&dir);
+        let palette = match q.theme.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
+            Some(name) => crate::themes::get(Some(name)),
+            None => settings_api::effective_palette(&dir),
+        };
         (
             "html".into(),
             content_to_html(&text, &row.path, &abs, zahir_type, palette, Some(pdf_page)),

@@ -40,7 +40,7 @@ pub const DEFAULT_COLORS: DefaultColors = DefaultColors {
 pub static SHADOW_INDEX: Palette = Palette {
     name: "Shadow Index",
     appearance: Appearance::Dark,
-    syntect: "base16-ocean.dark",
+    syntect: "shadow-index",
     background: Color::Rgb(0, 0, 0),
     text: Color::Rgb(235, 236, 242),
     focused_border: Color::Rgb(153, 153, 153),
@@ -64,7 +64,7 @@ pub static SHADOW_INDEX: Palette = Palette {
 pub static ARCHIVAL_SIMULACRA: Palette = Palette {
     name: "Archival Simulacra",
     appearance: Appearance::Dark,
-    syntect: "base16-eighties.dark",
+    syntect: "archival-simulacra",
     background: Color::Rgb(0, 0, 0),
     text: Color::Rgb(68, 255, 106),
     focused_border: Color::Rgb(140, 255, 120),
@@ -88,7 +88,7 @@ pub static ARCHIVAL_SIMULACRA: Palette = Palette {
 pub static OBLIVION_INK: Palette = Palette {
     name: "Oblivion Ink",
     appearance: Appearance::Dark,
-    syntect: "base16-ocean.dark",
+    syntect: "oblivion-ink",
     background: Color::Rgb(10, 25, 47),
     text: Color::Rgb(200, 235, 230),
     focused_border: Color::Rgb(100, 255, 218),
@@ -112,7 +112,7 @@ pub static OBLIVION_INK: Palette = Palette {
 pub static GARDEN_UNSEEN: Palette = Palette {
     name: "Garden Unseen",
     appearance: Appearance::Dark,
-    syntect: "base16-ocean.dark",
+    syntect: "garden-unseen",
     background: Color::Rgb(0, 42, 21),
     text: Color::Rgb(194, 150, 132),
     focused_border: Color::Rgb(130, 246, 198),
@@ -136,7 +136,7 @@ pub static GARDEN_UNSEEN: Palette = Palette {
 pub static BURNING_GLYPH: Palette = Palette {
     name: "Burning Glyph",
     appearance: Appearance::Dark,
-    syntect: "base16-eighties.dark",
+    syntect: "burning-glyph",
     background: Color::Rgb(42, 0, 0),
     text: Color::Rgb(249, 233, 170),
     focused_border: Color::Rgb(246, 130, 130),
@@ -160,7 +160,7 @@ pub static BURNING_GLYPH: Palette = Palette {
 pub static GOLDEN_DELIRIUM: Palette = Palette {
     name: "Golden Delirium",
     appearance: Appearance::Dark,
-    syntect: "Solarized (dark)",
+    syntect: "golden-delirium",
     background: Color::Rgb(42, 42, 0),
     text: Color::Rgb(253, 196, 199),
     focused_border: Color::Rgb(246, 246, 130),
@@ -184,7 +184,7 @@ pub static GOLDEN_DELIRIUM: Palette = Palette {
 pub static TANGERINE_MEMORY: Palette = Palette {
     name: "Tangerine Memory",
     appearance: Appearance::Dark,
-    syntect: "base16-mocha.dark",
+    syntect: "tangerine-memory",
     background: Color::Rgb(42, 26, 0),
     text: Color::Rgb(246, 163, 142),
     focused_border: Color::Rgb(246, 198, 130),
@@ -208,7 +208,7 @@ pub static TANGERINE_MEMORY: Palette = Palette {
 pub static PURPLE_HAZE: Palette = Palette {
     name: "Purple Haze",
     appearance: Appearance::Dark,
-    syntect: "base16-mocha.dark",
+    syntect: "purple-haze",
     background: Color::Rgb(13, 0, 26),
     text: Color::Rgb(205, 114, 125),
     focused_border: Color::Rgb(241, 130, 246),
@@ -231,7 +231,7 @@ pub static PURPLE_HAZE: Palette = Palette {
 pub static FROZEN_PHRASE: Palette = Palette {
     name: "Frozen Phrase",
     appearance: Appearance::Dark,
-    syntect: "base16-ocean.dark",
+    syntect: "frozen-phrase",
     background: Color::Rgb(46, 52, 64),
     text: Color::Rgb(216, 232, 252),
     focused_border: Color::Rgb(129, 178, 208),
@@ -254,7 +254,7 @@ pub static FROZEN_PHRASE: Palette = Palette {
 pub static BABEL_BLEND: Palette = Palette {
     name: "Babel Blend",
     appearance: Appearance::Dark,
-    syntect: "base16-ocean.dark",
+    syntect: "babel-blend",
     background: Color::Rgb(12, 22, 46),
     text: Color::Rgb(236, 172, 158),
     focused_border: Color::Rgb(255, 145, 62),
@@ -277,7 +277,7 @@ pub static BABEL_BLEND: Palette = Palette {
 pub static RESIN_RECORD: Palette = Palette {
     name: "Resin Record",
     appearance: Appearance::Dark,
-    syntect: "Solarized (dark)",
+    syntect: "resin-record",
     background: Color::Rgb(18, 12, 0),
     text: Color::Rgb(248, 176, 142),
     focused_border: Color::Rgb(230, 170, 60),
@@ -301,7 +301,7 @@ pub static RESIN_RECORD: Palette = Palette {
 pub static SILENT_SHEET: Palette = Palette {
     name: "Silent Sheet",
     appearance: Appearance::Light,
-    syntect: "InspiredGitHub",
+    syntect: "silent-sheet",
     background: Color::Rgb(255, 255, 255),
     text: Color::Rgb(0, 0, 0),
     focused_border: Color::Rgb(77, 77, 77),
@@ -324,7 +324,7 @@ pub static SILENT_SHEET: Palette = Palette {
 pub static OBDURATE_NOON: Palette = Palette {
     name: "Obdurate Noon",
     appearance: Appearance::Light,
-    syntect: "base16-ocean.light",
+    syntect: "obdurate-noon",
     background: Color::Rgb(253, 246, 227),      // base3
     text: Color::Rgb(101, 123, 131),            // base00
     focused_border: Color::Rgb(42, 161, 152),   // cyan
@@ -347,7 +347,7 @@ pub static OBDURATE_NOON: Palette = Palette {
 pub static FADED_ECHO: Palette = Palette {
     name: "Faded Echo",
     appearance: Appearance::Light,
-    syntect: "InspiredGitHub",
+    syntect: "faded-echo",
     background: Color::Rgb(244, 236, 222),
     text: Color::Rgb(72, 62, 50),
     focused_border: Color::Rgb(126, 108, 86),
@@ -370,7 +370,7 @@ pub static FADED_ECHO: Palette = Palette {
 pub static PARCHED_PAGE: Palette = Palette {
     name: "Parched Page",
     appearance: Appearance::Light,
-    syntect: "Solarized (light)",
+    syntect: "parched-page",
     background: Color::Rgb(253, 248, 240),
     text: Color::Rgb(24, 78, 52),
     focused_border: Color::Rgb(52, 130, 88),
@@ -393,7 +393,7 @@ pub static PARCHED_PAGE: Palette = Palette {
 pub static PALE_MIRROR: Palette = Palette {
     name: "Pale Mirror",
     appearance: Appearance::Light,
-    syntect: "base16-ocean.light",
+    syntect: "pale-mirror",
     background: Color::Rgb(242, 245, 253),
     text: Color::Rgb(42, 30, 56),
     focused_border: Color::Rgb(118, 78, 152),
@@ -416,7 +416,7 @@ pub static PALE_MIRROR: Palette = Palette {
 pub static OCHRE_THREAD: Palette = Palette {
     name: "Ochre Thread",
     appearance: Appearance::Light,
-    syntect: "Solarized (light)",
+    syntect: "ochre-thread",
     background: Color::Rgb(250, 242, 228),
     text: Color::Rgb(110, 50, 22),
     focused_border: Color::Rgb(178, 88, 34),
@@ -439,7 +439,7 @@ pub static OCHRE_THREAD: Palette = Palette {
 pub static CRYPTIC_CHAI: Palette = Palette {
     name: "Cryptic Chai",
     appearance: Appearance::Light,
-    syntect: "InspiredGitHub",
+    syntect: "cryptic-chai",
     background: Color::Rgb(247, 238, 222),
     text: Color::Rgb(58, 38, 28),
     focused_border: Color::Rgb(152, 92, 48),
@@ -462,7 +462,7 @@ pub static CRYPTIC_CHAI: Palette = Palette {
 pub static ASTERION_CODE: Palette = Palette {
     name: "Asterion Code",
     appearance: Appearance::Light,
-    syntect: "InspiredGitHub",
+    syntect: "asterion-code",
     background: Color::Rgb(232, 240, 242),
     text: Color::Rgb(10, 72, 96),
     focused_border: Color::Rgb(26, 128, 168),
@@ -486,7 +486,7 @@ pub static ASTERION_CODE: Palette = Palette {
 pub static INFINITE_ROSE: Palette = Palette {
     name: "Infinite Rose",
     appearance: Appearance::Light,
-    syntect: "base16-ocean.light",
+    syntect: "infinite-rose",
     background: Color::Rgb(232, 235, 240),
     text: Color::Rgb(112, 68, 76),
     focused_border: Color::Rgb(196, 128, 118),
@@ -509,7 +509,7 @@ pub static INFINITE_ROSE: Palette = Palette {
 pub static BARLEY_BOUND: Palette = Palette {
     name: "Barley Bound",
     appearance: Appearance::Light,
-    syntect: "Solarized (light)",
+    syntect: "barley-bound",
     background: Color::Rgb(251, 241, 199),
     text: Color::Rgb(60, 56, 54),
     focused_border: Color::Rgb(69, 133, 136),
@@ -532,7 +532,7 @@ pub static BARLEY_BOUND: Palette = Palette {
 pub static VERGLAS_TRACE: Palette = Palette {
     name: "Verglas Trace",
     appearance: Appearance::Light,
-    syntect: "base16-ocean.light",
+    syntect: "verglas-trace",
     background: Color::Rgb(236, 239, 244),
     text: Color::Rgb(46, 52, 64),
     focused_border: Color::Rgb(94, 129, 172),

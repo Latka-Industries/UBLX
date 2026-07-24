@@ -19,8 +19,8 @@ pub use css::{ThemeCss, tokens_for_theme_name, tokens_from_palette};
 
 pub use palettes::{DEFAULT_COLORS, OBLIVION_INK, theme_ordered_list, theme_selector_entries};
 pub use syntect::{
-    CodeThemeKeys, SYNTECT_DEFAULT_KEYS, SYNTECT_THEME_KEYS, resolve_syntect_key, theme_for_key,
-    theme_for_palette,
+    CodeThemeKeys, SYNTECT_DEFAULT_KEYS, SYNTECT_EXTRA_KEYS, SYNTECT_THEME_KEYS,
+    resolve_syntect_key, theme_for_key, theme_for_palette,
 };
 
 /// Match TUI `UiConstants` swatch lighten amounts (kept here so `themes` does not depend on `ui`).
@@ -98,7 +98,7 @@ pub struct Palette {
     pub name: &'static str,
     /// See [`Appearance`] and [`adjust_surface_rgb`].
     pub appearance: Appearance,
-    /// Syntect `ThemeSet::load_defaults()` key for code viewer (see [`SYNTECT_DEFAULT_KEYS`]).
+    /// Syntect theme key → `assets/syntect-themes/<key>.tmTheme` (see [`SYNTECT_EXTRA_KEYS`]).
     /// Unknown keys fall back via [`resolve_syntect_key`].
     pub syntect: &'static str,
     /// Background for the whole app (full frame).

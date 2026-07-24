@@ -1,6 +1,7 @@
 //! App chrome: main tabs, project path, catalog search / Last Snapshot footer.
 
 use leptos::prelude::*;
+use leptos::task::spawn_local;
 use wasm_bindgen::JsCast;
 use web_sys::KeyboardEvent;
 
@@ -38,6 +39,17 @@ pub(crate) fn Shell(flags: CatalogFlags) -> impl IntoView {
     let space_menu = SpaceMenuCtx::provide(catalog_refresh, multiselect, toasts);
     space_menu.catalog_root.set(flags.get_value().root.clone());
     let command_mode = CommandModeCtx::provide(catalog_refresh, set_mode, toasts);
+
+    // Seed syntect theme name so the first code Viewer fetch matches shell CSS.
+    Effect::new(move |_| {
+        spawn_local(async move {
+            if let Ok(v) = crate::api::fetch_settings(crate::api::SettingsScope::Local).await
+                && !v.theme.is_empty()
+            {
+                command_mode.highlight_theme.set(v.theme);
+            }
+        });
+    });
 
     // Deep-link may name a tab that is hidden for this catalog — fall back to Snapshot.
     Effect::new(move |_| {

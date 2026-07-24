@@ -64,6 +64,8 @@ pub(crate) struct CommandModeCtx {
     pub(super) theme_scope: RwSignal<SettingsScope>,
     /// Bumped after a successful theme commit (Settings can refetch).
     pub theme_committed: RwSignal<u32>,
+    /// Active UBLX theme name for syntect `/content?theme=` (preview + committed).
+    pub highlight_theme: RwSignal<String>,
     /// Generation so stale chord timers do not open the menu after Esc.
     chord_gen: RwSignal<u32>,
     pub(super) refresh: CatalogRefresh,
@@ -84,6 +86,7 @@ impl CommandModeCtx {
             picker: RwSignal::new(None),
             theme_scope: RwSignal::new(SettingsScope::Local),
             theme_committed: RwSignal::new(0),
+            highlight_theme: RwSignal::new(String::new()),
             chord_gen: RwSignal::new(0),
             refresh,
             set_mode,

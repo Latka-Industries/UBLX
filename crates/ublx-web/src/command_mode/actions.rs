@@ -169,6 +169,9 @@ pub(super) fn apply_theme_preview(ctx: CommandModeCtx) {
     let Some(css) = p.selected_theme_css() else {
         return;
     };
+    if let Some(name) = p.selected_theme_name() {
+        ctx.highlight_theme.set(name.to_string());
+    }
     apply_theme_css_body(css);
 }
 
@@ -177,6 +180,9 @@ pub(super) fn restore_theme_preview(ctx: CommandModeCtx) {
     let Some(Picker::Theme { restore, .. }) = ctx.picker.get_untracked() else {
         return;
     };
+    if !restore.name.is_empty() {
+        ctx.highlight_theme.set(restore.name.clone());
+    }
     apply_theme_css_body(&restore);
 }
 
@@ -207,11 +213,15 @@ pub(super) fn submit_picker(ctx: CommandModeCtx) {
                 match patch_settings(scope, &patch).await {
                     Ok(v) => {
                         apply_theme_css_body(&v.css);
+                        ctx.highlight_theme.set(v.theme.clone());
                         ctx.theme_committed.update(|n| *n = n.wrapping_add(1));
                         ctx.flash(format!("Theme: {name}"));
                     }
                     Err(e) => {
                         apply_theme_css_body(&restore);
+                        if !restore.name.is_empty() {
+                            ctx.highlight_theme.set(restore.name.clone());
+                        }
                         ctx.flash_err(e);
                     }
                 }

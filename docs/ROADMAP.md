@@ -78,9 +78,9 @@ Parent: [THI-151](https://linear.app/thicclatka/issue/THI-151).
 
 | Item                       | Notes                                                                                                                                           |
 | -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| Syntax highlighting — ADR  | **Current:** syntect + `sublime_syntaxes`, theme-linked, async for large buffers. **Alternative:** tree-sitter (structure-aware, heavier deps). |
+| Syntax highlighting — ADR  | **Current:** syntect + `sublime_syntaxes`; each [`Palette`](../src/themes/palettes.rs) points at a first-pass `.tmTheme` in [`assets/syntect-themes/`](../assets/syntect-themes/) (`Palette.syntect`). **Alternative:** tree-sitter (structure-aware, heavier deps). |
 | In-TUI code runner         | **Current:** Open (Terminal) / Open (GUI) via `editor_path` / `$EDITOR`. Runner needs sandbox, cwd, output surface.                             |
-| Grammar / highlight polish | More grammars or better path→grammar mapping under syntect if ADR keeps current stack.                                                          |
+| Grammar / highlight polish | Token colors in the per-palette `.tmTheme`s; more grammars / path→grammar mapping if ADR keeps syntect.                                          |
 
 ---
 

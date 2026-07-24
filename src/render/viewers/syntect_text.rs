@@ -71,7 +71,10 @@ fn pick_syntax_by_path<'a>(
 
 fn syn_style_to_ratatui(s: &SynStyle) -> RatStyle {
     let fg = s.foreground;
-    let mut st = RatStyle::default().fg(Color::Rgb(fg.r, fg.g, fg.b));
+    let bg = s.background;
+    let mut st = RatStyle::default()
+        .fg(Color::Rgb(fg.r, fg.g, fg.b))
+        .bg(Color::Rgb(bg.r, bg.g, bg.b));
     let fs = s.font_style;
     if fs.contains(FontStyle::BOLD) {
         st = st.add_modifier(Modifier::BOLD);
@@ -83,6 +86,13 @@ fn syn_style_to_ratatui(s: &SynStyle) -> RatStyle {
         st = st.add_modifier(Modifier::UNDERLINED);
     }
     st
+}
+
+fn theme_bg_style(theme: &syntect::highlighting::Theme) -> RatStyle {
+    match theme.settings.background {
+        Some(c) => RatStyle::default().bg(Color::Rgb(c.r, c.g, c.b)),
+        None => RatStyle::default(),
+    }
 }
 
 fn pick_syntax<'a>(
@@ -166,6 +176,7 @@ pub fn highlight_viewer_for_palette(
     let extra = &*EXTRA_SYNTAX_SET;
     let (ss, syntax) = pick_syntax(default, extra, ft, path, raw);
     let theme = themes::theme_for_palette(palette);
+    let line_bg = theme_bg_style(theme);
     let mut h = HighlightLines::new(syntax, theme);
     let mut lines = Vec::new();
     for line in LinesWithEndings::from(raw) {
@@ -178,8 +189,9 @@ pub fn highlight_viewer_for_palette(
                     }
                     spans.push(Span::styled(text.to_string(), syn_style_to_ratatui(&style)));
                 }
+                // Empty lines / trailing space still need the syntect page bg (not UBLX chrome).
                 lines.push(if spans.is_empty() {
-                    Line::default()
+                    Line::from(Span::styled(" ", line_bg))
                 } else {
                     Line::from(spans)
                 });

@@ -185,7 +185,7 @@ Mouse click remains supported; keyboard is first-class.
 - [x] Middle sort node left of `n/N` (Snapshot / Dupes / Delta) + `s` cycle
 - [x] Pretty Metadata + Writing (KV / column-stat tables; `typed_column_tables`)
 - [x] Markdown viewer (Viewer tab; `/content/{*path}`)
-- [x] Code / syntect viewer (JSON/TOML/YAML/XML/HTML/INI/Log/Code)
+- [x] Code / syntect viewer (JSON/TOML/YAML/XML/HTML/INI/Log/Code; per-palette `.tmTheme`)
 - [x] Tables / CSV (+ misc text)
 - [x] Images / SVG (+ Audio/Epub embedded covers)
 - [x] PDF / video tool-backed previews (Poppler/MuPDF / ffmpeg; honest missing-tool errors)
@@ -216,7 +216,7 @@ Every mini-PR that adds or changes a **keybinding, selection model, overlay, or 
 | **4** | **Middle sort node** | ✅ Landed — sort left of `n/N` + `s` cycle (TUI `ContentSort` rules) | [`sort.rs`](../crates/ublx-web/src/sort.rs); [`middle.rs`](../src/render/panes/middle.rs) |
 | **5** | **Pretty Metadata + Writing** | ✅ Landed (#47) — host `SectionView` + Settings `typed_column_tables` | [`export.rs`](../src/render/kv_tables/export.rs); [`kv_tables.rs`](../crates/ublx-web/src/kv_tables.rs) |
 | **6** | **Markdown viewer** | ✅ Landed (#49) — host HTML via `/content/{*path}` | [`viewer.rs`](../crates/ublx-web/src/viewer.rs); [`render/viewers/markdown/`](../src/render/viewers/markdown/) |
-| **7** | **Code / syntect viewer** | ✅ Landed — syntect HTML for code cats via `/content` | [`syntect_text`](../src/render/viewers/syntect_text.rs); `/content` HTML branch |
+| **7** | **Code / syntect viewer** | ✅ Landed — syntect HTML for code cats via `/content`; per-palette `.tmTheme` in `assets/syntect-themes/` (THI-170) | [`syntect_text`](../src/render/viewers/syntect_text.rs); [`themes/syntect.rs`](../src/themes/syntect.rs); `/content?theme=` for live picker |
 | **8** | **Tables / CSV (+ misc text)** | ✅ Landed — host HTML table / `<pre>` via `/content` | [`csv_handler`](../src/render/viewers/csv_handler.rs), pretty tables |
 | **9** | **Images (and covers)** | ✅ Landed — raster/SVG via `/content?format=raw`; Audio/Epub covers via `?format=cover` | [`viewer.rs`](../crates/ublx-web/src/viewer.rs); [`serve.rs`](../src/cli/serve.rs) `/content` |
 | **10** | **PDF / video / tool-backed** | ✅ Landed — PDF/video PNG via `/content?format=raw`; web Shift+J/K/B/E = preview scroll (TUI) or PDF pages when a PDF is open; `Page n / N` footer; tool-missing under `<img>` | [`pdf_preview`](../src/render/viewers/pdf_preview.rs), [`video_preview`](../src/render/viewers/video_preview.rs); [`viewer.rs`](../crates/ublx-web/src/viewer.rs) |
