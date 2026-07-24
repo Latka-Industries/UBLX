@@ -68,7 +68,7 @@ Notes:
 
 Hard nefax failures in the orchestrator can still process-exit (same as TUI on-demand snapshot). Prefer panza’s `GET /health` for liveness only.
 
-Bind/health/static shell comes from [panza](https://crates.io/crates/panza) (`--host` / `--port` / `--open`). Default builds use `StaticMount::None`. With `--features ui`, assets are **`StaticMount::Embedded`** (`ublx_web::embedded_assets`); set `UBLX_WEB_DIST` for a Dir mount during the `mise run web` loop.
+Bind/health/static shell comes from [panza](https://crates.io/crates/panza) (`--host` / `--port` / `--open`). Default builds use `StaticMount::None`. With `--features ui`, assets are **`StaticMount::Embedded`** (rust-embed of `crates/ublx-web/dist/`); set `UBLX_WEB_DIST` for a Dir mount during the `mise run web` loop.
 
 ## Embedded web UI (v0.2.0 / THI-157)
 

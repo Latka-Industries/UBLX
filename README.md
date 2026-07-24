@@ -27,9 +27,9 @@ Homebrew builds with the embedded serve UI (`--features ui`).
 
 ```bash
 cargo install ublx
-# Optional embedded web UI for `ublx serve` (run crates/ublx-web/build.sh first):
-# cargo install ublx --features ui
 ```
+
+crates.io builds are **API-only** (`ublx serve` without the Leptos SPA). The embedded UI needs a full checkout: run `./crates/ublx-web/build.sh`, then `cargo install --path . --features ui` (or use Homebrew, which does that).
 
 ## Quick start
 

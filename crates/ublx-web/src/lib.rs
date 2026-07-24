@@ -1,15 +1,9 @@
 //! UBLX embedded web UI (Leptos CSR + leptos-shadcn-ui).
 //!
-//! - **wasm32:** CSR app — `./build.sh` / `mise run web`.
-//! - **host (`embed` feature):** [`embedded_assets`] for panza `StaticMount::Embedded`.
+//! WASM CSR app — `./build.sh` / `mise run web`. Host `ublx` embeds `dist/` under
+//! feature `ui` (see `src/cli/serve/web_embed.rs`); this crate is not published.
 
 #![cfg_attr(target_arch = "wasm32", allow(non_snake_case))]
-
-#[cfg(all(feature = "embed", not(target_arch = "wasm32")))]
-mod embed;
-
-#[cfg(all(feature = "embed", not(target_arch = "wasm32")))]
-pub use embed::embedded_assets;
 
 #[cfg(target_arch = "wasm32")]
 mod api;

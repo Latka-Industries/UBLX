@@ -10,6 +10,8 @@ mod roots;
 mod settings;
 mod snapshot;
 mod state;
+#[cfg(feature = "ui")]
+mod web_embed;
 
 #[cfg(feature = "ui")]
 use std::path::PathBuf;
@@ -123,7 +125,7 @@ fn static_mount() -> StaticMount {
             }
             return StaticMount::Dir(dir);
         }
-        let assets = ublx_web::embedded_assets();
+        let assets = web_embed::embedded_assets();
         if assets.contains_key("index.html") {
             info!("serve UI static mount (Embedded): {} assets", assets.len());
         } else {

@@ -16,7 +16,7 @@ Work lands as **mini-PRs onto long-lived `dev`**, then a fat PR `dev` → `main`
 
 Optional **embedded catalog browser** for `ublx serve`: the TUI experience in a browser — same chrome, focus model, hotkeys, viewers, and theme personality — not a thin dashboard over JSON.
 
-Default crates.io installs stay **API-only** (`StaticMount::None`). Opt in with `cargo install ublx --features ui` (after `build.sh`). **Homebrew** ships with `--features ui` (Embedded) by default.
+Default crates.io installs stay **API-only** (`StaticMount::None`). Opt in from a full checkout with `./crates/ublx-web/build.sh` then `cargo install --path . --features ui`. **Homebrew** ships with `--features ui` (Embedded) by default.
 
 ---
 
@@ -49,17 +49,18 @@ Dev loop may use `StaticMount::Dir("…/dist")` / `UBLX_WEB_DIST` so assets rebu
 
 ```toml
 [features]
-default = ["zahir-netcdf"]   # unchanged — no UI
-ui = []                      # embeds Leptos SPA; implies using serve’s static mount
+default = ["zahir-netcdf"]           # unchanged — no UI
+ui = ["dep:rust-embed"]              # embeds dist/ into the host binary
 ```
 
 Rules:
 
 - Default binary includes `ublx serve` **API**; **no** Leptos / WASM deps.
-- `--features ui` enables embedded assets and switches serve to `StaticMount::Embedded`.
+- `--features ui` enables embedded assets and switches serve to `StaticMount::Embedded` ([`web_embed.rs`](../src/cli/serve/web_embed.rs)).
 - `UBLX_WEB_DIST` overrides to `StaticMount::Dir` for the `mise run web` rebuild loop (no host recompile).
 - Do **not** hide API-only serve behind `ui`.
-- Workspace crate **`crates/ublx-web/`** (wasm32 CSR). Host `ublx` depends on it only under `ui` for asset embedding (`embed` feature → `ublx_web::embedded_assets()`).
+- Workspace crate **`crates/ublx-web/`** is WASM CSR only (`publish = false`). It is **not** a crates.io dependency of `ublx` — that kept `cargo publish` from working with a path-only dep. Host embedding lives in `ublx` via rust-embed of `crates/ublx-web/dist/`.
+- crates.io / `cargo install ublx` stays API-only. Embedded UI: git checkout + `build.sh` + `--features ui`, or Homebrew.
 
 ### Build story
 
@@ -67,6 +68,7 @@ Rules:
 2. `cargo build --features ui` embeds `dist/` into the binary (`StaticMount::Embedded`).
 3. Dev loop: set `UBLX_WEB_DIST=…/crates/ublx-web/dist` (mise `web` does this) so Dir serves fresh assets without re-embedding.
 4. `build.sh` also emits `dist/tailwind.css` (no CDN) — needs Node/npm.
+5. `cargo publish` packages `ublx` only (default features); does not require or publish `ublx-web`.
 
 ---
 
@@ -178,7 +180,7 @@ Mouse click remains supported; keyboard is first-class.
 - [x] Contents `n/N` bottom-right (`PathsPane`)
 - [x] Catalog search (`/` strip + Skim fuzzy)
 - [x] Settings controls + live read-only TOML; `GET`/`PATCH /settings/{scope}`; `GET /duplicates`
-- [x] Feature `ui` + Embedded (`ublx_web::embedded_assets`); Dir via `UBLX_WEB_DIST` for `mise run web`
+- [x] Feature `ui` + Embedded (`crates/ublx-web/dist/` via rust-embed); Dir via `UBLX_WEB_DIST` for `mise run web`
 - [x] Keyboard focus + hotkeys (digits/`~`/hjkl/arrows/`g``G`/Tab/`vtmw`/Shift+Tab/`s` sort)
 - [x] Help overlay (`?`) + footer `? — Help` chip; 7px shell inset from browser edge
 - [x] Palette → CSS tokens (`themes::css`); Settings theme dropdown applies live
@@ -225,7 +227,7 @@ Every mini-PR that adds or changes a **keybinding, selection model, overlay, or 
 | **13** | **Multi-select** | ✅ Landed — Ctrl+Space enter/exit; Space toggle rows on Snapshot / Lenses contents (not Dupes); █ chrome + `n/N · k sel`; **`?` Multi-select section** | [`multiselect.rs`](../crates/ublx-web/src/multiselect.rs); TUI [`ui/multiselect.rs`](../src/ui/multiselect.rs) |
 | **14** | **Space / context menu** | ✅ Landed — Space QA + `a` bulk; serve `/fs/*` + lens writes; confirm / rename / lens picker; **`?` QA rows** | [`space_menu/`](../crates/ublx-web/src/space_menu/); [`serve/fs.rs`](../src/cli/serve/fs.rs); TUI [`ui/menus/`](../src/ui/menus/) |
 | **15** | **Command Mode** | ✅ Landed — Ctrl+a chord + menu; d/t/s/r/x/l/p; theme/root pickers; serve `/export/*`; **`?` Command section** | [`command_mode/`](../crates/ublx-web/src/command_mode/); [`serve/export.rs`](../src/cli/serve/export.rs); TUI [`ui/ctrl_chord.rs`](../src/ui/ctrl_chord.rs) |
-| **16** | **`StaticMount::Embedded`** | ✅ Landed — `--features ui` embeds `dist/`; `UBLX_WEB_DIST` keeps Dir for `mise run web` | [`embed.rs`](../crates/ublx-web/src/embed.rs); [`serve/mod.rs`](../src/cli/serve/mod.rs) `static_mount` |
+| **16** | **`StaticMount::Embedded`** | ✅ Landed — `--features ui` embeds `dist/`; `UBLX_WEB_DIST` keeps Dir for `mise run web` | [`web_embed.rs`](../src/cli/serve/web_embed.rs); [`serve/mod.rs`](../src/cli/serve/mod.rs) `static_mount` |
 
 **Ops / chrome follow-ups** (separate PRs after or interleaved when small):
 
@@ -252,8 +254,9 @@ Do **not** expand a mini-PR into “finish the whole Viewer stack” — keep ea
 let mount = if let Some(dir) = std::env::var_os("UBLX_WEB_DIST") {
     StaticMount::Dir(dir.into())
 } else {
-    StaticMount::Embedded(ublx_web::embedded_assets())
+    StaticMount::Embedded(web_embed::embedded_assets()) // serve/web_embed.rs
 };
+
 #[cfg(not(feature = "ui"))]
 let mount = StaticMount::None;
 

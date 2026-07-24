@@ -2,7 +2,7 @@
 
 Living backlog for **UBLX** (TUI catalog browser). Not a release promise — prioritize by profiling, user need, and architectural fit.
 
-**Status (v0.1.x):** Index → SQLite → Snapshot / Delta / Lenses / Duplicates / Settings; ZahirScan enrichment; strong Viewer (markdown, tables, images, PDF/video via optional tools, syntect code, Zarr, `.tet`). Config is TOML with hot reload. Headless catalog CLI: `ublx query` / `ublx doctor` / `ublx serve` (JSON API via panza); remote `--url` / `UBLX_URL` on query+doctor. Optional embedded web UI is planned for **v0.2.0** (THI-157). No plugin system, Lua, in-TUI runner, or user-authored themes yet.
+**Status (v0.2.0):** Index → SQLite → Snapshot / Delta / Lenses / Duplicates / Settings; ZahirScan enrichment; strong Viewer (markdown, tables, images, PDF/video via optional tools, syntect code, Zarr, `.tet`). Config is TOML with hot reload. Headless catalog CLI: `ublx query` / `ublx doctor` / `ublx serve` (JSON API via panza); remote `--url` / `UBLX_URL` on query+doctor. Optional embedded web UI (`--features ui`, THI-157) landed — crates.io stays API-only; Homebrew / source builds embed `crates/ublx-web/dist/`. No plugin system, Lua, in-TUI runner, or user-authored themes yet.
 
 Track work in GitHub Issues — **parent** issues by category, **sub-issues** for concrete tasks:
 
@@ -123,9 +123,9 @@ Engineering notes also live in local `TODO.md` (gitignored); items below are the
 
 ## Suggested sequencing
 
-1. **Optional web UI for serve** — Leptos CSR + `--features ui` (THI-157 / v0.2.0); shell + mini-PRs through **Embedded** on `dev`; fat land → `main` + tag **v0.2.0** ([WEB_UI.md](WEB_UI.md)).
+1. **Optional web UI for serve** — ✅ **v0.2.0** Leptos CSR + `--features ui` (THI-157); crates.io API-only, Homebrew/source embed ([WEB_UI.md](WEB_UI.md)).
 2. **Lenses** — notes + export (user-visible, low architectural risk).
-3. **Performance** — memory / large-file hardening (stability for v0.1.x).
+3. **Performance** — memory / large-file hardening.
 4. **Platform ADR** — plugins / extension contract before Lua, runner, user themes.
 5. **Viewer ADR** — syntect vs tree-sitter; then runner or grammar work.
 6. **Themes / config scripting** — after persistence model is clear.
