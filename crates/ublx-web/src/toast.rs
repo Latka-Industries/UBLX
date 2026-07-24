@@ -1,48 +1,52 @@
-//! Shared toast stack — shadcn `Toast` chrome, TUI bottom-right stacking.
+//! Shared toast stack — shadcn/Sonner-looking cards on a wasm-safe host.
+//!
+//! `leptos-shadcn-toast` Sonner calls `Instant::now()`, which panics on
+//! `wasm32-unknown-unknown`. Same layout/chrome, without that dependency.
 
 use std::time::Duration;
 
 use leptos::prelude::*;
 use leptos::task::spawn_local;
-use leptos_shadcn_ui::Toast;
 
 use crate::util::sleep_ms;
 
-/// Match TUI toast config (`src/config/toast.rs`): max 3, ~4s.
 const MAX_TOASTS: usize = 3;
 const DURATION: Duration = Duration::from_secs(4);
 
-/// Severity → shadcn `Toast` variant + CSS level class.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum ToastLevel {
     Info,
     Warn,
     Error,
+    Success,
+    Loading,
 }
 
 impl ToastLevel {
-    fn variant(self) -> &'static str {
-        match self {
-            Self::Info => "default",
-            Self::Warn => "warning",
-            Self::Error => "destructive",
-        }
-    }
-
     fn class(self) -> &'static str {
         match self {
             Self::Info => "toast-item--info",
             Self::Warn => "toast-item--warn",
             Self::Error => "toast-item--error",
+            Self::Success => "toast-item--success",
+            Self::Loading => "toast-item--loading",
+        }
+    }
+
+    fn icon(self) -> &'static str {
+        match self {
+            Self::Info => "ℹ",
+            Self::Warn => "!",
+            Self::Error => "×",
+            Self::Success => "✓",
+            Self::Loading => "…",
         }
     }
 }
 
-/// Toast payload — plain text or a Snapshot delta summary.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) enum ToastBody {
     Text(String),
-    /// Snapshot summary — `+added ~mod -removed` use delta token colors.
     Snapshot {
         added: usize,
         modified: usize,
@@ -57,7 +61,6 @@ pub(crate) struct ToastItem {
     pub body: ToastBody,
 }
 
-/// App-wide toast stack (max [`MAX_TOASTS`], auto-dismiss after [`DURATION`]).
 #[derive(Clone, Copy)]
 pub(crate) struct ToastCtx {
     pub items: RwSignal<Vec<ToastItem>>,
@@ -72,10 +75,6 @@ impl ToastCtx {
         };
         provide_context(ctx);
         ctx
-    }
-
-    pub(crate) fn expect() -> Self {
-        expect_context::<Self>()
     }
 
     fn push(self, level: ToastLevel, body: ToastBody) {
@@ -108,9 +107,13 @@ impl ToastCtx {
         self.push(ToastLevel::Error, ToastBody::Text(msg.into()));
     }
 
+    pub(crate) fn loading(self, msg: impl Into<String>) {
+        self.push(ToastLevel::Loading, ToastBody::Text(msg.into()));
+    }
+
     pub(crate) fn snapshot_done(self, added: usize, modified: usize, removed: usize) {
         self.push(
-            ToastLevel::Info,
+            ToastLevel::Success,
             ToastBody::Snapshot {
                 added,
                 modified,
@@ -120,10 +123,9 @@ impl ToastCtx {
     }
 }
 
-/// Bottom-right stack: oldest above, newest nearest the footer (TUI `slots.iter().rev()`).
 #[component]
 pub(crate) fn ToastHost() -> impl IntoView {
-    let toasts = ToastCtx::expect();
+    let toasts = expect_context::<ToastCtx>();
     view! {
         <div class="toast-stack" aria-live="polite" aria-relevant="additions">
             <For
@@ -132,18 +134,30 @@ pub(crate) fn ToastHost() -> impl IntoView {
                 let:t
             >
                 {
-                    let variant = t.level.variant().to_string();
-                    let level_class = t.level.class();
+                    let level = t.level;
+                    let level_class = level.class();
+                    let icon = level.icon();
                     let body = t.body.clone();
+                    let id = t.id;
+                    let items = toasts.items;
                     view! {
-                        <Toast
-                            variant=variant
-                            class=format!("toast-item {level_class} w-full max-w-sm pointer-events-auto")
-                        >
-                            <div class="toast-item__msg text-sm whitespace-pre-wrap break-words">
-                                {toast_body_view(body)}
+                        <div class=format!("toast-item {level_class}") role="alert">
+                            <div class="toast-item__icon" aria-hidden="true">{icon}</div>
+                            <div class="toast-item__body">
+                                <div class="toast-item__title">{toast_title_view(body.clone())}</div>
+                                {toast_desc_view(body)}
                             </div>
-                        </Toast>
+                            <button
+                                type="button"
+                                class="toast-item__close"
+                                aria-label="Dismiss"
+                                on:click=move |_| {
+                                    items.update(|v| v.retain(|t| t.id != id));
+                                }
+                            >
+                                "×"
+                            </button>
+                        </div>
                     }
                 }
             </For>
@@ -151,20 +165,30 @@ pub(crate) fn ToastHost() -> impl IntoView {
     }
 }
 
-fn toast_body_view(body: ToastBody) -> AnyView {
+fn toast_title_view(body: ToastBody) -> AnyView {
     match body {
         ToastBody::Text(s) => view! { {s} }.into_any(),
+        ToastBody::Snapshot { .. } => view! { "Snapshot done" }.into_any(),
+    }
+}
+
+fn toast_desc_view(body: ToastBody) -> AnyView {
+    match body {
+        ToastBody::Text(_) => {
+            view! { <div class="toast-item__desc toast-item__desc--empty"></div> }.into_any()
+        }
         ToastBody::Snapshot {
             added,
             modified,
             removed,
         } => view! {
-            "Snapshot done "
-            <span class="toast-delta toast-delta--added">{format!("+{added}")}</span>
-            " "
-            <span class="toast-delta toast-delta--mod">{format!("~{modified}")}</span>
-            " "
-            <span class="toast-delta toast-delta--removed">{format!("-{removed}")}</span>
+            <div class="toast-item__desc">
+                <span class="toast-delta toast-delta--added">{format!("+{added}")}</span>
+                " "
+                <span class="toast-delta toast-delta--mod">{format!("~{modified}")}</span>
+                " "
+                <span class="toast-delta toast-delta--removed">{format!("-{removed}")}</span>
+            </div>
         }
         .into_any(),
     }

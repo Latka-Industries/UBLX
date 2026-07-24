@@ -32,6 +32,8 @@ mod search;
 #[cfg(target_arch = "wasm32")]
 mod shell;
 #[cfg(target_arch = "wasm32")]
+mod snapshot_poll;
+#[cfg(target_arch = "wasm32")]
 mod sort;
 #[cfg(target_arch = "wasm32")]
 mod space_menu;

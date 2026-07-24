@@ -1,40 +1,156 @@
-/* Toast viewport — TUI bottom-right stack (shadcn Toast supplies the card chrome) */
+/*
+ * shadcn / Sonner-style toast cards.
+ * Own host (wasm-safe). Visual language matches shadcn toast: card, icon, title,
+ * description, dismiss — with UBLX palette tokens.
+ */
 
 .toast-stack {
   position: fixed;
   right: 1rem;
-  /* Above shell status-chrome + right-pane size/mtime footer */
   bottom: 5.5rem;
-  z-index: 50;
+  z-index: 100;
   display: flex;
-  flex-direction: column; /* oldest → newest, newest at bottom */
+  flex-direction: column;
   align-items: flex-end;
-  gap: 0.4rem;
-  max-width: min(22rem, 92vw);
+  gap: 0.625rem;
+  max-width: min(24rem, 92vw);
   width: max-content;
   pointer-events: none;
 }
 
 .toast-item {
+  pointer-events: auto;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: start;
+  column-gap: 0.75rem;
+  box-sizing: border-box;
+  width: max-content;
+  min-width: 16rem;
+  max-width: min(24rem, 92vw);
+  padding: 1rem 1rem 1rem 0.9rem;
+  border-radius: calc(var(--radius) + 2px);
+  border: 1px solid hsl(var(--border));
   background: hsl(var(--notification));
-  box-shadow: 0 0.25rem 0.85rem hsl(var(--background) / 0.45);
-  animation: toast-in 140ms ease-out;
+  color: hsl(var(--popover-foreground));
+  box-shadow:
+    0 1px 2px hsl(var(--background) / 0.35),
+    0 8px 24px hsl(var(--background) / 0.55);
+  animation: toast-in 180ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.toast-item__msg {
+.toast-item__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.35rem;
+  height: 1.35rem;
+  margin-top: 0.05rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 1;
+  flex-shrink: 0;
+  background: hsl(var(--muted));
+  color: hsl(var(--muted-foreground));
+}
+
+.toast-item__body {
+  min-width: 0;
+  padding-top: 0.05rem;
+}
+
+.toast-item__title {
   font-family: var(--font-mono);
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.35;
+  letter-spacing: 0.01em;
+  color: hsl(var(--foreground));
 }
 
-.toast-item--info .toast-item__msg {
+.toast-item__desc {
+  margin-top: 0.3rem;
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: hsl(var(--muted-foreground));
+}
+
+.toast-item__desc--empty {
+  display: none;
+}
+
+.toast-item__close {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.4rem;
+  height: 1.4rem;
+  margin: -0.15rem -0.25rem 0 0;
+  padding: 0;
+  border: none;
+  border-radius: calc(var(--radius));
+  background: transparent;
+  color: hsl(var(--muted-foreground));
+  opacity: 0.75;
+  cursor: pointer;
+  font-size: 1.05rem;
+  line-height: 1;
+  transition:
+    opacity 0.15s,
+    background-color 0.15s,
+    color 0.15s;
+}
+
+.toast-item__close:hover {
+  opacity: 1;
+  color: hsl(var(--foreground));
+  background: hsl(var(--accent));
+}
+
+/* —— variants (icon chip + soft border tint) —— */
+
+.toast-item--info {
+  border-color: hsl(var(--search) / 0.35);
+}
+
+.toast-item--info .toast-item__icon {
+  background: hsl(var(--search) / 0.18);
   color: hsl(var(--search));
 }
 
-.toast-item--warn .toast-item__msg {
+.toast-item--warn {
+  border-color: hsl(var(--delta-mod) / 0.4);
+}
+
+.toast-item--warn .toast-item__icon {
+  background: hsl(var(--delta-mod) / 0.18);
   color: hsl(var(--delta-mod));
 }
 
-.toast-item--error .toast-item__msg {
+.toast-item--error {
+  border-color: hsl(var(--destructive) / 0.45);
+}
+
+.toast-item--error .toast-item__icon {
+  background: hsl(var(--destructive) / 0.18);
   color: hsl(var(--destructive));
+}
+
+.toast-item--success {
+  border-color: hsl(var(--delta-added) / 0.4);
+}
+
+.toast-item--success .toast-item__icon {
+  background: hsl(var(--delta-added) / 0.18);
+  color: hsl(var(--delta-added));
+}
+
+.toast-item--loading .toast-item__icon {
+  background: hsl(var(--muted));
+  color: hsl(var(--muted-foreground));
 }
 
 .toast-delta {
@@ -56,10 +172,10 @@
 @keyframes toast-in {
   from {
     opacity: 0;
-    transform: translateY(0.35rem);
+    transform: translateX(0.6rem) translateY(0.15rem);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: translateX(0) translateY(0);
   }
 }

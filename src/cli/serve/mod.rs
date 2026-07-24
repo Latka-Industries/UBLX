@@ -25,8 +25,11 @@ use log::warn;
 use panza::{ServeMeta, StaticMount, run as panza_run};
 
 use crate::app::tokio_rt;
-use crate::cli::catalog::open_catalog_for_read;
+use crate::cli::catalog::{
+    catalog_db_present, open_catalog_for_read, open_placeholder_catalog, resolve_catalog_paths,
+};
 use crate::cli_parser::ServeCli;
+use crate::config::{record_ublx_session_open, remember_indexed_root_path};
 
 use self::catalog::{
     get_categories, get_delta, get_duplicates, get_entries, get_entry, get_lens, get_lenses,
@@ -39,21 +42,49 @@ use self::lenses_mut::{
 };
 use self::roots::{get_current_root, get_doctor, get_roots, put_current_root};
 use self::settings::{get_settings, patch_settings_route};
-use self::snapshot::{get_snapshot, post_snapshot};
+use self::snapshot::{begin_snapshot_job, get_snapshot, post_snapshot};
 use self::state::{AppState, AppStateInner, ServeCatalog, SnapshotJob};
 
 /// Run `ublx serve` until the process is interrupted.
 ///
+/// When no catalog exists, starts with an in-memory placeholder and kicks a background snapshot
+/// (TUI first-run parity) unless `--no-auto-snapshot` is set.
+///
 /// # Errors
 ///
-/// Returns `Err` when the catalog cannot be opened or the server fails to bind.
+/// Returns `Err` when the catalog cannot be opened (or is missing with `--no-auto-snapshot`)
+/// or the server fails to bind.
 pub fn run(args: &ServeCli) -> Result<(), anyhow::Error> {
-    let handle = open_catalog_for_read(&args.dir)?;
+    let catalog_paths = resolve_catalog_paths(&args.dir)?;
+    let missing = !catalog_db_present(&catalog_paths);
+    if missing && args.no_auto_snapshot {
+        anyhow::bail!(
+            "no catalog DB for {} (expected {}); run `ublx` or `ublx -s` in that directory first \
+             (or omit --no-auto-snapshot to index on serve start)",
+            catalog_paths.dir.display(),
+            catalog_paths.db_path.display()
+        );
+    }
+
+    let handle = if missing {
+        info!(
+            "serve cold start: no catalog for {} — placeholder + auto-snapshot",
+            catalog_paths.dir.display()
+        );
+        open_placeholder_catalog(catalog_paths)?
+    } else {
+        open_catalog_for_read(&args.dir)?
+    };
+
     info!(
         "serve catalog ready: dir={} db={}",
         handle.paths.dir.display(),
         handle.read_path.display()
     );
+    // Same as TUI session open: ensure `recents/{hash}.txt` exists so the switcher lists this root.
+    let _ = remember_indexed_root_path(&handle.paths.dir);
+    let _ = record_ublx_session_open(&handle.paths.dir);
+
     let state: AppState = Arc::new(Mutex::new(AppStateInner {
         catalog: ServeCatalog {
             dir: handle.paths.dir,
@@ -62,6 +93,10 @@ pub fn run(args: &ServeCli) -> Result<(), anyhow::Error> {
         },
         snapshot: SnapshotJob::idle(),
     }));
+
+    if missing {
+        begin_snapshot_job(&state, false).map_err(|e| anyhow::anyhow!("{e}"))?;
+    }
 
     let api = Router::new()
         .route("/roots", get(get_roots))

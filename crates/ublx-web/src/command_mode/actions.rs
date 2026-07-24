@@ -4,15 +4,15 @@ use leptos::prelude::*;
 use leptos::task::spawn_local;
 
 use crate::api::{
-    SettingsPatch, SettingsScope, fetch_duplicates, fetch_roots, fetch_settings,
-    get_snapshot_status, patch_settings, post_export_lenses, post_export_zahir, post_snapshot,
-    switch_root,
+    SettingsPatch, SettingsScope, fetch_duplicates, fetch_roots, fetch_settings, patch_settings,
+    post_export_lenses, post_export_zahir, post_snapshot, switch_root,
 };
 use crate::nav::MainMode;
+use crate::snapshot_poll::poll_until_settled;
 use crate::theme::apply_theme_css_body;
 
 use super::ctx::{CommandModeCtx, Picker};
-use super::helpers::{flash_api, flash_api_side_effect, sleep_ms, theme_picker_rows};
+use super::helpers::{flash_api, flash_api_side_effect, theme_picker_rows};
 
 pub(super) fn run_letter(ctx: CommandModeCtx, c: char) {
     let c = c.to_ascii_lowercase();
@@ -53,45 +53,10 @@ async fn run_snapshot(ctx: CommandModeCtx) {
     match post_snapshot(false).await {
         Ok(_) => {
             ctx.flash("Snapshot started…");
-            poll_snapshot(ctx).await;
+            poll_until_settled(ctx.refresh, ctx.toasts).await;
         }
         Err(e) => ctx.flash_err(e),
     }
-}
-
-async fn poll_snapshot(ctx: CommandModeCtx) {
-    for _ in 0..600 {
-        sleep_ms(500).await;
-        match get_snapshot_status().await {
-            Ok(st) if st.state.eq_ignore_ascii_case("running") => continue,
-            Ok(st) if st.state.eq_ignore_ascii_case("done") => {
-                ctx.refresh.bump();
-                match st.last {
-                    Some(l) => ctx.flash_snapshot(l.added, l.modified, l.removed),
-                    None => ctx.flash("Snapshot done"),
-                }
-                return;
-            }
-            Ok(st) if st.state.eq_ignore_ascii_case("failed") => {
-                let msg = st
-                    .last
-                    .and_then(|l| l.error)
-                    .unwrap_or_else(|| "Snapshot failed".into());
-                ctx.flash_err(msg);
-                return;
-            }
-            Ok(_) => {
-                ctx.refresh.bump();
-                ctx.flash("Snapshot finished");
-                return;
-            }
-            Err(e) => {
-                ctx.flash_err(e);
-                return;
-            }
-        }
-    }
-    ctx.flash_warn("Snapshot still running — check later");
 }
 
 async fn run_reload(ctx: CommandModeCtx) {

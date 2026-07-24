@@ -10,7 +10,10 @@ use serde::{Deserialize, Serialize};
 
 use crate::cli::catalog::open_catalog_for_read;
 use crate::cli::doctor;
-use crate::config::{all_indexed_roots_alphabetical, record_prior_root_selected};
+use crate::config::{
+    all_indexed_roots_alphabetical, record_prior_root_selected, record_ublx_session_open,
+    remember_indexed_root_path,
+};
 
 use super::error::ApiError;
 use super::state::{AppState, canonicalize_dir, current_dir, same_dir, with_inner};
@@ -87,7 +90,9 @@ pub(super) async fn put_current_root(
             inner.catalog.dir.clone_from(&new_dir);
             inner.catalog.read_path = new_read_path;
             inner.catalog.conn = new_conn;
+            let _ = remember_indexed_root_path(&new_dir);
             let _ = record_prior_root_selected(&new_dir);
+            let _ = record_ublx_session_open(&new_dir);
             info!("serve root switched: {prev} -> {}", new_dir.display());
         }
         Ok(())

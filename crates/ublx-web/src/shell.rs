@@ -40,6 +40,15 @@ pub(crate) fn Shell(flags: CatalogFlags) -> impl IntoView {
     space_menu.catalog_root.set(flags.get_value().root.clone());
     let command_mode = CommandModeCtx::provide(catalog_refresh, set_mode, toasts);
 
+    // Cold-start / in-flight snapshot: toast + refresh when indexing finishes.
+    Effect::new(move |_| {
+        let refresh = catalog_refresh;
+        let toasts = toasts;
+        spawn_local(async move {
+            crate::snapshot_poll::watch_snapshot_if_running(refresh, toasts).await;
+        });
+    });
+
     // Seed syntect theme name so the first code Viewer fetch matches shell CSS.
     Effect::new(move |_| {
         spawn_local(async move {
