@@ -34,8 +34,7 @@ fi
       npm install
     fi
   fi
-  npx --no-install tailwindcss \
-    -c tailwind.config.js \
+  npx --no-install @tailwindcss/cli \
     -i ./styles/tailwind-input.css \
     -o "$OUT/tailwind.css" \
     --minify
