@@ -8,7 +8,16 @@ html,
 body {
   margin: 0;
   height: 100%;
-  background: hsl(var(--background));
+  /* Top+bottom --primary wash; clear mid so flat panels read as sitting on chrome. */
+  background:
+    linear-gradient(
+      180deg,
+      hsl(var(--primary) / var(--shell-wash)) 0%,
+      transparent var(--shell-wash-inset),
+      transparent calc(100% - var(--shell-wash-inset)),
+      hsl(var(--primary) / var(--shell-wash)) 100%
+    ),
+    hsl(var(--background));
   color: hsl(var(--foreground));
   font-family: var(--font-mono);
   font-size: 15px;
