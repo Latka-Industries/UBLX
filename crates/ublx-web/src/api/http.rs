@@ -19,8 +19,20 @@ pub(super) fn lens_paths_url(name: &str) -> String {
     format!("{}/paths", lens_url(name))
 }
 
+/// Serve URLs are stable while their payload changes on root switch, so a cached response would
+/// show the previous project. Serve sends `no-store`; this also covers an older serve binary.
+pub(super) fn cache_bust_url(url: &str) -> String {
+    let t = js_sys::Date::now() as u64;
+    if url.contains('?') {
+        format!("{url}&_={t}")
+    } else {
+        format!("{url}?_={t}")
+    }
+}
+
 pub(crate) async fn get_json<T: for<'de> Deserialize<'de>>(url: &str) -> Result<T, String> {
-    finish_json(gloo_net::http::Request::get(url).send().await).await
+    let url = cache_bust_url(url);
+    finish_json(gloo_net::http::Request::get(&url).send().await).await
 }
 
 pub(crate) async fn put_json<T: for<'de> Deserialize<'de>, B: Serialize>(

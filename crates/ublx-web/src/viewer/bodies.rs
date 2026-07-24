@@ -6,8 +6,9 @@ use wasm_bindgen::JsCast;
 use wasm_bindgen::closure::Closure;
 
 use crate::api::{
-    CONTENT_WINDOW_BYTES, EntryContent, encode_entry_path, fetch_entry_content,
-    fetch_entry_content_page, fetch_entry_content_themed, fetch_entry_content_window,
+    CONTENT_WINDOW_BYTES, EntryContent, content_cover_url, content_raw_page_url,
+    fetch_entry_content, fetch_entry_content_page, fetch_entry_content_themed,
+    fetch_entry_content_window,
 };
 use crate::command_mode::CommandModeCtx;
 use crate::focus::{PdfPageCtl, PdfPageNav, PreviewKeysBus, TextWindowCtl};
@@ -34,7 +35,7 @@ async fn content_fetch_error(src: &str, ok_fallback: &str, status_label: &str) -
 #[component]
 pub(super) fn CoverViewer(path: String) -> impl IntoView {
     let (load_err, set_load_err) = signal::<Option<String>>(None);
-    let src = format!("/content/{}?format=cover", encode_entry_path(&path));
+    let src = content_cover_url(&path);
     let alt = path.clone();
 
     view! {
@@ -238,13 +239,7 @@ pub(super) fn PdfViewer(path: String) -> impl IntoView {
 
     let img_src = {
         let path = path.clone();
-        move || {
-            format!(
-                "/content/{}?format=raw&page={}",
-                encode_entry_path(&path),
-                page.get().max(1)
-            )
-        }
+        move || content_raw_page_url(&path, page.get())
     };
     let alt = path.clone();
 
@@ -257,11 +252,7 @@ pub(super) fn PdfViewer(path: String) -> impl IntoView {
                     alt=alt
                     loading="lazy"
                     on:error=move |_| {
-                        let src = format!(
-                            "/content/{}?format=raw&page={}",
-                            encode_entry_path(&path),
-                            page.get_untracked().max(1)
-                        );
+                        let src = content_raw_page_url(&path, page.get_untracked());
                         wasm_bindgen_futures::spawn_local(async move {
                             let msg = content_fetch_error(
                                 &src,
