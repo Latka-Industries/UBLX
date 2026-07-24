@@ -1,5 +1,6 @@
 //! Menu kind / pending sub-flow / row labels (TUI `qa_menu_item_labels` subset).
 
+/// Which Space menu to open (file / lens / duplicate / bulk).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) enum SpaceMenuKind {
     File {
@@ -20,6 +21,7 @@ pub(crate) enum SpaceMenuKind {
     },
 }
 
+/// Sub-flow after a menu row (rename / confirm / lens picker / …).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(super) enum Pending {
     Rename {

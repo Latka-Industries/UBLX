@@ -57,14 +57,16 @@ Rules:
 
 - Default binary includes `ublx serve` **API**; **no** Leptos / WASM deps.
 - `--features ui` enables embedded assets and switches serve to `StaticMount::Embedded`.
+- `UBLX_WEB_DIST` overrides to `StaticMount::Dir` for the `mise run web` rebuild loop (no host recompile).
 - Do **not** hide API-only serve behind `ui`.
-- Workspace crate **`crates/ublx-web/`** (wasm32 CSR). Host `ublx` depends on it only under `ui` for asset embedding.
+- Workspace crate **`crates/ublx-web/`** (wasm32 CSR). Host `ublx` depends on it only under `ui` for asset embedding (`embed` feature → `ublx_web::embedded_assets()`).
 
 ### Build story
 
 1. Build CSR assets (`./crates/ublx-web/build.sh` / `mise run web`) → `dist/`.
-2. `cargo build --features ui` embeds `dist/` into the binary (**Embedded** — still TODO).
-3. Until then: Dir mount + `UBLX_WEB_DIST`.
+2. `cargo build --features ui` embeds `dist/` into the binary (`StaticMount::Embedded`).
+3. Dev loop: set `UBLX_WEB_DIST=…/crates/ublx-web/dist` (mise `web` does this) so Dir serves fresh assets without re-embedding.
+4. `build.sh` also emits `dist/tailwind.css` (no CDN) — needs Node/npm.
 
 ---
 
@@ -176,7 +178,7 @@ Mouse click remains supported; keyboard is first-class.
 - [x] Contents `n/N` bottom-right (`PathsPane`)
 - [x] Catalog search (`/` strip + Skim fuzzy)
 - [x] Settings controls + live read-only TOML; `GET`/`PATCH /settings/{scope}`; `GET /duplicates`
-- [x] Feature `ui` + Dir / `UBLX_WEB_DIST` (Embedded still open)
+- [x] Feature `ui` + Embedded (`ublx_web::embedded_assets`); Dir via `UBLX_WEB_DIST` for `mise run web`
 - [x] Keyboard focus + hotkeys (digits/`~`/hjkl/arrows/`g``G`/Tab/`vtmw`/Shift+Tab/`s` sort)
 - [x] Help overlay (`?`) + footer `? — Help` chip; 7px shell inset from browser edge
 - [x] Palette → CSS tokens (`themes::css`); Settings theme dropdown applies live
@@ -223,7 +225,7 @@ Every mini-PR that adds or changes a **keybinding, selection model, overlay, or 
 | **13** | **Multi-select** | ✅ Landed — Ctrl+Space enter/exit; Space toggle rows on Snapshot / Lenses contents (not Dupes); █ chrome + `n/N · k sel`; **`?` Multi-select section** | [`multiselect.rs`](../crates/ublx-web/src/multiselect.rs); TUI [`ui/multiselect.rs`](../src/ui/multiselect.rs) |
 | **14** | **Space / context menu** | ✅ Landed — Space QA + `a` bulk; serve `/fs/*` + lens writes; confirm / rename / lens picker; **`?` QA rows** | [`space_menu/`](../crates/ublx-web/src/space_menu/); [`serve/fs.rs`](../src/cli/serve/fs.rs); TUI [`ui/menus/`](../src/ui/menus/) |
 | **15** | **Command Mode** | ✅ Landed — Ctrl+a chord + menu; d/t/s/r/x/l/p; theme/root pickers; serve `/export/*`; **`?` Command section** | [`command_mode/`](../crates/ublx-web/src/command_mode/); [`serve/export.rs`](../src/cli/serve/export.rs); TUI [`ui/ctrl_chord.rs`](../src/ui/ctrl_chord.rs) |
-| **16** | **`StaticMount::Embedded`** | Ship `--features ui` as one binary; Dir remains for `mise run web` | panza `Embedded`; build.sh → embed |
+| **16** | **`StaticMount::Embedded`** | ✅ Landed — `--features ui` embeds `dist/`; `UBLX_WEB_DIST` keeps Dir for `mise run web` | [`embed.rs`](../crates/ublx-web/src/embed.rs); [`serve/mod.rs`](../src/cli/serve/mod.rs) `static_mount` |
 
 **Ops / chrome follow-ups** (separate PRs after or interleaved when small):
 
@@ -247,7 +249,11 @@ Do **not** expand a mini-PR into “finish the whole Viewer stack” — keep ea
 
 ```rust
 #[cfg(feature = "ui")]
-let mount = StaticMount::Embedded(ublx_web::embedded_assets());
+let mount = if let Some(dir) = std::env::var_os("UBLX_WEB_DIST") {
+    StaticMount::Dir(dir.into())
+} else {
+    StaticMount::Embedded(ublx_web::embedded_assets())
+};
 #[cfg(not(feature = "ui"))]
 let mount = StaticMount::None;
 

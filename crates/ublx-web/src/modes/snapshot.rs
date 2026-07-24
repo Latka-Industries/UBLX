@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use leptos::prelude::*;
 
-use crate::api::{EntryRow, fetch_entry_detail, get_json};
+use crate::api::{EntryRow, fetch_entry_detail_opt, get_json};
 use crate::catalog_refresh::CatalogRefresh;
 use crate::focus::{UiNav, install_list_nav, string_list_nav};
 use crate::nav::MainMode;
@@ -46,12 +46,7 @@ pub(crate) fn SnapshotMode() -> impl IntoView {
     let (selected_path, set_selected_path) = signal::<Option<String>>(None);
     let detail = LocalResource::new(move || {
         let path = selected_path.get();
-        async move {
-            match path {
-                Some(p) => fetch_entry_detail(&p).await.ok(),
-                None => None,
-            }
-        }
+        async move { fetch_entry_detail_opt(path).await }
     });
     let detail_signal = Signal::derive(move || detail.get().flatten());
 

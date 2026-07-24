@@ -123,7 +123,7 @@ Engineering notes also live in local `TODO.md` (gitignored); items below are the
 
 ## Suggested sequencing
 
-1. **Optional web UI for serve** — Leptos CSR + `--features ui` (THI-157 / v0.2.0); shell on `dev`; remaining mini-PRs: themes → tables/viewers → multi-select / Space / Command Mode → Embedded ([WEB_UI.md](WEB_UI.md)).
+1. **Optional web UI for serve** — Leptos CSR + `--features ui` (THI-157 / v0.2.0); shell + mini-PRs through **Embedded** on `dev`; fat land → `main` + tag **v0.2.0** ([WEB_UI.md](WEB_UI.md)).
 2. **Lenses** — notes + export (user-visible, low architectural risk).
 3. **Performance** — memory / large-file hardening (stability for v0.1.x).
 4. **Platform ADR** — plugins / extension contract before Lua, runner, user themes.

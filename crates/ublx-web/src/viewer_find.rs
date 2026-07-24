@@ -13,6 +13,7 @@ const HIT_CLASS: &str = "viewer-find-hit";
 const HIT_CURRENT: &str = "viewer-find-hit--current";
 const ROOT_SEL: &str = ".right-pane .panel-pad";
 
+/// Shift+S find strip state + DOM highlight ticks.
 #[derive(Clone, Copy)]
 pub(crate) struct ViewerFind {
     pub query: ReadSignal<String>,

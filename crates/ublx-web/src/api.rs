@@ -321,6 +321,14 @@ pub(crate) async fn fetch_entry_detail(path: &str) -> Result<EntryDetail, String
     Ok(EntryDetail::from_row(row))
 }
 
+/// Optional-path wrapper for middle-pane `LocalResource` detail loads.
+pub(crate) async fn fetch_entry_detail_opt(path: Option<String>) -> Option<EntryDetail> {
+    match path {
+        Some(p) => fetch_entry_detail(&p).await.ok(),
+        None => None,
+    }
+}
+
 /// Raw Zahir JSON for clipboard (`GET /entries/{path}?zahir=1`).
 pub(crate) async fn fetch_entry_zahir_raw(path: &str) -> Result<Option<Value>, String> {
     let url = format!("/entries/{}?zahir=1", encode_entry_path(path));
@@ -526,12 +534,8 @@ pub(crate) async fn put_json<T: for<'de> Deserialize<'de>, B: Serialize>(
         .json(body)
         .map_err(|e| e.to_string())?
         .send()
-        .await
-        .map_err(|e| e.to_string())?;
-    if !resp.ok() {
-        return Err(http_error_message(resp).await);
-    }
-    resp.json::<T>().await.map_err(|e| e.to_string())
+        .await;
+    finish_json(resp).await
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -713,14 +717,7 @@ pub(crate) fn encode_entry_path(path: &str) -> String {
 }
 
 pub(crate) async fn get_json<T: for<'de> Deserialize<'de>>(url: &str) -> Result<T, String> {
-    let resp = gloo_net::http::Request::get(url)
-        .send()
-        .await
-        .map_err(|e| e.to_string())?;
-    if !resp.ok() {
-        return Err(http_error_message(resp).await);
-    }
-    resp.json::<T>().await.map_err(|e| e.to_string())
+    finish_json(gloo_net::http::Request::get(url).send().await).await
 }
 
 pub(crate) async fn patch_json<T: for<'de> Deserialize<'de>, B: Serialize>(
@@ -731,12 +728,8 @@ pub(crate) async fn patch_json<T: for<'de> Deserialize<'de>, B: Serialize>(
         .json(body)
         .map_err(|e| e.to_string())?
         .send()
-        .await
-        .map_err(|e| e.to_string())?;
-    if !resp.ok() {
-        return Err(http_error_message(resp).await);
-    }
-    resp.json::<T>().await.map_err(|e| e.to_string())
+        .await;
+    finish_json(resp).await
 }
 
 pub(crate) async fn post_json<T: for<'de> Deserialize<'de>, B: Serialize>(
@@ -747,12 +740,8 @@ pub(crate) async fn post_json<T: for<'de> Deserialize<'de>, B: Serialize>(
         .json(body)
         .map_err(|e| e.to_string())?
         .send()
-        .await
-        .map_err(|e| e.to_string())?;
-    if !resp.ok() {
-        return Err(http_error_message(resp).await);
-    }
-    resp.json::<T>().await.map_err(|e| e.to_string())
+        .await;
+    finish_json(resp).await
 }
 
 pub(crate) async fn delete_json<T: for<'de> Deserialize<'de>, B: Serialize>(
@@ -763,12 +752,8 @@ pub(crate) async fn delete_json<T: for<'de> Deserialize<'de>, B: Serialize>(
         .json(body)
         .map_err(|e| e.to_string())?
         .send()
-        .await
-        .map_err(|e| e.to_string())?;
-    if !resp.ok() {
-        return Err(http_error_message(resp).await);
-    }
-    resp.json::<T>().await.map_err(|e| e.to_string())
+        .await;
+    finish_json(resp).await
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -945,6 +930,16 @@ pub(crate) async fn api_remove_from_lens(lens: &str, paths: Vec<String>) -> Resu
     let url = format!("/lenses/{}/paths", urlencoding::encode(lens));
     let out: Out = delete_json(&url, &PathsBody { paths }).await?;
     Ok(format!("Removed {} from {lens}", out.count))
+}
+
+async fn finish_json<T: for<'de> Deserialize<'de>>(
+    resp: Result<gloo_net::http::Response, gloo_net::Error>,
+) -> Result<T, String> {
+    let resp = resp.map_err(|e| e.to_string())?;
+    if !resp.ok() {
+        return Err(http_error_message(resp).await);
+    }
+    resp.json::<T>().await.map_err(|e| e.to_string())
 }
 
 async fn http_error_message(resp: gloo_net::http::Response) -> String {

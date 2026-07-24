@@ -35,9 +35,7 @@ pub(crate) fn SpaceMenuPopup() -> impl IntoView {
                 aria-modal="true"
                 aria-label="Quick actions"
                 on:mousedown=move |ev| {
-                    if let Some(t) = ev.target().and_then(|t| t.dyn_into::<web_sys::Element>().ok())
-                        && t.class_list().contains("space-menu-overlay")
-                    {
+                    if crate::util::is_backdrop_click(&ev, "space-menu-overlay") {
                         menu.close();
                     }
                 }

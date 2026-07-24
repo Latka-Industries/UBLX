@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use leptos::prelude::*;
 
-use crate::api::{EntryRow, fetch_duplicates, fetch_entry_detail, get_json};
+use crate::api::{EntryRow, fetch_duplicates, fetch_entry_detail_opt, get_json};
 use crate::catalog_refresh::CatalogRefresh;
 use crate::focus::{UiNav, id_list_nav, install_list_nav};
 use crate::nav::MainMode;
@@ -120,12 +120,7 @@ pub(crate) fn DuplicatesMode() -> impl IntoView {
 
     let detail = LocalResource::new(move || {
         let path = selected_path.get();
-        async move {
-            match path {
-                Some(p) => fetch_entry_detail(&p).await.ok(),
-                None => None,
-            }
-        }
+        async move { fetch_entry_detail_opt(path).await }
     });
     let detail_signal = Signal::derive(move || detail.get().flatten());
 

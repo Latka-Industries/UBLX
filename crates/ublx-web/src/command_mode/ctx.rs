@@ -14,6 +14,7 @@ use super::actions::{
 use super::helpers::sleep_ms;
 use super::rows::{CHORD_MENU_DELAY_MS, DEFAULT_LEADER, description_for};
 
+/// Theme or root picker while Command Mode menu is open.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(super) enum Picker {
     Theme {
@@ -52,6 +53,7 @@ impl Picker {
     }
 }
 
+/// Ctrl+a chord / menu / pickers — store toast + refresh handles (keyboard-safe).
 #[derive(Clone, Copy)]
 pub(crate) struct CommandModeCtx {
     pub pending: RwSignal<bool>,

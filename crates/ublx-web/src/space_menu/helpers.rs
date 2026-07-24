@@ -6,16 +6,21 @@ use wasm_bindgen_futures::JsFuture;
 use crate::api::encode_entry_path;
 use crate::multiselect::MultiselectCtx;
 
+pub(super) use crate::util::sleep_ms;
+
+/// Last path segment (basename).
 pub(super) fn basename(path: &str) -> String {
     path.rsplit('/').next().unwrap_or(path).to_string()
 }
 
+/// Sorted multi-select paths for bulk menus.
 pub(super) fn bulk_paths(ms: MultiselectCtx) -> Vec<String> {
     let mut v: Vec<String> = ms.selected.get_untracked().into_iter().collect();
     v.sort();
     v
 }
 
+/// Join catalog root + relative path for Copy Path / display.
 pub(super) fn absolute_path(root: Option<&str>, rel: &str) -> String {
     match root {
         Some(r) if !r.is_empty() => {
@@ -30,6 +35,7 @@ pub(super) fn absolute_path(root: Option<&str>, rel: &str) -> String {
     }
 }
 
+/// Open `/content/…?format=raw` in a new tab (images only at call sites).
 pub(super) fn open_in_browser(path: &str) {
     let url = format!("/content/{}?format=raw", encode_entry_path(path));
     if let Some(w) = web_sys::window() {
@@ -45,13 +51,4 @@ pub(super) async fn write_clipboard(text: &str) -> Result<(), String> {
         .await
         .map(|_| ())
         .map_err(|_| "clipboard write failed".to_string())
-}
-
-pub(super) async fn sleep_ms(ms: i32) {
-    let promise = js_sys::Promise::new(&mut |resolve, _reject| {
-        let _ = web_sys::window().map(|w| {
-            let _ = w.set_timeout_with_callback_and_timeout_and_arguments_0(&resolve, ms);
-        });
-    });
-    let _ = JsFuture::from(promise).await;
 }

@@ -14,6 +14,7 @@ use crate::nav::MainMode;
 /// Block glyph — TUI [`UI_GLYPHS.swatch_block`].
 pub(crate) const CHECK_GLYPH: &str = "\u{2588}";
 
+/// Middle-pane multi-select state (active flag + selected paths + cursor).
 #[derive(Clone, Copy)]
 pub(crate) struct MultiselectCtx {
     pub active: RwSignal<bool>,

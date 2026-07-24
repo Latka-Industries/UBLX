@@ -4,16 +4,7 @@ use crate::api::{SettingsView, ThemeCssBody, ThemePickerRow};
 
 use super::ctx::CommandModeCtx;
 
-use wasm_bindgen_futures::JsFuture;
-
-pub(super) async fn sleep_ms(ms: i32) {
-    let promise = js_sys::Promise::new(&mut |resolve, _reject| {
-        let _ = web_sys::window().map(|w| {
-            let _ = w.set_timeout_with_callback_and_timeout_and_arguments_0(&resolve, ms);
-        });
-    });
-    let _ = JsFuture::from(promise).await;
-}
+pub(super) use crate::util::sleep_ms;
 
 /// Flash API errors, or run `on_ok` and flash its message on success.
 pub(super) async fn flash_api<T>(

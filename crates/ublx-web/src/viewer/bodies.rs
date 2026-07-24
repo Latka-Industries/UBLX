@@ -15,6 +15,20 @@ use crate::viewer_find::ViewerFind;
 
 use super::csv::CsvHtmlFragment;
 
+/// Re-fetch a failed `<img>` URL and surface serve's JSON `error` (or a fallback).
+async fn content_fetch_error(src: &str, ok_fallback: &str, status_label: &str) -> String {
+    match gloo_net::http::Request::get(src).send().await {
+        Ok(resp) if !resp.ok() => resp
+            .json::<serde_json::Value>()
+            .await
+            .ok()
+            .and_then(|v| v.get("error").and_then(|e| e.as_str()).map(str::to_owned))
+            .unwrap_or_else(|| format!("{status_label} ({})", resp.status())),
+        Ok(_) => ok_fallback.into(),
+        Err(e) => e.to_string(),
+    }
+}
+
 /// Audio / Epub: embedded cover via `/content?format=cover` (same bytes as TUI).
 #[component]
 pub(super) fn CoverViewer(path: String) -> impl IntoView {
@@ -33,20 +47,12 @@ pub(super) fn CoverViewer(path: String) -> impl IntoView {
                     on:error=move |_| {
                         let src = src.clone();
                         wasm_bindgen_futures::spawn_local(async move {
-                            let msg = match gloo_net::http::Request::get(&src).send().await {
-                                Ok(resp) if !resp.ok() => resp
-                                    .json::<serde_json::Value>()
-                                    .await
-                                    .ok()
-                                    .and_then(|v| {
-                                        v.get("error").and_then(|e| e.as_str()).map(str::to_owned)
-                                    })
-                                    .unwrap_or_else(|| {
-                                        format!("failed to load cover ({})", resp.status())
-                                    }),
-                                Ok(_) => "(no embedded cover)".into(),
-                                Err(e) => e.to_string(),
-                            };
+                            let msg = content_fetch_error(
+                                &src,
+                                "(no embedded cover)",
+                                "failed to load cover",
+                            )
+                            .await;
                             set_load_err.set(Some(msg));
                         });
                     }
@@ -256,20 +262,12 @@ pub(super) fn PdfViewer(path: String) -> impl IntoView {
                             page.get_untracked().max(1)
                         );
                         wasm_bindgen_futures::spawn_local(async move {
-                            let msg = match gloo_net::http::Request::get(&src).send().await {
-                                Ok(resp) if !resp.ok() => resp
-                                    .json::<serde_json::Value>()
-                                    .await
-                                    .ok()
-                                    .and_then(|v| {
-                                        v.get("error").and_then(|e| e.as_str()).map(str::to_owned)
-                                    })
-                                    .unwrap_or_else(|| {
-                                        format!("failed to load page ({})", resp.status())
-                                    }),
-                                Ok(_) => "(failed to load page)".into(),
-                                Err(e) => e.to_string(),
-                            };
+                            let msg = content_fetch_error(
+                                &src,
+                                "(failed to load page)",
+                                "failed to load page",
+                            )
+                            .await;
                             set_load_err.set(Some(msg));
                         });
                     }
@@ -422,16 +420,9 @@ fn wire_img_load_errors(root: &web_sys::HtmlDivElement) {
             }
             let host = host.clone();
             wasm_bindgen_futures::spawn_local(async move {
-                let msg = match gloo_net::http::Request::get(&src).send().await {
-                    Ok(resp) if !resp.ok() => resp
-                        .json::<serde_json::Value>()
-                        .await
-                        .ok()
-                        .and_then(|v| v.get("error").and_then(|e| e.as_str()).map(str::to_owned))
-                        .unwrap_or_else(|| format!("failed to load image ({})", resp.status())),
-                    Ok(_) => "(failed to load image)".into(),
-                    Err(e) => e.to_string(),
-                };
+                let msg =
+                    content_fetch_error(&src, "(failed to load image)", "failed to load image")
+                        .await;
                 show_img_error_under(&host, &msg);
             });
         }) as Box<dyn FnMut(_)>);

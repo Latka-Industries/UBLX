@@ -5,12 +5,14 @@ use std::time::Duration;
 use leptos::prelude::*;
 use leptos::task::spawn_local;
 use leptos_shadcn_ui::Toast;
-use wasm_bindgen_futures::JsFuture;
+
+use crate::util::sleep_ms;
 
 /// Match TUI toast config (`src/config/toast.rs`): max 3, ~4s.
 const MAX_TOASTS: usize = 3;
 const DURATION: Duration = Duration::from_secs(4);
 
+/// Severity → shadcn `Toast` variant + CSS level class.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum ToastLevel {
     Info,
@@ -36,6 +38,7 @@ impl ToastLevel {
     }
 }
 
+/// Toast payload — plain text or a Snapshot delta summary.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) enum ToastBody {
     Text(String),
@@ -54,6 +57,7 @@ pub(crate) struct ToastItem {
     pub body: ToastBody,
 }
 
+/// App-wide toast stack (max [`MAX_TOASTS`], auto-dismiss after [`DURATION`]).
 #[derive(Clone, Copy)]
 pub(crate) struct ToastCtx {
     pub items: RwSignal<Vec<ToastItem>>,
@@ -164,13 +168,4 @@ fn toast_body_view(body: ToastBody) -> AnyView {
         }
         .into_any(),
     }
-}
-
-async fn sleep_ms(ms: i32) {
-    let promise = js_sys::Promise::new(&mut |resolve, _reject| {
-        let _ = web_sys::window().map(|w| {
-            let _ = w.set_timeout_with_callback_and_timeout_and_arguments_0(&resolve, ms);
-        });
-    });
-    let _ = JsFuture::from(promise).await;
 }
