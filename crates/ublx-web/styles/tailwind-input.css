@@ -1,1 +1,3 @@
-@tailwind utilities;
+/* Utilities only — reset lives in styles/base.css. JS theme via @config (v3→v4 bridge). */
+@import "tailwindcss/utilities.css" layer(utilities);
+@config "../tailwind.config.js";

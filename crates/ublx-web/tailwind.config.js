@@ -1,30 +1,30 @@
 /** @type {import('tailwindcss').Config} */
-const fs = require("fs");
-const os = require("os");
 const path = require("path");
 const { execFileSync } = require("child_process");
 
-/** Scan leptos-shadcn-* crate sources so Toast / Tooltip utilities are kept. */
+/**
+ * Scan leptos-shadcn-* crate sources so Toast / Tooltip utilities are kept.
+ * Read cargo metadata from stdout (no /tmp file) — large JSON + a full tmpfs
+ * previously truncated the write and threw "Unterminated string in JSON".
+ */
 function leptosShadcnContent() {
-  const tmp = path.join(
-    os.tmpdir(),
-    `ublx-web-cargo-metadata-${process.pid}.json`,
-  );
   try {
-    const fd = fs.openSync(tmp, "w");
-    try {
-      execFileSync(
-        "cargo",
-        ["metadata", "--format-version=1", "--manifest-path=Cargo.toml"],
-        {
-          cwd: path.join(__dirname, "../.."),
-          stdio: ["ignore", fd, "ignore"],
-        },
-      );
-    } finally {
-      fs.closeSync(fd);
-    }
-    const meta = JSON.parse(fs.readFileSync(tmp, "utf8"));
+    const raw = execFileSync(
+      "cargo",
+      [
+        "metadata",
+        "--format-version=1",
+        "--filter-platform=wasm32-unknown-unknown",
+        "--manifest-path=Cargo.toml",
+      ],
+      {
+        cwd: path.join(__dirname, "../.."),
+        encoding: "utf8",
+        maxBuffer: 64 * 1024 * 1024,
+        stdio: ["ignore", "pipe", "pipe"],
+      },
+    );
+    const meta = JSON.parse(raw);
     return meta.packages
       .filter((p) => p.name.startsWith("leptos-shadcn-"))
       .map((p) => path.join(path.dirname(p.manifest_path), "src/**/*.rs"));
@@ -34,12 +34,6 @@ function leptosShadcnContent() {
       err.message,
     );
     return [];
-  } finally {
-    try {
-      fs.unlinkSync(tmp);
-    } catch {
-      /* ignore */
-    }
   }
 }
 
@@ -95,5 +89,4 @@ module.exports = {
   corePlugins: {
     preflight: false,
   },
-  plugins: [require("tailwindcss-animate")],
 };

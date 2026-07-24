@@ -28,4 +28,4 @@ cargo run -p ublx --features ui -- serve . --open
 UBLX_WEB_DIST=$PWD/crates/ublx-web/dist cargo run -p ublx --features ui -- serve . --open
 ```
 
-`build.sh` writes `dist/tailwind.css` from `tailwind.config.js` (scans `src/**/*.rs` + leptos-shadcn sources). Default serve without `--features ui` stays API-only.
+`build.sh` writes `dist/tailwind.css` via `@tailwindcss/cli` **4.3.3** (`styles/tailwind-input.css` + `tailwind.config.js`; scans `src/**/*.rs` + leptos-shadcn sources). Default serve without `--features ui` stays API-only.
