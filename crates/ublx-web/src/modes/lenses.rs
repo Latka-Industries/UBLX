@@ -4,7 +4,7 @@ use leptos::prelude::*;
 
 use crate::api::fetch_entry_detail_opt;
 use crate::catalog_data::CatalogData;
-use crate::catalog_refresh::CatalogRefresh;
+use crate::catalog_refresh::{CatalogRefresh, CatalogScope};
 use crate::focus::{UiNav, install_list_nav, string_list_nav};
 use crate::nav::MainMode;
 use crate::panes::{EntryRightPane, PanelRow, PathsPane, ThreePane};
@@ -44,7 +44,7 @@ pub(crate) fn LensesMode() -> impl IntoView {
     });
 
     let members = LocalResource::new(move || {
-        let tick = refresh.tick.get();
+        let tick = refresh.tick(CatalogScope::LENSES);
         let name = selected_lens.get();
         async move { shared.lens_members_for(name, tick).await }
     });

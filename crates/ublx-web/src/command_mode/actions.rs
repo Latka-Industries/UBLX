@@ -9,6 +9,7 @@ use crate::api::{
     load_catalog_flags, patch_settings, post_export_lenses, post_export_zahir, post_snapshot,
     switch_root,
 };
+use crate::catalog_refresh::CatalogScope;
 use crate::nav::MainMode;
 use crate::snapshot_poll::{poll_until_settled, watch_snapshot_if_running};
 use crate::theme::apply_theme_css_body;
@@ -42,7 +43,7 @@ pub(crate) fn open_root_picker(ctx: CommandModeCtx) {
 async fn run_duplicates(ctx: CommandModeCtx) {
     ctx.flash("Scanning for duplicates…");
     let resp = fetch_duplicates().await;
-    ctx.refresh.bump();
+    ctx.refresh.bump(CatalogScope::DUPLICATES);
     if resp.groups.is_empty() {
         ctx.flash("No duplicates found");
     } else {
@@ -67,7 +68,8 @@ async fn run_reload(ctx: CommandModeCtx) {
         fetch_settings(SettingsScope::Local).await,
         |v| {
             ctx.apply_theme_from_settings(&v);
-            ctx.refresh.bump();
+            // Config can change what serve reports, so treat it as a full reload.
+            ctx.refresh.bump(CatalogScope::ALL);
         },
         "Reloaded config",
     )
@@ -220,7 +222,7 @@ pub(super) fn submit_picker(ctx: CommandModeCtx) {
                         if new_flags.root.as_deref() != Some(cur.path.as_str()) {
                             new_flags.root = Some(cur.path.clone());
                         }
-                        ctx.refresh.bump();
+                        ctx.refresh.bump(CatalogScope::ALL);
                         ctx.multiselect.clear();
                         ctx.space_menu.close();
                         ctx.flags.set(new_flags);

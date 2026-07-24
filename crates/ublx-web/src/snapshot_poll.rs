@@ -1,7 +1,7 @@
 //! Poll `GET /snapshot` until idle — Command Mode `s` and cold-start auto-index.
 
 use crate::api::{SnapshotLast, get_snapshot_status};
-use crate::catalog_refresh::CatalogRefresh;
+use crate::catalog_refresh::{CatalogRefresh, CatalogScope};
 use crate::toast::ToastCtx;
 use crate::util::sleep_ms;
 
@@ -23,7 +23,7 @@ pub(crate) async fn poll_until_settled(refresh: CatalogRefresh, toasts: ToastCtx
         match get_snapshot_status().await {
             Ok(st) if st.state.eq_ignore_ascii_case("running") => continue,
             Ok(st) if st.state.eq_ignore_ascii_case("done") => {
-                refresh.bump();
+                refresh.bump(CatalogScope::ALL);
                 match st.last {
                     Some(SnapshotLast {
                         added,
@@ -44,7 +44,7 @@ pub(crate) async fn poll_until_settled(refresh: CatalogRefresh, toasts: ToastCtx
                 return;
             }
             Ok(_) => {
-                refresh.bump();
+                refresh.bump(CatalogScope::ALL);
                 toasts.info("Snapshot finished");
                 return;
             }
