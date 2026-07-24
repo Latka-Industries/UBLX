@@ -2,7 +2,8 @@
 
 use leptos::prelude::*;
 
-use crate::api::{DeltaKind, DeltaRow, fetch_delta_catalog, format_timestamp_ns};
+use crate::api::{DeltaKind, DeltaRow, format_timestamp_ns};
+use crate::catalog_data::CatalogData;
 use crate::focus::{ListNav, UiNav, install_list_nav};
 use crate::nav::MainMode;
 use crate::panes::{OverviewRightPane, PanelRow, PathsPane, ThreePane};
@@ -11,7 +12,7 @@ use crate::sort::{ContentSortCtx, sort_delta_rows};
 
 #[component]
 pub(crate) fn DeltaMode() -> impl IntoView {
-    let catalog = LocalResource::new(fetch_delta_catalog);
+    let catalog = CatalogData::expect().delta;
     let (kind, set_kind) = signal(DeltaKind::Added);
     let (selected_path, set_selected_path) = signal::<Option<String>>(None);
 

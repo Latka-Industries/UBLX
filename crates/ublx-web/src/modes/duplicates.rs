@@ -5,8 +5,8 @@ use std::sync::Arc;
 
 use leptos::prelude::*;
 
-use crate::api::{EntryRow, fetch_duplicates, fetch_entry_detail_opt, get_json};
-use crate::catalog_refresh::CatalogRefresh;
+use crate::api::fetch_entry_detail_opt;
+use crate::catalog_data::CatalogData;
 use crate::focus::{UiNav, id_list_nav, install_list_nav};
 use crate::nav::MainMode;
 use crate::panes::{EntryRightPane, PanelRow, PathsPane, ThreePane};
@@ -20,20 +20,10 @@ use crate::space_menu::SpaceMenuCtx;
 pub(crate) fn DuplicatesMode() -> impl IntoView {
     let search = CatalogSearch::expect();
     let space_menu = SpaceMenuCtx::expect();
-    let refresh = CatalogRefresh::expect();
-    let catalog = LocalResource::new(move || {
-        let _ = refresh.tick.get();
-        async move { fetch_duplicates().await }
-    });
+    let shared = CatalogData::expect();
+    let catalog = shared.duplicates;
     // Size / Mod sort needs catalog sizes — same `/entries` payload Snapshot uses.
-    let entries = LocalResource::new(move || {
-        let _ = refresh.tick.get();
-        async move {
-            get_json::<Vec<EntryRow>>("/entries")
-                .await
-                .unwrap_or_default()
-        }
-    });
+    let entries = shared.entries;
     let (selected_id, set_selected_id) = signal::<Option<usize>>(None);
     let (selected_path, set_selected_path) = signal::<Option<String>>(None);
     let sort_ctx = ContentSortCtx::expect();

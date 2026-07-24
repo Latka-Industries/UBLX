@@ -2,7 +2,7 @@
 
 use leptos::prelude::*;
 
-/// Bump `tick` so Snapshot / Lenses / Dupes LocalResources refetch.
+/// Bump `tick` so shell [`crate::catalog_data::CatalogData`] resources refetch.
 #[derive(Clone, Copy)]
 pub(crate) struct CatalogRefresh {
     pub tick: RwSignal<u32>,

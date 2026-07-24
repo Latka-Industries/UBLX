@@ -8,6 +8,8 @@
 #[cfg(target_arch = "wasm32")]
 mod api;
 #[cfg(target_arch = "wasm32")]
+mod catalog_data;
+#[cfg(target_arch = "wasm32")]
 mod catalog_refresh;
 #[cfg(target_arch = "wasm32")]
 mod command_mode;

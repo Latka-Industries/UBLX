@@ -6,6 +6,7 @@ use wasm_bindgen::JsCast;
 use web_sys::KeyboardEvent;
 
 use crate::api::{CatalogFlags, format_timestamp_ns};
+use crate::catalog_data::CatalogData;
 use crate::catalog_refresh::CatalogRefresh;
 use crate::command_mode::{CommandModeCtx, CommandModePopup, open_root_picker};
 use crate::focus::{PaneFocus, PdfPageNav, PreviewKeysBus, RightTabBus, UiNav};
@@ -35,6 +36,7 @@ pub(crate) fn Shell(flags: CatalogFlags) -> impl IntoView {
     let help = HelpOverlay::provide();
     let multiselect = MultiselectCtx::provide();
     let catalog_refresh = CatalogRefresh::provide();
+    CatalogData::provide(catalog_refresh);
     let toasts = ToastCtx::provide();
     let space_menu = SpaceMenuCtx::provide(catalog_refresh, multiselect, toasts);
     space_menu.catalog_root.set(flags.get_value().root.clone());

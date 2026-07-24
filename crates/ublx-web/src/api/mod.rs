@@ -11,13 +11,14 @@ mod roots;
 mod settings;
 
 pub(crate) use catalog::{
-    CatalogFlags, fetch_duplicates, fetch_lens_entries, fetch_lens_names, load_catalog_flags,
+    CatalogFlags, DuplicatesResponse, fetch_duplicates, fetch_lens_entries, fetch_lens_names,
+    load_catalog_flags,
 };
 pub(crate) use content::{
     CONTENT_WINDOW_BYTES, CONTENT_WINDOW_MIN_FILE_BYTES, EntryContent, fetch_entry_content,
     fetch_entry_content_page, fetch_entry_content_themed, fetch_entry_content_window,
 };
-pub(crate) use delta::{DeltaKind, DeltaRow, fetch_delta_catalog};
+pub(crate) use delta::{DeltaCatalog, DeltaKind, DeltaRow, fetch_delta_catalog};
 pub(crate) use entries::{
     EntryDetail, EntryRow, SectionView, TreeNodeView, fetch_entry_detail_opt, fetch_entry_zahir_raw,
 };
