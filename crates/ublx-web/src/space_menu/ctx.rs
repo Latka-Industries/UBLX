@@ -11,7 +11,7 @@ use crate::api::{
     api_enhance, api_enhance_policy, api_remove_from_lens, api_rename, api_rename_lens,
     fetch_entry_zahir_raw, fetch_lens_names,
 };
-use crate::catalog_refresh::CatalogRefresh;
+use crate::catalog_refresh::{CatalogRefresh, CatalogScope};
 use crate::focus::PaneFocus;
 use crate::multiselect::MultiselectCtx;
 use crate::nav::MainMode;
@@ -321,10 +321,7 @@ impl SpaceMenuCtx {
                         self,
                         refresh,
                         ms,
-                        ApiEffects {
-                            clear: false,
-                            bump: true,
-                        },
+                        ApiEffects::refresh(CatalogScope::LENSES),
                         async move {
                             api_delete_lens(&name)
                                 .await
@@ -332,14 +329,12 @@ impl SpaceMenuCtx {
                         },
                     );
                 } else {
+                    // Removing paths reaches lens members and the derived dupe/delta views.
                     spawn_api(
                         self,
                         refresh,
                         ms,
-                        ApiEffects {
-                            clear: true,
-                            bump: true,
-                        },
+                        ApiEffects::refresh_and_clear(CatalogScope::ALL),
                         api_delete(paths),
                     );
                 }
@@ -374,10 +369,7 @@ impl SpaceMenuCtx {
                     self,
                     refresh,
                     ms,
-                    ApiEffects {
-                        clear: true,
-                        bump: true,
-                    },
+                    ApiEffects::refresh_and_clear(CatalogScope::LENSES),
                     async move { api_add_to_lens(&name, paths).await },
                 );
             }
@@ -426,14 +418,12 @@ impl SpaceMenuCtx {
             (SpaceMenuKind::File { path, .. }, 'z') => {
                 self.close();
                 let path = path.clone();
+                // Enhance rewrites Zahir payloads carried by entry and lens member rows.
                 spawn_api(
                     self,
                     refresh,
                     ms,
-                    ApiEffects {
-                        clear: false,
-                        bump: true,
-                    },
+                    ApiEffects::refresh(CatalogScope::ENTRIES | CatalogScope::LENSES),
                     api_enhance(vec![path]),
                 );
             }
@@ -463,10 +453,7 @@ impl SpaceMenuCtx {
                     self,
                     refresh,
                     ms,
-                    ApiEffects {
-                        clear: false,
-                        bump: true,
-                    },
+                    ApiEffects::refresh(CatalogScope::LENSES),
                     async move { api_remove_from_lens(&lens, vec![path]).await },
                 );
             }
@@ -541,10 +528,7 @@ impl SpaceMenuCtx {
                         self,
                         refresh,
                         ms,
-                        ApiEffects {
-                            clear: true,
-                            bump: true,
-                        },
+                        ApiEffects::refresh_and_clear(CatalogScope::LENSES),
                         async move { api_remove_from_lens(&lens, paths).await },
                     );
                 } else {
@@ -558,10 +542,7 @@ impl SpaceMenuCtx {
                     self,
                     refresh,
                     ms,
-                    ApiEffects {
-                        clear: true,
-                        bump: true,
-                    },
+                    ApiEffects::refresh_and_clear(CatalogScope::ENTRIES | CatalogScope::LENSES),
                     api_enhance(paths),
                 );
             }
@@ -588,14 +569,17 @@ impl SpaceMenuCtx {
         }
         self.close();
         let refresh = self.refresh;
+        // Renaming a lens only moves its label; renaming a file moves the path everywhere.
+        let scope = if lens {
+            CatalogScope::LENSES
+        } else {
+            CatalogScope::ALL
+        };
         spawn_api(
             self,
             refresh,
             self.multiselect,
-            ApiEffects {
-                clear: false,
-                bump: true,
-            },
+            ApiEffects::refresh(scope),
             async move {
                 if lens {
                     api_rename_lens(&target, &name).await
@@ -622,10 +606,7 @@ impl SpaceMenuCtx {
             self,
             self.refresh,
             self.multiselect,
-            ApiEffects {
-                clear: true,
-                bump: true,
-            },
+            ApiEffects::refresh_and_clear(CatalogScope::LENSES),
             async move { api_create_lens(&name, paths).await },
         );
     }
@@ -656,10 +637,7 @@ impl SpaceMenuCtx {
             self,
             self.refresh,
             self.multiselect,
-            ApiEffects {
-                clear: true,
-                bump: true,
-            },
+            ApiEffects::refresh_and_clear(CatalogScope::ALL),
             api_bulk_rename(renames),
         );
     }
@@ -717,15 +695,29 @@ impl SpaceMenuCtx {
 #[derive(Clone, Copy)]
 struct ApiEffects {
     clear: bool,
-    bump: bool,
+    scope: CatalogScope,
 }
 
 impl ApiEffects {
+    /// Toast only — nothing in the catalog changed.
     const fn flash_only() -> Self {
         Self {
             clear: false,
-            bump: false,
+            scope: CatalogScope::NONE,
         }
+    }
+
+    /// Refetch `scope`, keeping the current multi-select.
+    const fn refresh(scope: CatalogScope) -> Self {
+        Self {
+            clear: false,
+            scope,
+        }
+    }
+
+    /// Refetch `scope` and drop the multi-select, whose rows may be gone.
+    const fn refresh_and_clear(scope: CatalogScope) -> Self {
+        Self { clear: true, scope }
     }
 }
 
@@ -742,9 +734,7 @@ fn spawn_api(
                 if effects.clear {
                     ms.clear();
                 }
-                if effects.bump {
-                    refresh.bump();
-                }
+                refresh.bump(effects.scope);
                 ctx.flash(msg);
             }
             Err(e) => ctx.flash_err(e),
