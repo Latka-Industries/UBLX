@@ -106,17 +106,10 @@ pub(super) async fn get_entry_content(
     let want_html = content_want_html(q.format.as_deref(), zahir_type, &row.path)?;
     let pdf_page = q.page.unwrap_or(1).max(1);
     let (format, content) = if want_html {
-        let appearance = settings_api::effective_appearance(&dir);
+        let palette = settings_api::effective_palette(&dir);
         (
             "html".into(),
-            content_to_html(
-                &text,
-                &row.path,
-                &abs,
-                zahir_type,
-                appearance,
-                Some(pdf_page),
-            ),
+            content_to_html(&text, &row.path, &abs, zahir_type, palette, Some(pdf_page)),
         )
     } else {
         ("text".into(), text)

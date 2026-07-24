@@ -15,13 +15,13 @@ pub(super) fn content_to_html(
     path: &str,
     abs: &Path,
     zahir_type: Option<ZahirFT>,
-    appearance: crate::themes::Appearance,
+    palette: &crate::themes::Palette,
     page: Option<u32>,
 ) -> String {
     match zahir_type {
         Some(ZahirFT::Markdown) => markdown_to_html(text),
         Some(ft) if syntect_text::uses_syntect_ft(ft) => {
-            syntect_text::highlight_viewer_html(text, path, ft, appearance)
+            syntect_text::highlight_viewer_html(text, path, ft, palette)
         }
         Some(ZahirFT::Csv) => csv_handler::delimited_to_html(text, path),
         Some(ZahirFT::Text) => format!("<pre>{}</pre>", html_escape_minimal(text)),

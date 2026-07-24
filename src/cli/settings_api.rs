@@ -135,12 +135,12 @@ pub fn effective_typed_column_tables(dir: &Path) -> ColumnStatsDisplay {
     overlay_typed_column_tables(&effective_overlay(dir, &name_refs))
 }
 
-/// Effective theme appearance (dark/light) for syntect HTML in `/content`.
+/// Effective UBLX palette (merged overlay theme) for syntect HTML in `/content`.
 #[must_use]
-pub fn effective_appearance(dir: &Path) -> themes::Appearance {
+pub fn effective_palette(dir: &Path) -> &'static themes::Palette {
     let names: Vec<String> = theme_names().into_iter().map(str::to_string).collect();
     let name_refs: Vec<&str> = names.iter().map(String::as_str).collect();
-    themes::get(effective_overlay(dir, &name_refs).theme.as_deref()).appearance
+    themes::get(effective_overlay(dir, &name_refs).theme.as_deref())
 }
 
 fn parse_typed_column_tables(raw: &str) -> Result<ColumnStatsDisplay, String> {
