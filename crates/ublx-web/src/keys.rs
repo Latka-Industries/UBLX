@@ -5,7 +5,7 @@ use web_sys::KeyboardEvent;
 use crate::nav::MainMode;
 use crate::panes::RightTab;
 
-/// Actions the web shell handles. Command Mode later.
+/// Actions the web shell handles.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum WebAction {
     SearchStart,
@@ -46,6 +46,32 @@ pub(crate) enum WebAction {
     ViewerFindPrev,
     /// Clear Viewer find (Esc while committed).
     ViewerFindClear,
+    /// Ctrl+Space — enter/exit multi-select (Snapshot / Lenses, contents).
+    MultiselectToggleMode,
+    /// Space — toggle cursor row while multi-select is active.
+    MultiselectToggleRow,
+    /// Esc — exit multi-select.
+    MultiselectCancel,
+    /// `a` — open bulk menu while multi-select is active.
+    MultiselectOpenBulk,
+    /// Space — open quick-actions (when multi-select is off).
+    SpaceMenuOpen,
+    SpaceMenuMoveUp,
+    SpaceMenuMoveDown,
+    SpaceMenuSubmit,
+    SpaceMenuClose,
+    /// Letter hotkey while Space / bulk menu is open.
+    SpaceMenuHotkey(char),
+    /// Menu open — swallow unmatched keys.
+    SpaceMenuAbsorb,
+    /// Ctrl+leader — start Command Mode chord.
+    CommandModeBegin,
+    CommandModeClose,
+    CommandModeHotkey(char),
+    CommandModeMoveUp,
+    CommandModeMoveDown,
+    CommandModeSubmit,
+    CommandModeAbsorb,
 }
 
 /// Extra keymap gates for Viewer find (TUI `KeyActionContext` subset).
@@ -59,6 +85,36 @@ pub(crate) struct FindKeyCtx {
     pub allow: bool,
 }
 
+/// Extra keymap gates for multi-select.
+#[derive(Clone, Copy, Debug, Default)]
+pub(crate) struct MultiselectKeyCtx {
+    pub active: bool,
+    /// Snapshot or Lenses.
+    pub applies: bool,
+    /// Contents (middle) pane focused.
+    pub middle_focused: bool,
+}
+
+/// Extra keymap gates for Space / bulk menu.
+#[derive(Clone, Copy, Debug, Default)]
+pub(crate) struct SpaceMenuKeyCtx {
+    pub open: bool,
+    /// Snapshot / Lenses / Duplicates (not Delta / Settings).
+    pub can_open: bool,
+}
+
+/// Extra keymap gates for Command Mode (Ctrl+leader).
+#[derive(Clone, Copy, Debug, Default)]
+pub(crate) struct CommandModeKeyCtx {
+    /// Chord pending, menu open, or theme/root picker open.
+    pub active: bool,
+    /// Theme / root picker (j/k Enter instead of letter actions).
+    pub picker: bool,
+    /// Help, Space menu, Settings, catalog search — do not begin chord.
+    pub blocked: bool,
+    pub leader: char,
+}
+
 /// Map a keydown to a [`WebAction`]. Returns `None` when the event should pass through.
 ///
 /// Caller must skip invoking this while a form field (including catalog / find inputs) is focused.
@@ -68,6 +124,9 @@ pub(crate) fn action_from_keydown(
     ev: &KeyboardEvent,
     help_open: bool,
     find: FindKeyCtx,
+    ms: MultiselectKeyCtx,
+    space: SpaceMenuKeyCtx,
+    cmd: CommandModeKeyCtx,
 ) -> Option<WebAction> {
     let key = ev.key();
     let code = ev.code();
@@ -105,6 +164,72 @@ pub(crate) fn action_from_keydown(
         return Some(WebAction::HelpAbsorb);
     }
 
+    // Command Mode chord / pickers (before Space menu so Esc closes the right overlay).
+    if cmd.active {
+        if !ctrl && key == "Escape" {
+            return Some(WebAction::CommandModeClose);
+        }
+        if cmd.picker {
+            if !ctrl && !shift && (key == "Enter" || key == " ") {
+                return Some(WebAction::CommandModeSubmit);
+            }
+            if !ctrl && !shift {
+                match key.as_str() {
+                    "ArrowUp" | "k" | "K" => return Some(WebAction::CommandModeMoveUp),
+                    "ArrowDown" | "j" | "J" => return Some(WebAction::CommandModeMoveDown),
+                    _ => {}
+                }
+                match code.as_str() {
+                    "ArrowUp" => return Some(WebAction::CommandModeMoveUp),
+                    "ArrowDown" => return Some(WebAction::CommandModeMoveDown),
+                    _ => {}
+                }
+            }
+            return Some(WebAction::CommandModeAbsorb);
+        }
+        if !ctrl && !shift && key.len() == 1 {
+            let c = key.chars().next()?.to_ascii_lowercase();
+            if c.is_ascii_alphabetic() {
+                return Some(WebAction::CommandModeHotkey(c));
+            }
+        }
+        return Some(WebAction::CommandModeAbsorb);
+    }
+
+    // Ctrl+leader begins Command Mode (not in Settings / help / search / Space menu).
+    if ctrl && !shift && !cmd.blocked {
+        let leader = cmd.leader.to_ascii_lowercase();
+        let hit = key.to_ascii_lowercase().starts_with(leader)
+            || code.eq_ignore_ascii_case(&format!("Key{}", leader.to_ascii_uppercase()));
+        if hit {
+            return Some(WebAction::CommandModeBegin);
+        }
+    }
+
+    if space.open {
+        if !ctrl && key == "Escape" {
+            return Some(WebAction::SpaceMenuClose);
+        }
+        if !ctrl && !shift && (key == "Enter" || key == " ") {
+            return Some(WebAction::SpaceMenuSubmit);
+        }
+        // Letter hotkeys win over j/k move (TUI: `j` = Copy Zahir JSON when that row exists).
+        if !ctrl && !shift && key.len() == 1 {
+            let c = key.chars().next()?.to_ascii_lowercase();
+            if c.is_ascii_alphabetic() || c.is_ascii_digit() {
+                return Some(WebAction::SpaceMenuHotkey(c));
+            }
+        }
+        if !ctrl && !shift {
+            match key.as_str() {
+                "ArrowUp" => return Some(WebAction::SpaceMenuMoveUp),
+                "ArrowDown" => return Some(WebAction::SpaceMenuMoveDown),
+                _ => {}
+            }
+        }
+        return Some(WebAction::SpaceMenuAbsorb);
+    }
+
     if shift && !ctrl && key == "Tab" {
         return Some(WebAction::CycleRightTab);
     }
@@ -126,6 +251,28 @@ pub(crate) fn action_from_keydown(
         if shift && (key == "N" || key == "n" || code == "KeyN") {
             return Some(WebAction::ViewerFindPrev);
         }
+    }
+
+    // Multi-select: Ctrl+Space toggle; Space row toggle; Esc exit (after find Esc).
+    if ctrl && !shift && (key == " " || code == "Space") {
+        if ms.applies && ms.middle_focused {
+            return Some(WebAction::MultiselectToggleMode);
+        }
+        return None;
+    }
+    if ms.active && !ctrl && !shift && (key == " " || code == "Space") {
+        return Some(WebAction::MultiselectToggleRow);
+    }
+    if ms.active && !ctrl && key == "Escape" {
+        return Some(WebAction::MultiselectCancel);
+    }
+    if ms.active && !ctrl && !shift && (key == "a" || key == "A") {
+        return Some(WebAction::MultiselectOpenBulk);
+    }
+
+    // Space opens quick-actions when multi-select is off.
+    if !ms.active && !ctrl && !shift && (key == " " || code == "Space") && space.can_open {
+        return Some(WebAction::SpaceMenuOpen);
     }
 
     // Preview scroll / PDF page nav (TUI Shift+J/K/B/E + Shift+arrows).

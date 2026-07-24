@@ -6,8 +6,11 @@ class Ublx < Formula
   sha256 "e53309d02056b53d8e3c9c2fe5c4bf0e919ffca12110a8be4d536c7d6dd13682"
   license any_of: ["MIT", "Apache-2.0"]
 
+  depends_on "node" => :build
   depends_on "pkgconf" => :build
   depends_on "rust" => :build
+  depends_on "rustup" => :build
+  depends_on "wasm-bindgen" => :build
 
   depends_on "ffmpeg"
   depends_on "hdf5"
@@ -26,7 +29,18 @@ class Ublx < Formula
     ENV["NETCDF_DIR"] = netcdf
     ENV.prepend_path "PKG_CONFIG_PATH", "#{hdf5}/lib/pkgconfig"
     ENV.prepend_path "PKG_CONFIG_PATH", "#{netcdf}/lib/pkgconfig"
-    system "cargo", "install", *std_cargo_args
+
+    # Embedded serve UI (`--features ui`): wasm32 + Tailwind → dist/, then embed.
+    # rustup is keg-only; same pattern as homebrew-core `wasm-bindgen` tests.
+    ENV.prepend_path "PATH", Formula["rustup"].opt_bin
+    system "rustup", "set", "profile", "minimal"
+    system "rustup", "default", "stable"
+    system "rustup", "target", "add", "wasm32-unknown-unknown"
+    ENV.delete "RUSTFLAGS"
+    ENV.delete "CARGO_ENCODED_RUSTFLAGS"
+
+    system "./crates/ublx-web/build.sh"
+    system "cargo", "install", *std_cargo_args(features: "ui")
   end
 
   test do

@@ -2,16 +2,23 @@
 
 use leptos::prelude::*;
 
-use crate::api::{fetch_entry_detail, fetch_lens_entries, fetch_lens_names};
+use crate::api::{fetch_entry_detail_opt, fetch_lens_entries, fetch_lens_names};
+use crate::catalog_refresh::CatalogRefresh;
 use crate::focus::{UiNav, install_list_nav, string_list_nav};
 use crate::nav::MainMode;
 use crate::panes::{EntryRightPane, PanelRow, PathsPane, ThreePane};
 use crate::search::{CatalogSearch, empty_list_message, filter_labels, filter_paths, path_rows};
+use crate::space_menu::SpaceMenuCtx;
 
 #[component]
 pub(crate) fn LensesMode() -> impl IntoView {
     let search = CatalogSearch::expect();
-    let lenses = LocalResource::new(fetch_lens_names);
+    let space_menu = SpaceMenuCtx::expect();
+    let refresh = CatalogRefresh::expect();
+    let lenses = LocalResource::new(move || {
+        let _ = refresh.tick.get();
+        async move { fetch_lens_names().await }
+    });
     let (selected_lens, set_selected_lens) = signal::<Option<String>>(None);
     let (selected_path, set_selected_path) = signal::<Option<String>>(None);
 
@@ -38,6 +45,7 @@ pub(crate) fn LensesMode() -> impl IntoView {
     });
 
     let members = LocalResource::new(move || {
+        let _ = refresh.tick.get();
         let name = selected_lens.get();
         async move {
             match name {
@@ -58,14 +66,18 @@ pub(crate) fn LensesMode() -> impl IntoView {
         path_rows(filter_paths(&raw, &q))
     });
 
+    let path_categories = Signal::derive(move || {
+        members
+            .get()
+            .unwrap_or_default()
+            .into_iter()
+            .map(|r| (r.path, r.category))
+            .collect::<std::collections::HashMap<_, _>>()
+    });
+
     let detail = LocalResource::new(move || {
         let path = selected_path.get();
-        async move {
-            match path {
-                Some(p) => fetch_entry_detail(&p).await.ok(),
-                None => None,
-            }
-        }
+        async move { fetch_entry_detail_opt(path).await }
     });
     let detail_signal = Signal::derive(move || detail.get().flatten());
 
@@ -73,6 +85,9 @@ pub(crate) fn LensesMode() -> impl IntoView {
     let (lens_nav, set_lens_nav) = signal(selected_lens.get_untracked());
     Effect::new(move |_| {
         set_lens_nav.set(selected_lens.get());
+    });
+    Effect::new(move |_| {
+        space_menu.left_label.set(selected_lens.get());
     });
     Effect::new(move |_| {
         let b = lens_nav.get();
@@ -137,6 +152,7 @@ pub(crate) fn LensesMode() -> impl IntoView {
                         paths=paths
                         selected=selected_path.into()
                         on_select=Callback::new(move |p| set_selected_path.set(Some(p)))
+                        path_categories=path_categories
                     />
                 </Suspense>
             }

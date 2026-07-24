@@ -4,7 +4,8 @@ use std::sync::Arc;
 
 use leptos::prelude::*;
 
-use crate::api::{EntryRow, fetch_entry_detail, get_json};
+use crate::api::{EntryRow, fetch_entry_detail_opt, get_json};
+use crate::catalog_refresh::CatalogRefresh;
 use crate::focus::{UiNav, install_list_nav, string_list_nav};
 use crate::nav::MainMode;
 use crate::panes::{EntryRightPane, PanelRow, PathsPane, ThreePane};
@@ -23,27 +24,29 @@ struct SlimEntry {
 #[component]
 pub(crate) fn SnapshotMode() -> impl IntoView {
     let search = CatalogSearch::expect();
-    let categories = LocalResource::new(|| async move {
-        get_json::<Vec<String>>("/categories")
-            .await
-            .unwrap_or_default()
+    let refresh = CatalogRefresh::expect();
+    let categories = LocalResource::new(move || {
+        let _ = refresh.tick.get();
+        async move {
+            get_json::<Vec<String>>("/categories")
+                .await
+                .unwrap_or_default()
+        }
     });
     // Full catalog once — needed so category visibility can see matches in other categories.
-    let entries = LocalResource::new(|| async move {
-        get_json::<Vec<EntryRow>>("/entries")
-            .await
-            .unwrap_or_default()
+    let entries = LocalResource::new(move || {
+        let _ = refresh.tick.get();
+        async move {
+            get_json::<Vec<EntryRow>>("/entries")
+                .await
+                .unwrap_or_default()
+        }
     });
     let (selected_cat, set_selected_cat) = signal::<Option<String>>(None);
     let (selected_path, set_selected_path) = signal::<Option<String>>(None);
     let detail = LocalResource::new(move || {
         let path = selected_path.get();
-        async move {
-            match path {
-                Some(p) => fetch_entry_detail(&p).await.ok(),
-                None => None,
-            }
-        }
+        async move { fetch_entry_detail_opt(path).await }
     });
     let detail_signal = Signal::derive(move || detail.get().flatten());
 
@@ -113,6 +116,13 @@ pub(crate) fn SnapshotMode() -> impl IntoView {
             .collect();
         sort_snapshot_rows(&mut rows, sort);
         path_rows(rows.into_iter().map(|(p, _, _)| p))
+    });
+
+    let path_categories = Signal::derive(move || {
+        slim.get()
+            .iter()
+            .map(|r| (r.path.clone(), r.category.clone()))
+            .collect::<std::collections::HashMap<_, _>>()
     });
 
     Effect::new(move |_| {
@@ -201,6 +211,7 @@ pub(crate) fn SnapshotMode() -> impl IntoView {
                         paths=paths.into()
                         selected=selected_path.into()
                         on_select=Callback::new(move |p| set_selected_path.set(Some(p)))
+                        path_categories=path_categories
                     />
                 </Suspense>
             }

@@ -7,7 +7,7 @@
   width: calc(100% - 14px);
   min-height: calc(100vh - 14px);
   margin: 7px;
-  background: hsl(var(--background));
+  background: transparent;
   color: hsl(var(--foreground));
 }
 
@@ -31,7 +31,7 @@
   height: calc(100% - 14px);
   min-height: calc(100vh - 14px);
   margin: 7px;
-  background: hsl(var(--background));
+  background: transparent;
   color: hsl(var(--foreground));
 }
 
@@ -41,7 +41,7 @@
   gap: 0.5rem;
   padding: 0.35rem 0.6rem;
   border-bottom: 1px solid hsl(var(--border));
-  background: hsl(var(--background));
+  background: transparent;
 }
 
 .main-tabs {
@@ -69,14 +69,30 @@
 
 /* TUI gap row under tabs: centered indexed project path (`Palette::hint`) */
 .project-path {
+  display: block;
+  width: 100%;
+  margin: 0;
   padding: 0.2rem 0.75rem 0.35rem;
   text-align: center;
   color: hsl(var(--hint));
+  font-family: inherit;
   font-size: 0.85rem;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  border: 0;
   border-bottom: 1px solid hsl(var(--border) / 0.5);
+  background: transparent;
+  cursor: pointer;
+}
+
+.project-path:hover {
+  color: hsl(var(--primary));
+}
+
+.project-path:focus-visible {
+  outline: 1px solid hsl(var(--primary) / 0.55);
+  outline-offset: -2px;
 }
 
 .mode-body {
@@ -87,7 +103,7 @@
 .status-chrome {
   border-top: 1px solid hsl(var(--border));
   padding: 0.3rem 0.5rem;
-  background: hsl(var(--background));
+  background: transparent;
 }
 
 .footer-nodes {

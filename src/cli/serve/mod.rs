@@ -3,17 +3,20 @@
 mod catalog;
 mod content;
 mod error;
+mod export;
+mod fs;
+mod lenses_mut;
 mod roots;
 mod settings;
 mod snapshot;
 mod state;
 
 #[cfg(feature = "ui")]
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
 use axum::Router;
-use axum::routing::get;
+use axum::routing::{get, post};
 use log::info;
 #[cfg(feature = "ui")]
 use log::warn;
@@ -27,6 +30,11 @@ use self::catalog::{
     get_categories, get_delta, get_duplicates, get_entries, get_entry, get_lens, get_lenses,
 };
 use self::content::get_entry_content;
+use self::export::{post_export_lenses, post_export_zahir};
+use self::fs::{post_bulk_rename, post_delete, post_enhance, post_enhance_policy, post_rename};
+use self::lenses_mut::{
+    delete_lens_paths, delete_lens_route, patch_lens, post_lens, post_lens_paths,
+};
 use self::roots::{get_current_root, get_doctor, get_roots, put_current_root};
 use self::settings::{get_settings, patch_settings_route};
 use self::snapshot::{get_snapshot, post_snapshot};
@@ -67,8 +75,22 @@ pub fn run(args: &ServeCli) -> Result<(), anyhow::Error> {
         .route("/content/{*path}", get(get_entry_content))
         .route("/delta", get(get_delta))
         .route("/duplicates", get(get_duplicates))
-        .route("/lenses", get(get_lenses))
-        .route("/lenses/{name}", get(get_lens))
+        .route("/lenses", get(get_lenses).post(post_lens))
+        .route(
+            "/lenses/{name}",
+            get(get_lens).patch(patch_lens).delete(delete_lens_route),
+        )
+        .route(
+            "/lenses/{name}/paths",
+            post(post_lens_paths).delete(delete_lens_paths),
+        )
+        .route("/fs/rename", post(post_rename))
+        .route("/fs/bulk-rename", post(post_bulk_rename))
+        .route("/fs/delete", post(post_delete))
+        .route("/fs/enhance", post(post_enhance))
+        .route("/fs/enhance-policy", post(post_enhance_policy))
+        .route("/export/zahir", post(post_export_zahir))
+        .route("/export/lenses", post(post_export_lenses))
         .route(
             "/settings/{scope}",
             get(get_settings).patch(patch_settings_route),
@@ -86,22 +108,30 @@ pub fn run(args: &ServeCli) -> Result<(), anyhow::Error> {
     ))
 }
 
-/// Optional Leptos UI (`--features ui`): serve `crates/ublx-web/dist` (or `UBLX_WEB_DIST`).
+/// Optional Leptos UI (`--features ui`): Embedded by default; `UBLX_WEB_DIST` → Dir (dev loop).
 fn static_mount() -> StaticMount {
     #[cfg(feature = "ui")]
     {
-        let dir = std::env::var_os("UBLX_WEB_DIST")
-            .map(PathBuf::from)
-            .unwrap_or_else(|| Path::new(env!("CARGO_MANIFEST_DIR")).join("crates/ublx-web/dist"));
-        if !dir.join("index.html").is_file() {
-            warn!(
-                "feature `ui` enabled but {}/index.html missing — run crates/ublx-web/build.sh",
-                dir.display()
-            );
-        } else {
-            info!("serve UI static mount: {}", dir.display());
+        if let Some(dir) = std::env::var_os("UBLX_WEB_DIST").map(PathBuf::from) {
+            if !dir.join("index.html").is_file() {
+                warn!(
+                    "UBLX_WEB_DIST={}/index.html missing — run crates/ublx-web/build.sh",
+                    dir.display()
+                );
+            } else {
+                info!("serve UI static mount (Dir): {}", dir.display());
+            }
+            return StaticMount::Dir(dir);
         }
-        StaticMount::Dir(dir)
+        let assets = ublx_web::embedded_assets();
+        if assets.contains_key("index.html") {
+            info!("serve UI static mount (Embedded): {} assets", assets.len());
+        } else {
+            warn!(
+                "feature `ui` Embedded map has no index.html — rebuild after crates/ublx-web/build.sh"
+            );
+        }
+        StaticMount::Embedded(assets)
     }
     #[cfg(not(feature = "ui"))]
     {

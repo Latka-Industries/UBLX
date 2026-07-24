@@ -43,6 +43,9 @@ pub(super) struct EntryContentQuery {
     /// Max bytes to return from `offset` (`format=text` only). Caps at half MiB. Explore #12.
     #[serde(default)]
     limit: Option<u64>,
+    /// Optional UBLX palette name for syntect HTML (theme picker live preview).
+    #[serde(default)]
+    theme: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -99,24 +102,20 @@ pub(super) async fn get_entry_content(
 
     // Directory / Zarr store path: structured tree for web (TUI still uses `tree` text).
     if abs.is_dir() {
-        return directory_tree_content_response(&row, &abs);
+        return Ok(directory_tree_content_response(&row, &abs));
     }
 
     let text = file_content_for_viewer(&abs, zahir_type).unwrap_or_else(|| "(empty)".into());
     let want_html = content_want_html(q.format.as_deref(), zahir_type, &row.path)?;
     let pdf_page = q.page.unwrap_or(1).max(1);
     let (format, content) = if want_html {
-        let appearance = settings_api::effective_appearance(&dir);
+        let palette = match q.theme.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
+            Some(name) => crate::themes::get(Some(name)),
+            None => settings_api::effective_palette(&dir),
+        };
         (
             "html".into(),
-            content_to_html(
-                &text,
-                &row.path,
-                &abs,
-                zahir_type,
-                appearance,
-                Some(pdf_page),
-            ),
+            content_to_html(&text, &row.path, &abs, zahir_type, palette, Some(pdf_page)),
         )
     } else {
         ("text".into(), text)
@@ -144,11 +143,11 @@ pub(super) async fn get_entry_content(
     .into_response())
 }
 
-fn directory_tree_content_response(row: &EntryRow, abs: &Path) -> Result<Response, ApiError> {
+fn directory_tree_content_response(row: &EntryRow, abs: &Path) -> Response {
     let roots = directory_tree_nodes(abs);
     let tree: Vec<TreeNodeView> = roots.iter().map(tree_node_to_view).collect();
     let content = tree_roots_to_lines(&roots).join("\n");
-    Ok(Json(EntryContentResponse {
+    Json(EntryContentResponse {
         path: row.path.clone(),
         category: row.category.clone(),
         format: "tree".into(),
@@ -161,7 +160,7 @@ fn directory_tree_content_response(row: &EntryRow, abs: &Path) -> Result<Respons
         total_bytes: None,
         tree: Some(tree),
     })
-    .into_response())
+    .into_response()
 }
 
 fn content_want_html(

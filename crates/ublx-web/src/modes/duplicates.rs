@@ -5,7 +5,8 @@ use std::sync::Arc;
 
 use leptos::prelude::*;
 
-use crate::api::{EntryRow, fetch_duplicates, fetch_entry_detail, get_json};
+use crate::api::{EntryRow, fetch_duplicates, fetch_entry_detail_opt, get_json};
+use crate::catalog_refresh::CatalogRefresh;
 use crate::focus::{UiNav, id_list_nav, install_list_nav};
 use crate::nav::MainMode;
 use crate::panes::{EntryRightPane, PanelRow, PathsPane, ThreePane};
@@ -13,16 +14,25 @@ use crate::search::{
     CatalogSearch, empty_list_message, filter_paths, fuzzy_matches_field, path_rows,
 };
 use crate::sort::{ContentSortCtx, sort_snapshot_rows};
+use crate::space_menu::SpaceMenuCtx;
 
 #[component]
 pub(crate) fn DuplicatesMode() -> impl IntoView {
     let search = CatalogSearch::expect();
-    let catalog = LocalResource::new(fetch_duplicates);
+    let space_menu = SpaceMenuCtx::expect();
+    let refresh = CatalogRefresh::expect();
+    let catalog = LocalResource::new(move || {
+        let _ = refresh.tick.get();
+        async move { fetch_duplicates().await }
+    });
     // Size / Mod sort needs catalog sizes — same `/entries` payload Snapshot uses.
-    let entries = LocalResource::new(|| async move {
-        get_json::<Vec<EntryRow>>("/entries")
-            .await
-            .unwrap_or_default()
+    let entries = LocalResource::new(move || {
+        let _ = refresh.tick.get();
+        async move {
+            get_json::<Vec<EntryRow>>("/entries")
+                .await
+                .unwrap_or_default()
+        }
     });
     let (selected_id, set_selected_id) = signal::<Option<usize>>(None);
     let (selected_path, set_selected_path) = signal::<Option<String>>(None);
@@ -37,6 +47,15 @@ pub(crate) fn DuplicatesMode() -> impl IntoView {
                 .map(|e| (e.path, (e.size, e.mtime_ns)))
                 .collect::<HashMap<_, _>>(),
         )
+    });
+
+    let path_categories = Signal::derive(move || {
+        entries
+            .get()
+            .unwrap_or_default()
+            .into_iter()
+            .map(|e| (e.path, e.category))
+            .collect::<HashMap<_, _>>()
     });
 
     let visible_groups = Signal::derive(move || {
@@ -74,11 +93,15 @@ pub(crate) fn DuplicatesMode() -> impl IntoView {
         let id = selected_id.get();
         let q = search.trimmed.get();
         let sort = sort_ctx.sort.get();
+        let ignored = space_menu.ignored.get();
         let raw = groups
             .into_iter()
             .find(|g| Some(g.id) == id)
             .map(|g| g.paths)
-            .unwrap_or_default();
+            .unwrap_or_default()
+            .into_iter()
+            .filter(|p| !ignored.contains(p))
+            .collect::<Vec<_>>();
         let filtered = filter_paths(&raw, &q);
         if !q.trim().is_empty() {
             return path_rows(filtered);
@@ -97,12 +120,7 @@ pub(crate) fn DuplicatesMode() -> impl IntoView {
 
     let detail = LocalResource::new(move || {
         let path = selected_path.get();
-        async move {
-            match path {
-                Some(p) => fetch_entry_detail(&p).await.ok(),
-                None => None,
-            }
-        }
+        async move { fetch_entry_detail_opt(path).await }
     });
     let detail_signal = Signal::derive(move || detail.get().flatten());
 
@@ -186,6 +204,7 @@ pub(crate) fn DuplicatesMode() -> impl IntoView {
                         paths=paths.into()
                         selected=selected_path.into()
                         on_select=Callback::new(move |p| set_selected_path.set(Some(p)))
+                        path_categories=path_categories
                     />
                 </Suspense>
             }

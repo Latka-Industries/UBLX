@@ -7,13 +7,28 @@ use wasm_bindgen::closure::Closure;
 
 use crate::api::{
     CONTENT_WINDOW_BYTES, EntryContent, encode_entry_path, fetch_entry_content,
-    fetch_entry_content_page, fetch_entry_content_window,
+    fetch_entry_content_page, fetch_entry_content_themed, fetch_entry_content_window,
 };
+use crate::command_mode::CommandModeCtx;
 use crate::focus::{PdfPageCtl, PdfPageNav, PreviewKeysBus, TextWindowCtl};
 use crate::kv_tables::CollapsibleTree;
 use crate::viewer_find::ViewerFind;
 
 use super::csv::CsvHtmlFragment;
+
+/// Re-fetch a failed `<img>` URL and surface serve's JSON `error` (or a fallback).
+async fn content_fetch_error(src: &str, ok_fallback: &str, status_label: &str) -> String {
+    match gloo_net::http::Request::get(src).send().await {
+        Ok(resp) if !resp.ok() => resp
+            .json::<serde_json::Value>()
+            .await
+            .ok()
+            .and_then(|v| v.get("error").and_then(|e| e.as_str()).map(str::to_owned))
+            .unwrap_or_else(|| format!("{status_label} ({})", resp.status())),
+        Ok(_) => ok_fallback.into(),
+        Err(e) => e.to_string(),
+    }
+}
 
 /// Audio / Epub: embedded cover via `/content?format=cover` (same bytes as TUI).
 #[component]
@@ -33,20 +48,12 @@ pub(super) fn CoverViewer(path: String) -> impl IntoView {
                     on:error=move |_| {
                         let src = src.clone();
                         wasm_bindgen_futures::spawn_local(async move {
-                            let msg = match gloo_net::http::Request::get(&src).send().await {
-                                Ok(resp) if !resp.ok() => resp
-                                    .json::<serde_json::Value>()
-                                    .await
-                                    .ok()
-                                    .and_then(|v| {
-                                        v.get("error").and_then(|e| e.as_str()).map(str::to_owned)
-                                    })
-                                    .unwrap_or_else(|| {
-                                        format!("failed to load cover ({})", resp.status())
-                                    }),
-                                Ok(_) => "(no embedded cover)".into(),
-                                Err(e) => e.to_string(),
-                            };
+                            let msg = content_fetch_error(
+                                &src,
+                                "(no embedded cover)",
+                                "failed to load cover",
+                            )
+                            .await;
                             set_load_err.set(Some(msg));
                         });
                     }
@@ -256,20 +263,12 @@ pub(super) fn PdfViewer(path: String) -> impl IntoView {
                             page.get_untracked().max(1)
                         );
                         wasm_bindgen_futures::spawn_local(async move {
-                            let msg = match gloo_net::http::Request::get(&src).send().await {
-                                Ok(resp) if !resp.ok() => resp
-                                    .json::<serde_json::Value>()
-                                    .await
-                                    .ok()
-                                    .and_then(|v| {
-                                        v.get("error").and_then(|e| e.as_str()).map(str::to_owned)
-                                    })
-                                    .unwrap_or_else(|| {
-                                        format!("failed to load page ({})", resp.status())
-                                    }),
-                                Ok(_) => "(failed to load page)".into(),
-                                Err(e) => e.to_string(),
-                            };
+                            let msg = content_fetch_error(
+                                &src,
+                                "(failed to load page)",
+                                "failed to load page",
+                            )
+                            .await;
                             set_load_err.set(Some(msg));
                         });
                     }
@@ -313,9 +312,19 @@ fn goto_pdf_page(n: u32, set_page: WriteSignal<u32>, page_count: ReadSignal<Opti
 #[component]
 pub(super) fn HostHtmlBody(path: String, class: &'static str) -> impl IntoView {
     let path_for_fetch = path.clone();
+    let cmd = CommandModeCtx::expect();
     let content = LocalResource::new(move || {
         let p = path_for_fetch.clone();
-        async move { fetch_entry_content(&p, Some("html")).await }
+        let theme = cmd.highlight_theme.get();
+        async move {
+            // Syntect HTML is theme-keyed; pass name so preview/commit refetch (not only path).
+            if class == "code-viewer" {
+                let theme = (!theme.is_empty()).then_some(theme);
+                fetch_entry_content_themed(&p, Some("html"), theme).await
+            } else {
+                fetch_entry_content(&p, Some("html")).await
+            }
+        }
     });
 
     view! {
@@ -422,16 +431,9 @@ fn wire_img_load_errors(root: &web_sys::HtmlDivElement) {
             }
             let host = host.clone();
             wasm_bindgen_futures::spawn_local(async move {
-                let msg = match gloo_net::http::Request::get(&src).send().await {
-                    Ok(resp) if !resp.ok() => resp
-                        .json::<serde_json::Value>()
-                        .await
-                        .ok()
-                        .and_then(|v| v.get("error").and_then(|e| e.as_str()).map(str::to_owned))
-                        .unwrap_or_else(|| format!("failed to load image ({})", resp.status())),
-                    Ok(_) => "(failed to load image)".into(),
-                    Err(e) => e.to_string(),
-                };
+                let msg =
+                    content_fetch_error(&src, "(failed to load image)", "failed to load image")
+                        .await;
                 show_img_error_under(&host, &msg);
             });
         }) as Box<dyn FnMut(_)>);

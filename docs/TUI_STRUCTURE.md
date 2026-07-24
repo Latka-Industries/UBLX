@@ -184,20 +184,23 @@ Right pane is not a list-focus target. Focused pane: focused border + active tit
 | Target | TUI truth | Web today | Mini-PR (see [`WEB_UI.md`](WEB_UI.md)) |
 | ------ | --------- | --------- | -------------------------------------- |
 | Keyboard / focus | arrows, hjkl, digits, pane + right-pane keys | landed | **#1** |
-| Help overlay | `?` mode-aware | landed | **#2** |
+| Help overlay | `?` mode-aware sections | landed — **extend in the same mini-PR** as new keys/overlays | **2** (+ ongoing) |
 | Theme | `ThemeStyles` + `Palette` (same fg/bg pairs) | live CSS tokens | **#3** |
 | Middle counter | `title_bottom` **RIGHT** `n/N` | PathsPane end-aligned | — |
 | Middle sort | node **left of** counter + `s` | landed | **#4** |
 | Catalog search | status strip | landed | — |
 | Metadata / Writing | pretty KV + column tables | thin / JSON-ish | **#5** |
 | Viewer markdown | full md pipeline | stub | **#6** |
-| Viewer code | syntect | syntect HTML | **#7** |
+| Viewer code | syntect + per-palette `.tmTheme` | same HTML (`?theme=` on preview) | **#7** / THI-170 |
 | Viewer tables/CSV | pretty / csv | HTML table / Text `<pre>` | **#8** |
 | Viewer images | raster / svg + covers | `<img>` via `/content?format=raw|cover` | **#9** |
 | Viewer PDF/video | optional tools + Shift+J/K pages | PNG preview + PDF page keys / footer | **#10** |
-| Viewer find | Shift+S strip | landed | **#11** |
+| Viewer find | Shift+S strip | landed | **11** |
+| Multi-select | Ctrl+Space / Space (Snapshot · Lenses) | landed | **13** |
+| Space / QA menu | Space · letter hotkeys · `a` bulk | landed (serve writes) | **14** |
+| Command Mode | Ctrl+a chord · letter actions | landed (exports + pickers) | **15** |
 | Settings | controls + TOML; default **Local** | landed (no bg_opacity control) | — |
-| Embedded ship | one binary | Dir / `UBLX_WEB_DIST` | **#16** |
+| Embedded ship | one binary (`StaticMount::Embedded`) | Dir via `UBLX_WEB_DIST` for mise | **16** |
 
 ---
 

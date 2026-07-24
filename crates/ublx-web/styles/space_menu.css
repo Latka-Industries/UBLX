@@ -1,0 +1,95 @@
+/* —— Space / bulk quick-actions popup —— */
+.space-menu-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 35;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: hsl(var(--background) / 0.45);
+}
+
+.space-menu-panel {
+  min-width: 18rem;
+  max-width: min(30rem, 92vw);
+  padding: 0.5rem 0.65rem 0.55rem;
+  border: 1px solid hsl(var(--border));
+  background: hsl(var(--popover));
+  color: hsl(var(--popover-foreground));
+  box-shadow: 0 0.35rem 1.1rem hsl(var(--background) / 0.5);
+  outline: none;
+  font-size: 1rem;
+}
+
+.space-menu-title {
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: hsl(var(--primary));
+  margin-bottom: 0.35rem;
+  white-space: pre;
+}
+
+.space-menu-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.space-menu-list > li {
+  margin: 0;
+  padding: 0;
+}
+
+.space-menu-row {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 0.2rem 0.35rem;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font-family: var(--font-mono);
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+.space-menu-row:hover {
+  background: hsl(var(--primary) / 0.1);
+}
+
+.space-menu-row.is-selected {
+  background: hsl(var(--primary) / 0.18);
+  color: hsl(var(--primary));
+}
+
+.space-menu-row.is-muted {
+  color: hsl(var(--muted-foreground));
+}
+
+.space-menu-hint {
+  margin: 0.4rem 0 0;
+  font-size: 0.85rem;
+  color: hsl(var(--muted-foreground));
+}
+
+.space-menu-input,
+.space-menu-textarea {
+  display: block;
+  width: 100%;
+  margin-top: 0.35rem;
+  padding: 0.3rem 0.4rem;
+  border: 1px solid hsl(var(--border));
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+  font-family: var(--font-mono);
+  font-size: 1rem;
+}
+
+.space-menu-textarea {
+  min-height: 8rem;
+  resize: vertical;
+}

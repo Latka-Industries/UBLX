@@ -24,6 +24,8 @@
   --brand: 267 94% 68%;
   --hint: 267 94% 68%;
   --search: 166 100% 70%;
+  /* TUI toast / notification_bg (Oblivion Ink ≈ 216 65% 10%) */
+  --notification: 216 65% 10%;
   --delta-added: 142 47% 51%;
   --delta-mod: 43 97% 71%;
   --delta-removed: 0 84% 60%;
@@ -32,6 +34,9 @@
   --table-stripe: 216 55% 18%;
   --radius: 0.25rem;
   --chrome: 0.5rem;
+  /* Shell primary wash (top+bottom); panels stay flat over --background */
+  --shell-wash: 0.07;
+  --shell-wash-inset: 28%;
   /* THI-169: Settings font selection can override later */
   --font-mono: ui-monospace, "Cascadia Code", "SF Mono", Menlo, monospace;
 }

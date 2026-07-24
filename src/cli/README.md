@@ -62,16 +62,16 @@ Notes:
 - `GET /delta?type=` — wire values `added` | `mod` | `removed` (`modified` accepted as alias for `mod`)
 - `GET /duplicates` — `{ mode: "hash"|"name_size", groups: [{ id, label, paths }] }` (read-only; no on-demand blake3 fill)
 - `GET /entries/{*path}?zahir=1` — entry detail; when zahir is set, also `metadata_tables` / `writing_tables` (host-parsed KV / column-stat sections; honors effective `typed_column_tables`)
-- `GET /content/{*path}` — disk file body for Viewer (`file_content_for_viewer`); `?format=text|html|raw|cover` (default: HTML for Markdown, syntect cats, CSV/delimited paths, Text, Image/`*.svg`, PDF, Video, and Audio/Epub cover preview). `raw` returns browser-friendly image bytes (pass-through for PNG/JPEG/GIF/WebP/SVG; TIFF/BMP/oversize → PNG preview; **PDF** page via Poppler/MuPDF — optional `?page=N`, default 1; **Video** mid-frame via ffmpeg). HTML/JSON for PDF also includes `page` / `page_count` (from `pdfinfo`) so the web Viewer can Shift+J/K (and Shift+B/E) through pages like the TUI. Missing tools return 400 with the same honesty strings as the TUI. `cover` returns embedded art bytes (Audio / Epub). Path must stay under the current root.
+- `GET /content/{*path}` — disk file body for Viewer (`file_content_for_viewer`); `?format=text|html|raw|cover` (default: HTML for Markdown, syntect cats, CSV/delimited paths, Text, Image/`*.svg`, PDF, Video, and Audio/Epub cover preview). Optional `?theme=<Palette name>` overrides the syntect pack for HTML code highlight (theme-picker live preview); omitted → effective settings theme. `raw` returns browser-friendly image bytes (pass-through for PNG/JPEG/GIF/WebP/SVG; TIFF/BMP/oversize → PNG preview; **PDF** page via Poppler/MuPDF — optional `?page=N`, default 1; **Video** mid-frame via ffmpeg). HTML/JSON for PDF also includes `page` / `page_count` (from `pdfinfo`) so the web Viewer can Shift+J/K (and Shift+B/E) through pages like the TUI. Missing tools return 400 with the same honesty strings as the TUI. `cover` returns embedded art bytes (Audio / Epub). Path must stay under the current root.
 - `GET /settings/{scope}` — `scope` is `global`|`local`; returns path, exists, live `toml` text, bools, layout, theme list, `bg_opacity`, `typed_column_tables` (`none`|`abbrev`|`full`), and `css` (effective palette → HSL tokens)
 - `PATCH /settings/{scope}` — structured JSON fields only (no raw TOML body); response is the refreshed view (includes updated `css` / `typed_column_tables`)
 
 Hard nefax failures in the orchestrator can still process-exit (same as TUI on-demand snapshot). Prefer panza’s `GET /health` for liveness only.
 
-Bind/health/static shell comes from [panza](https://crates.io/crates/panza) (`--host` / `--port` / `--open`). No embedded UI yet (`StaticMount::None`).
+Bind/health/static shell comes from [panza](https://crates.io/crates/panza) (`--host` / `--port` / `--open`). Default builds use `StaticMount::None`. With `--features ui`, assets are **`StaticMount::Embedded`** (`ublx_web::embedded_assets`); set `UBLX_WEB_DIST` for a Dir mount during the `mise run web` loop.
 
-## Planned: embedded web UI (v0.2.0 / THI-157)
+## Embedded web UI (v0.2.0 / THI-157)
 
-Opt-in Cargo feature **`ui`**: Leptos CSR + **leptos-shadcn-ui**, embedded via `StaticMount::Embedded`, same-origin against the JSON API above. Default builds stay API-only.
+Opt-in Cargo feature **`ui`**: Leptos CSR + **leptos-shadcn-ui**, same-origin against the JSON API above. Default builds stay API-only.
 
 Design / packaging: [`docs/WEB_UI.md`](../../docs/WEB_UI.md).

@@ -8,9 +8,11 @@ use web_sys::{ScrollIntoViewOptions, ScrollLogicalPosition};
 use crate::api::{EntryDetail, format_bytes, format_timestamp_ns};
 use crate::focus::{PreviewKeysBus, UiNav, install_list_nav, string_list_nav};
 use crate::kv_tables::KvTables;
+use crate::multiselect::MultiselectCtx;
 use crate::nav::MainMode;
 use crate::search;
 use crate::sort::ContentSortCtx;
+use crate::space_menu::SpaceMenuCtx;
 use crate::viewer::EntryViewer;
 use crate::viewer_find::{ViewerFind, ViewerFindStrip, install_highlight_effect};
 
@@ -59,25 +61,101 @@ pub(crate) fn PanelRow(
     label: String,
     selected: Signal<bool>,
     on_select: Callback<()>,
+    /// Double-click → context / bulk menu (middle pane).
+    #[prop(optional)]
+    on_menu: Option<Callback<()>>,
+    /// Ctrl/Cmd+click or check-column click → multi-select toggle.
+    #[prop(optional)]
+    on_toggle: Option<Callback<()>>,
+    /// When set, reserve a check column (█ when true) for multi-select chrome.
+    #[prop(optional)]
+    checked: Option<Signal<bool>>,
+    /// Extra class tokens (e.g. Delta `delta-added`).
+    #[prop(optional)]
+    class_extra: Option<&'static str>,
 ) -> impl IntoView {
+    let show_check = checked.is_some();
+    let checked_sig = checked.unwrap_or_else(|| Signal::derive(|| false));
+    let row_ref = NodeRef::<leptos::html::Button>::new();
+
+    // Arrow-key / click selection: keep the highlighted row in the scrollport.
+    Effect::new(move |_| {
+        if !selected.get() {
+            return;
+        }
+        let Some(btn) = row_ref.get() else {
+            return;
+        };
+        schedule_el_into_view(btn.into());
+    });
+
     view! {
         <li>
             <button
                 type="button"
+                node_ref=row_ref
                 class=move || {
+                    let mut c = String::from("panel-row");
                     if selected.get() {
-                        "panel-row panel-row--selected"
-                    } else {
-                        "panel-row"
+                        c.push_str(" panel-row--selected");
                     }
+                    if show_check && checked_sig.get() {
+                        c.push_str(" panel-row--checked");
+                    }
+                    if let Some(extra) = class_extra {
+                        c.push(' ');
+                        c.push_str(extra);
+                    }
+                    c
                 }
                 on:mousedown=move |ev| {
                     // Prevent the button from taking DOM focus; otherwise click→arrow
                     // leaves a stuck :focus highlight on the old row.
                     ev.prevent_default();
                 }
-                on:click=move |_| on_select.run(())
+                on:click=move |ev| {
+                    if (ev.ctrl_key() || ev.meta_key())
+                        && let Some(cb) = on_toggle
+                    {
+                        ev.prevent_default();
+                        cb.run(());
+                        return;
+                    }
+                    on_select.run(());
+                }
+                on:dblclick=move |ev| {
+                    ev.prevent_default();
+                    if let Some(cb) = on_menu {
+                        cb.run(());
+                    }
+                }
             >
+                <Show when=move || show_check>
+                    <span
+                        class="panel-row__check"
+                        title="Toggle multi-select"
+                        role="presentation"
+                        on:click=move |ev| {
+                            ev.stop_propagation();
+                            ev.prevent_default();
+                            if let Some(cb) = on_toggle {
+                                cb.run(());
+                            }
+                        }
+                        on:dblclick=move |ev| {
+                            ev.stop_propagation();
+                            ev.prevent_default();
+                        }
+                    >
+                        {move || {
+                            if checked_sig.get() {
+                                crate::multiselect::CHECK_GLYPH
+                            } else {
+                                " "
+                            }
+                        }}
+                    </span>
+                </Show>
                 <span class="panel-row__sym">{move || if selected.get() { "›" } else { " " }}</span>
                 <span class="panel-row__text">{label.clone()}</span>
             </button>
@@ -123,26 +201,38 @@ fn usize_digit_width(n: usize) -> usize {
     if n == 0 { 1 } else { n.ilog10() as usize + 1 }
 }
 
-/// After sort reorders the list, keep the highlighted row on-screen (TUI `sort_anchor_path`).
-fn scroll_selected_row_into_view(scroll: &web_sys::HtmlElement) {
-    let Ok(Some(row)) = scroll.query_selector(".panel-row--selected") else {
-        return;
-    };
-    let Ok(html) = row.dyn_into::<web_sys::HtmlElement>() else {
-        return;
-    };
-    let opts = ScrollIntoViewOptions::new();
-    opts.set_block(ScrollLogicalPosition::Nearest);
-    opts.set_inline(ScrollLogicalPosition::Nearest);
-    html.scroll_into_view_with_scroll_into_view_options(&opts);
-}
-
-fn schedule_scroll_selected_into_view(scroll: web_sys::HtmlElement) {
+/// Scroll `el` into its nearest scrollport (`block`/`inline`: nearest).
+pub(crate) fn schedule_el_into_view(el: web_sys::HtmlElement) {
     let Some(window) = web_sys::window() else {
         return;
     };
     let cb = Closure::once_into_js(move || {
-        scroll_selected_row_into_view(&scroll);
+        let opts = ScrollIntoViewOptions::new();
+        opts.set_block(ScrollLogicalPosition::Nearest);
+        opts.set_inline(ScrollLogicalPosition::Nearest);
+        el.scroll_into_view_with_scroll_into_view_options(&opts);
+    });
+    let _ = window.request_animation_frame(cb.as_ref().unchecked_ref());
+}
+
+/// After list reorder / selection change, keep the highlighted row on-screen.
+pub(crate) fn schedule_scroll_selected_into_view(scroll: web_sys::HtmlElement) {
+    let Some(window) = web_sys::window() else {
+        return;
+    };
+    let cb = Closure::once_into_js(move || {
+        let Ok(Some(row)) =
+            scroll.query_selector(".panel-row--selected, .settings-inline-row--selected")
+        else {
+            return;
+        };
+        let Ok(html) = row.dyn_into::<web_sys::HtmlElement>() else {
+            return;
+        };
+        let opts = ScrollIntoViewOptions::new();
+        opts.set_block(ScrollLogicalPosition::Nearest);
+        opts.set_inline(ScrollLogicalPosition::Nearest);
+        html.scroll_into_view_with_scroll_into_view_options(&opts);
     });
     let _ = window.request_animation_frame(cb.as_ref().unchecked_ref());
 }
@@ -158,10 +248,15 @@ pub(crate) fn PathsPane(
     paths: Signal<Vec<(String, String)>>,
     selected: Signal<Option<String>>,
     on_select: Callback<String>,
+    /// Optional path → catalog category (gates Open in new tab).
+    #[prop(optional)]
+    path_categories: Option<Signal<std::collections::HashMap<String, String>>>,
 ) -> impl IntoView {
     let search_q = Signal::derive(move || search::CatalogSearch::expect().trimmed.get());
     let sort_ctx = ContentSortCtx::expect();
     let nav = UiNav::expect();
+    let multiselect = MultiselectCtx::expect();
+    let space_menu = SpaceMenuCtx::expect();
     let keys = Signal::derive(move || {
         paths
             .get()
@@ -183,13 +278,28 @@ pub(crate) fn PathsPane(
     });
     install_list_nav(nav.middle, string_list_nav(keys, bridge.into(), set_bridge));
 
+    // Keep Space-menu + multi-select cursor in sync with the middle selection.
+    Effect::new(move |_| {
+        let path = selected.get();
+        space_menu.middle_path.set(path.clone());
+        let cat = match (&path, path_categories.as_ref()) {
+            (Some(p), Some(cats)) => cats.get().get(p).cloned(),
+            _ => None,
+        };
+        space_menu.middle_category.set(cat);
+        if MultiselectCtx::applies(main_mode) {
+            multiselect.cursor.set(path);
+        }
+    });
+
     let sort_label = Signal::derive(move || sort_ctx.sort.get().node_text(main_mode));
     let scroll_ref = NodeRef::<leptos::html::Div>::new();
 
-    // TUI `sort_anchor_path`: selection stays on the same path; scroll the viewport to it.
+    // Follow selection (arrows) + TUI `sort_anchor_path` when the list reorders.
     Effect::new(move |_| {
         let _ = sort_ctx.sort.get();
         let _ = paths.get();
+        let _ = selected.get();
         if selected.get_untracked().is_none() {
             return;
         }
@@ -226,19 +336,62 @@ pub(crate) fn PathsPane(
                                         } else {
                                             let pick = key.clone();
                                             let key_sel = key.clone();
-                                            view! {
-                                                <PanelRow
-                                                    label=label
-                                                    selected=Signal::derive(move || {
-                                                        selected.get().as_ref() == Some(&key_sel)
-                                                    })
-                                                    on_select=Callback::new({
-                                                        let pick = pick.clone();
-                                                        move |_| on_select.run(pick.clone())
-                                                    })
-                                                />
+                                            let key_chk = key.clone();
+                                            let pick_menu = key.clone();
+                                            let pick_toggle = key.clone();
+                                            let ms_applies = MultiselectCtx::applies(main_mode);
+                                            let on_select_cb = Callback::new({
+                                                let pick = pick.clone();
+                                                move |_| on_select.run(pick.clone())
+                                            });
+                                            let on_menu_cb = Callback::new({
+                                                let path_categories = path_categories;
+                                                move |_| {
+                                                    let path = pick_menu.clone();
+                                                    on_select.run(path.clone());
+                                                    if let Some(cats) = path_categories.as_ref() {
+                                                        space_menu.middle_category.set(
+                                                            cats.get_untracked().get(&path).cloned(),
+                                                        );
+                                                    }
+                                                    let _ = space_menu
+                                                        .open_from_middle_dblclick(main_mode, &path);
+                                                }
+                                            });
+                                            if ms_applies {
+                                                view! {
+                                                    <PanelRow
+                                                        label=label
+                                                        selected=Signal::derive(move || {
+                                                            selected.get().as_ref() == Some(&key_sel)
+                                                        })
+                                                        checked=Signal::derive(move || {
+                                                            multiselect.is_checked(&key_chk)
+                                                        })
+                                                        on_select=on_select_cb
+                                                        on_toggle=Callback::new(move |_| {
+                                                            let path = pick_toggle.clone();
+                                                            on_select.run(path.clone());
+                                                            let _ = multiselect
+                                                                .mouse_toggle_path(main_mode, &path);
+                                                        })
+                                                        on_menu=on_menu_cb
+                                                    />
+                                                }
+                                                .into_any()
+                                            } else {
+                                                view! {
+                                                    <PanelRow
+                                                        label=label
+                                                        selected=Signal::derive(move || {
+                                                            selected.get().as_ref() == Some(&key_sel)
+                                                        })
+                                                        on_select=on_select_cb
+                                                        on_menu=on_menu_cb
+                                                    />
+                                                }
+                                                .into_any()
                                             }
-                                            .into_any()
                                         }
                                     }
                                 />
@@ -276,7 +429,17 @@ pub(crate) fn PathsPane(
                             .and_then(|s| selectable.iter().position(|(_, k)| **k == s))
                             .map(|i| i + 1)
                             .unwrap_or(0);
-                        format_selection_counter(current, total)
+                        let base = format_selection_counter(current, total);
+                        let n = if MultiselectCtx::applies(main_mode) {
+                            multiselect.count()
+                        } else {
+                            0
+                        };
+                        if n > 0 {
+                            format!("{base} · {n} sel")
+                        } else {
+                            base
+                        }
                     }}
                 </span>
             </div>
@@ -291,7 +454,19 @@ pub(crate) fn EntryRightPane(detail: Signal<Option<EntryDetail>>) -> impl IntoVi
     let tabs = crate::focus::RightTabBus::expect();
     let preview = PreviewKeysBus::expect();
     let find = ViewerFind::expect();
+    let space_menu = SpaceMenuCtx::expect();
     install_highlight_effect(find, tab);
+
+    // Prefer live detail category for Open-in-tab gating when it matches the
+    // middle cursor (avoids stale detail while a new path is fetching).
+    Effect::new(move |_| {
+        let Some(d) = detail.get() else {
+            return;
+        };
+        if space_menu.middle_path.get().as_deref() == Some(d.path.as_str()) {
+            space_menu.middle_category.set(Some(d.category));
+        }
+    });
 
     // Remounted Metadata / Writing / Templates bodies need a find re-scan.
     Effect::new(move |_| {

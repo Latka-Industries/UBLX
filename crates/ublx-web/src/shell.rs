@@ -1,17 +1,26 @@
 //! App chrome: main tabs, project path, catalog search / Last Snapshot footer.
 
 use leptos::prelude::*;
+use leptos::task::spawn_local;
 use wasm_bindgen::JsCast;
 use web_sys::KeyboardEvent;
 
 use crate::api::{CatalogFlags, format_timestamp_ns};
+use crate::catalog_refresh::CatalogRefresh;
+use crate::command_mode::{CommandModeCtx, CommandModePopup, open_root_picker};
 use crate::focus::{PaneFocus, PdfPageNav, PreviewKeysBus, RightTabBus, UiNav};
 use crate::help::{HelpModal, HelpOverlay};
-use crate::keys::{FindKeyCtx, WebAction, action_from_keydown, typing_in_form_field};
+use crate::keys::{
+    CommandModeKeyCtx, FindKeyCtx, MultiselectKeyCtx, SpaceMenuKeyCtx, WebAction,
+    action_from_keydown, typing_in_form_field,
+};
 use crate::modes::{DeltaMode, DuplicatesMode, LensesMode, SettingsMode, SnapshotMode};
+use crate::multiselect::MultiselectCtx;
 use crate::nav::{MainMode, clamp_mode_to_visible, select_mode, use_main_mode};
 use crate::search::{CatalogSearch, SEARCH_LABEL};
 use crate::sort::ContentSortCtx;
+use crate::space_menu::{SpaceMenuCtx, SpaceMenuPopup};
+use crate::toast::{ToastCtx, ToastHost};
 use crate::viewer::scroll_right_preview;
 use crate::viewer_find::ViewerFind;
 
@@ -24,6 +33,23 @@ pub(crate) fn Shell(flags: CatalogFlags) -> impl IntoView {
     let sort = ContentSortCtx::provide();
     let (nav, tabs, preview) = UiNav::provide();
     let help = HelpOverlay::provide();
+    let multiselect = MultiselectCtx::provide();
+    let catalog_refresh = CatalogRefresh::provide();
+    let toasts = ToastCtx::provide();
+    let space_menu = SpaceMenuCtx::provide(catalog_refresh, multiselect, toasts);
+    space_menu.catalog_root.set(flags.get_value().root.clone());
+    let command_mode = CommandModeCtx::provide(catalog_refresh, set_mode, toasts);
+
+    // Seed syntect theme name so the first code Viewer fetch matches shell CSS.
+    Effect::new(move |_| {
+        spawn_local(async move {
+            if let Ok(v) = crate::api::fetch_settings(crate::api::SettingsScope::Local).await
+                && !v.theme.is_empty()
+            {
+                command_mode.highlight_theme.set(v.theme);
+            }
+        });
+    });
 
     // Deep-link may name a tab that is hidden for this catalog — fall back to Snapshot.
     Effect::new(move |_| {
@@ -43,6 +69,37 @@ pub(crate) fn Shell(flags: CatalogFlags) -> impl IntoView {
         }
     });
 
+    // Multi-select clears on mode switch (TUI `apply_mode_switch`).
+    Effect::new(move |_| {
+        let _ = mode.get();
+        multiselect.clear();
+        space_menu.close();
+        command_mode.close_all();
+    });
+
+    // Leaving contents pane exits multi-select (TUI FocusCategories / Tab).
+    Effect::new(move |_| {
+        if nav.pane.get() != PaneFocus::Middle && multiselect.active.get_untracked() {
+            multiselect.clear();
+        }
+    });
+
+    // Chord chrome hint while waiting for the second key (before menu).
+    Effect::new(move |_| {
+        let pending = command_mode.pending.get() && !command_mode.menu_visible.get();
+        if let Some(el) = web_sys::window()
+            .and_then(|w| w.document())
+            .and_then(|d| d.query_selector(".tui-shell").ok().flatten())
+        {
+            let list = el.class_list();
+            if pending {
+                let _ = list.add_1("tui-shell--chord-pending");
+            } else {
+                let _ = list.remove_1("tui-shell--chord-pending");
+            }
+        }
+    });
+
     // Global keybus — TUI-shaped hotkeys (ignore while typing in forms).
     Effect::new(move |_| {
         let Some(window) = web_sys::window() else {
@@ -58,8 +115,17 @@ pub(crate) fn Shell(flags: CatalogFlags) -> impl IntoView {
         let flags = flags;
         let help = help;
         let preview = preview;
+        let multiselect = multiselect;
+        let space_menu = space_menu;
+        let command_mode = command_mode;
         let closure = wasm_bindgen::closure::Closure::wrap(Box::new(move |ev: KeyboardEvent| {
-            if typing_in_form_field() {
+            let menu_open = space_menu.visible.get_untracked();
+            let cmd_active = command_mode.is_active();
+            // Rename / bulk-rename inputs need normal typing; their own on:keydown handles Enter/Esc.
+            if typing_in_form_field() && !menu_open && !cmd_active {
+                return;
+            }
+            if typing_in_form_field() && (menu_open || cmd_active) {
                 return;
             }
             let help_open = help.visible.get_untracked();
@@ -68,10 +134,38 @@ pub(crate) fn Shell(flags: CatalogFlags) -> impl IntoView {
                 catalog_search_active: search.active.get_untracked(),
                 allow: mode.get_untracked() != MainMode::Settings,
             };
-            let Some(action) = action_from_keydown(&ev, help_open, find_ctx) else {
+            let ms_ctx = MultiselectKeyCtx {
+                active: multiselect.active.get_untracked(),
+                applies: MultiselectCtx::applies(mode.get_untracked()),
+                middle_focused: nav.pane.get_untracked() == PaneFocus::Middle,
+            };
+            let m = mode.get_untracked();
+            let space_ctx = SpaceMenuKeyCtx {
+                open: menu_open,
+                can_open: matches!(
+                    m,
+                    MainMode::Snapshot | MainMode::Lenses | MainMode::Duplicates
+                ),
+            };
+            let cmd_ctx = CommandModeKeyCtx {
+                active: cmd_active,
+                picker: command_mode.picker_open(),
+                blocked: help_open
+                    || menu_open
+                    || search.active.get_untracked()
+                    || m == MainMode::Settings,
+                leader: command_mode.leader.get_untracked(),
+            };
+            let Some(action) =
+                action_from_keydown(&ev, help_open, find_ctx, ms_ctx, space_ctx, cmd_ctx)
+            else {
                 return;
             };
             ev.prevent_default();
+            // Capture-phase: stop other handlers (focused <button> Enter, etc.) from stealing keys.
+            if menu_open || cmd_active {
+                ev.stop_immediate_propagation();
+            }
             dispatch_action(
                 action,
                 KeybusCtx {
@@ -85,11 +179,18 @@ pub(crate) fn Shell(flags: CatalogFlags) -> impl IntoView {
                     set_mode,
                     flags,
                     help,
+                    multiselect,
+                    space_menu,
+                    command_mode,
                 },
             );
         }) as Box<dyn FnMut(_)>);
-        let _ =
-            window.add_event_listener_with_callback("keydown", closure.as_ref().unchecked_ref());
+        // Capture so Space-menu Enter/letters win over a focused panel/menu button.
+        let _ = window.add_event_listener_with_callback_and_bool(
+            "keydown",
+            closure.as_ref().unchecked_ref(),
+            true,
+        );
         closure.forget();
     });
 
@@ -105,7 +206,22 @@ pub(crate) fn Shell(flags: CatalogFlags) -> impl IntoView {
             <div class="brand" aria-label="UBLX">"UBLX"</div>
         </header>
 
-        <div class="project-path" title=move || flags.get_value().root.clone().unwrap_or_default()>
+        <button
+            type="button"
+            class="project-path"
+            title=move || {
+                let root = flags.get_value().root.clone().unwrap_or_default();
+                if root.is_empty() {
+                    "Switch project".into()
+                } else {
+                    format!("{root} — click to switch project")
+                }
+            }
+            on:click=move |_| {
+                command_mode.close_all();
+                open_root_picker(command_mode);
+            }
+        >
             {
                 move || {
                     flags
@@ -115,7 +231,7 @@ pub(crate) fn Shell(flags: CatalogFlags) -> impl IntoView {
                         .unwrap_or_else(|| "—".into())
                 }
             }
-        </div>
+        </button>
 
         <main class="mode-body">
             {move || match mode.get() {
@@ -132,6 +248,9 @@ pub(crate) fn Shell(flags: CatalogFlags) -> impl IntoView {
         </footer>
 
         <HelpModal mode=mode/>
+        <ToastHost/>
+        <SpaceMenuPopup/>
+        <CommandModePopup/>
     }
 }
 
@@ -147,27 +266,102 @@ struct KeybusCtx {
     set_mode: WriteSignal<MainMode>,
     flags: StoredValue<CatalogFlags>,
     help: HelpOverlay,
+    multiselect: MultiselectCtx,
+    space_menu: SpaceMenuCtx,
+    command_mode: CommandModeCtx,
 }
 
 fn dispatch_action(action: WebAction, ctx: KeybusCtx) {
     let f = ctx.flags.get_value();
     match action {
-        WebAction::HelpToggle => ctx.help.toggle(),
+        WebAction::HelpToggle => {
+            ctx.space_menu.close();
+            ctx.command_mode.close_all();
+            ctx.help.toggle();
+        }
         WebAction::HelpClose => ctx.help.close(),
         WebAction::HelpSectionNext => ctx.help.cycle_section(ctx.mode.get_untracked(), 1),
         WebAction::HelpSectionPrev => ctx.help.cycle_section(ctx.mode.get_untracked(), -1),
         WebAction::HelpAbsorb => {}
+        WebAction::CommandModeBegin => {
+            ctx.help.close();
+            ctx.space_menu.close();
+            ctx.command_mode.begin_chord();
+        }
+        WebAction::CommandModeClose => ctx.command_mode.close_all(),
+        WebAction::CommandModeHotkey(c) => {
+            let _ = ctx.command_mode.submit_hotkey(c);
+        }
+        WebAction::CommandModeMoveUp => ctx.command_mode.picker_move(-1),
+        WebAction::CommandModeMoveDown => ctx.command_mode.picker_move(1),
+        WebAction::CommandModeSubmit => ctx.command_mode.picker_submit(),
+        WebAction::CommandModeAbsorb => {}
+        WebAction::SpaceMenuOpen => {
+            ctx.command_mode.close_all();
+            let _ = ctx.space_menu.try_open_qa(
+                ctx.mode.get_untracked(),
+                ctx.nav.pane.get_untracked(),
+                ctx.multiselect.active.get_untracked(),
+            );
+        }
+        WebAction::SpaceMenuMoveUp => ctx.space_menu.move_sel(-1),
+        WebAction::SpaceMenuMoveDown => ctx.space_menu.move_sel(1),
+        WebAction::SpaceMenuSubmit => {
+            ctx.space_menu
+                .submit_selected(ctx.flags.get_value().root.clone());
+        }
+        WebAction::SpaceMenuClose => ctx.space_menu.close(),
+        WebAction::SpaceMenuHotkey(c) => {
+            let root = ctx.flags.get_value().root.clone();
+            if !ctx.space_menu.submit_hotkey(c, root) {
+                // No row for this letter — j/k still move the highlight (arrows always move).
+                match c {
+                    'k' => ctx.space_menu.move_sel(-1),
+                    'j' => ctx.space_menu.move_sel(1),
+                    _ => {}
+                }
+            }
+        }
+        WebAction::SpaceMenuAbsorb => {}
         WebAction::SearchStart => {
             ctx.find.clear();
+            ctx.space_menu.close();
+            ctx.command_mode.close_all();
             ctx.search.start();
         }
         WebAction::ViewerFindOpen => {
             ctx.search.set_active.set(false);
+            ctx.space_menu.close();
+            ctx.command_mode.close_all();
             ctx.find.start();
         }
         WebAction::ViewerFindNext => ctx.find.next(),
         WebAction::ViewerFindPrev => ctx.find.prev(),
         WebAction::ViewerFindClear => ctx.find.clear(),
+        WebAction::MultiselectToggleMode => {
+            ctx.space_menu.close();
+            ctx.command_mode.close_all();
+            let _ = ctx.multiselect.try_toggle_mode(
+                ctx.mode.get_untracked(),
+                ctx.nav.pane.get_untracked() == PaneFocus::Middle,
+            );
+        }
+        WebAction::MultiselectToggleRow => {
+            if ctx.nav.pane.get_untracked() == PaneFocus::Middle {
+                ctx.multiselect.toggle_row();
+            }
+        }
+        WebAction::MultiselectCancel => {
+            ctx.space_menu.close();
+            ctx.multiselect.clear();
+        }
+        WebAction::MultiselectOpenBulk => {
+            ctx.command_mode.close_all();
+            let _ = ctx.space_menu.try_open_bulk(
+                ctx.mode.get_untracked(),
+                ctx.multiselect.active.get_untracked(),
+            );
+        }
         WebAction::CycleContentSort => ctx.sort.cycle(ctx.mode.get_untracked()),
         WebAction::ScrollPreviewDown => apply_preview_keys(ctx.preview, PdfPageNav::Next),
         WebAction::ScrollPreviewUp => apply_preview_keys(ctx.preview, PdfPageNav::Prev),

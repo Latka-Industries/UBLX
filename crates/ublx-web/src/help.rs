@@ -1,10 +1,10 @@
 //! Mode-aware `?` help overlay — TUI-shaped sections, web-relevant bindings only.
 
 use leptos::prelude::*;
-use wasm_bindgen::JsCast;
 
 use crate::nav::MainMode;
 
+/// `?` popup visibility + active help section index.
 #[derive(Clone, Copy)]
 pub(crate) struct HelpOverlay {
     pub visible: ReadSignal<bool>,
@@ -69,8 +69,7 @@ struct HelpSection {
 const DIGIT_ROW_KEY: &str = "1 2 7 8 9";
 const DIGIT_ROW_DESC: &str = "Jump to Main Tab when that tab is visible.";
 
-const FOOTNOTE: &str =
-    "Only bindings that work in the web UI are listed. Find and menus land in later PRs.";
+const FOOTNOTE: &str = "Only bindings that work in the web UI are listed. Ctrl+a opens Command Mode (Snapshot / Lenses / Dupes).";
 
 const GENERAL_BROWSER: &[(&str, &str)] = &[
     ("~", "Alternate between Main tabs"),
@@ -84,6 +83,10 @@ const GENERAL_BROWSER: &[(&str, &str)] = &[
     ("g | G", "Go to top / bottom of focused list"),
     ("Ctrl+j/k · Ctrl+↑↓", "Jump by 10 in focused list"),
     ("s", "Cycle middle-pane sort (Snapshot / Delta / Dupes)"),
+    (
+        "Project path",
+        "Click the path under the tabs to switch project (same as Ctrl+a then p)",
+    ),
     ("?", "Toggle this help"),
 ];
 
@@ -107,6 +110,53 @@ const RIGHT_PANE: &[(&str, &str)] = &[
     ),
 ];
 
+const QUICK_ACTIONS: &[(&str, &str)] = &[
+    ("Spacebar", "Open quick-actions for the focused row"),
+    (
+        "Double-click",
+        "Same as Space (or Bulk menu if the row is multi-selected)",
+    ),
+    ("o", "Open image in a new browser tab (images only)"),
+    ("p", "Enhance policy (directory Auto / Manual)"),
+    ("z", "Enhance with ZahirScan"),
+    ("l", "Add to Lens (picker or new)"),
+    ("c", "Copy Path"),
+    ("j", "Copy Zahir JSON"),
+    ("r", "Rename file or lens"),
+    ("d", "Delete file; remove from lens; delete lens"),
+];
+
+const QUICK_ACTIONS_DUPES: &[(&str, &str)] = &[
+    ("Spacebar", "Open quick-actions for the focused path"),
+    ("Double-click", "Same as Space"),
+    ("o / c", "Open image in new tab (images only) / Copy Path"),
+    ("i", "Ignore — hide path in Duplicates for this session"),
+    ("d", "Delete file (confirm)"),
+];
+
+const MULTISELECT: &[(&str, &str)] = &[
+    ("Ctrl+Space", "Enter / exit multi-select"),
+    ("Spacebar", "Toggle cursor row while multi-select is on"),
+    (
+        "Ctrl/Cmd+click",
+        "Enter multi-select (if needed) and toggle that row",
+    ),
+    ("Check column", "Same as Ctrl/Cmd+click"),
+    ("a", "Bulk menu — Add to Lens / Rename / Delete / Enhance"),
+    ("Double-click (checked)", "Open Bulk menu"),
+    ("Esc", "Exit Multi-select mode"),
+];
+
+const COMMAND_MODE: &[(&str, &str)] = &[
+    ("d", "Run duplicate detection"),
+    ("t", "Theme selector"),
+    ("s", "Take snapshot"),
+    ("r", "Reload config from disk"),
+    ("x", "Export Zahir JSON (ublx-export/)"),
+    ("l", "Export lenses as Markdown (ublx-lenses/)"),
+    ("p", "Switch UBLX project"),
+];
+
 const GENERAL_SETTINGS: &[(&str, &str)] = &[
     ("h | l · ← →", "Focus Scope or Options pane"),
     ("j | k · ↑ ↓", "Move in the focused list (Scope / Options)"),
@@ -125,6 +175,45 @@ const SNAPSHOT_SECTIONS: &[HelpSection] = &[
         rows: RIGHT_PANE,
         include_digit_row: false,
     },
+    HelpSection {
+        title: "Quick Actions (Spacebar)",
+        rows: QUICK_ACTIONS,
+        include_digit_row: false,
+    },
+    HelpSection {
+        title: "Multi-select (Ctrl+Space)",
+        rows: MULTISELECT,
+        include_digit_row: false,
+    },
+    HelpSection {
+        title: "Command Mode (Ctrl+a)",
+        rows: COMMAND_MODE,
+        include_digit_row: false,
+    },
+];
+
+/// Duplicates: same chrome as Snapshot but no multi-select (TUI).
+const DUPLICATES_SECTIONS: &[HelpSection] = &[
+    HelpSection {
+        title: "General",
+        rows: GENERAL_BROWSER,
+        include_digit_row: true,
+    },
+    HelpSection {
+        title: "Right Pane",
+        rows: RIGHT_PANE,
+        include_digit_row: false,
+    },
+    HelpSection {
+        title: "Quick Actions (Spacebar)",
+        rows: QUICK_ACTIONS_DUPES,
+        include_digit_row: false,
+    },
+    HelpSection {
+        title: "Command Mode (Ctrl+a)",
+        rows: COMMAND_MODE,
+        include_digit_row: false,
+    },
 ];
 
 const DELTA_SECTIONS: &[HelpSection] = &[HelpSection {
@@ -141,7 +230,8 @@ const SETTINGS_SECTIONS: &[HelpSection] = &[HelpSection {
 
 fn sections_for(mode: MainMode) -> &'static [HelpSection] {
     match mode {
-        MainMode::Snapshot | MainMode::Lenses | MainMode::Duplicates => SNAPSHOT_SECTIONS,
+        MainMode::Snapshot | MainMode::Lenses => SNAPSHOT_SECTIONS,
+        MainMode::Duplicates => DUPLICATES_SECTIONS,
         MainMode::Delta => DELTA_SECTIONS,
         MainMode::Settings => SETTINGS_SECTIONS,
     }
@@ -171,9 +261,7 @@ pub(crate) fn HelpModal(mode: ReadSignal<MainMode>) -> impl IntoView {
                 aria-modal="true"
                 aria-label="Keyboard help"
                 on:mousedown=move |ev| {
-                    if let Some(t) = ev.target().and_then(|t| t.dyn_into::<web_sys::Element>().ok())
-                        && t.class_list().contains("help-overlay")
-                    {
+                    if crate::util::is_backdrop_click(&ev, "help-overlay") {
                         help.close();
                     }
                 }

@@ -77,7 +77,7 @@ fn walk_dir_nodes(
     };
     let mut entries: Vec<_> = rd.filter_map(Result::ok).collect();
     entries.sort_by_key(|e| {
-        let is_dir = e.file_type().map(|t| t.is_dir()).unwrap_or(false);
+        let is_dir = e.file_type().is_ok_and(|t| t.is_dir());
         (!is_dir, e.file_name())
     });
 
@@ -95,7 +95,7 @@ fn walk_dir_nodes(
         *budget = budget.saturating_sub(1);
         let name = ent.file_name().to_string_lossy().into_owned();
         let path = ent.path();
-        let is_dir = ent.file_type().map(|t| t.is_dir()).unwrap_or(false);
+        let is_dir = ent.file_type().is_ok_and(|t| t.is_dir());
         if is_dir {
             let children = walk_dir_nodes(&path, depth + 1, budget);
             out.push(TreeNode {
