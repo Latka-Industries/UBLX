@@ -6,7 +6,7 @@ use wasm_bindgen::JsCast;
 
 use super::ctx::SpaceMenuCtx;
 use super::helpers::sleep_ms;
-use super::kinds::{Pending, pending_allows_navigation, pending_title};
+use super::kinds::{Pending, pending_title};
 
 #[component]
 pub(crate) fn SpaceMenuPopup() -> impl IntoView {
