@@ -21,10 +21,14 @@ brew tap Latka-Industries/ublx https://github.com/Latka-Industries/UBLX
 brew install Latka-Industries/ublx/ublx
 ```
 
+Homebrew builds with the embedded serve UI (`--features ui`).
+
 ### Cargo
 
 ```bash
 cargo install ublx
+# Optional embedded web UI for `ublx serve` (run crates/ublx-web/build.sh first):
+# cargo install ublx --features ui
 ```
 
 ## Quick start
