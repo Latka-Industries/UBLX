@@ -60,8 +60,12 @@ pub fn build_syntect_cache_entry(
     p: &cache::CodeViewerCacheParams<'_>,
     content_identity: cache::ViewerContentIdentity,
 ) -> cache::ViewerTextCacheEntry {
-    let text =
-        syntect_text::highlight_viewer_with_appearance(p.raw, p.path, p.category, p.appearance);
+    let text = syntect_text::highlight_viewer_for_palette(
+        p.raw,
+        p.path,
+        p.category,
+        themes::get(Some(p.theme_name)),
+    );
     syntect_cache_entry_from_text(p, text, content_identity)
 }
 

@@ -13,18 +13,17 @@ use std::sync::LazyLock;
 use ratatui::style::{Color, Modifier, Style as RatStyle};
 use ratatui::text::{Line, Span, Text};
 use syntect::easy::HighlightLines;
-use syntect::highlighting::{FontStyle, Style as SynStyle, Theme, ThemeSet};
+use syntect::highlighting::{FontStyle, Style as SynStyle};
 use syntect::parsing::{SyntaxReference, SyntaxSet};
 use syntect::util::LinesWithEndings;
 
 use crate::engine::db_ops::UblxDbCategory;
 use crate::integrations::ZahirFT;
 use crate::render::viewers::html_escape::html_escape_minimal;
-use crate::themes::{self, Appearance, SYNTECT_THEME_KEYS};
+use crate::themes::{self, Palette};
 
 static DEFAULT_SYNTAX_SET: LazyLock<SyntaxSet> = LazyLock::new(SyntaxSet::load_defaults_newlines);
 static EXTRA_SYNTAX_SET: LazyLock<SyntaxSet> = LazyLock::new(sublime_syntaxes::extra_syntax_set);
-static THEME_SET: LazyLock<ThemeSet> = LazyLock::new(ThemeSet::load_defaults);
 
 /// Plain text and fallback always use the default pack (both sets carry a “Plain Text” entry;
 /// defaults stay canonical).
@@ -70,23 +69,12 @@ fn pick_syntax_by_path<'a>(
         .unwrap_or_else(|| plain(default))
 }
 
-fn theme_for_appearance(appearance: Appearance) -> &'static Theme {
-    let k = &SYNTECT_THEME_KEYS;
-    let key = match appearance {
-        Appearance::Dark => k.dark,
-        Appearance::Light => k.light,
-    };
-    THEME_SET.themes.get(key).unwrap_or_else(|| {
-        THEME_SET
-            .themes
-            .get(k.fallback)
-            .expect("syntect fallback theme")
-    })
-}
-
 fn syn_style_to_ratatui(s: &SynStyle) -> RatStyle {
     let fg = s.foreground;
-    let mut st = RatStyle::default().fg(Color::Rgb(fg.r, fg.g, fg.b));
+    let bg = s.background;
+    let mut st = RatStyle::default()
+        .fg(Color::Rgb(fg.r, fg.g, fg.b))
+        .bg(Color::Rgb(bg.r, bg.g, bg.b));
     let fs = s.font_style;
     if fs.contains(FontStyle::BOLD) {
         st = st.add_modifier(Modifier::BOLD);
@@ -98,6 +86,13 @@ fn syn_style_to_ratatui(s: &SynStyle) -> RatStyle {
         st = st.add_modifier(Modifier::UNDERLINED);
     }
     st
+}
+
+fn theme_bg_style(theme: &syntect::highlighting::Theme) -> RatStyle {
+    match theme.settings.background {
+        Some(c) => RatStyle::default().bg(Color::Rgb(c.r, c.g, c.b)),
+        None => RatStyle::default(),
+    }
 }
 
 fn pick_syntax<'a>(
@@ -147,13 +142,13 @@ pub fn uses_syntect_ft(ft: ZahirFT) -> bool {
     )
 }
 
-/// Host HTML for web Viewer — same grammar/theme pick as [`highlight_viewer_with_appearance`].
+/// Host HTML for web Viewer — same grammar/theme pick as [`highlight_viewer_for_palette`].
 #[must_use]
-pub fn highlight_viewer_html(raw: &str, path: &str, ft: ZahirFT, appearance: Appearance) -> String {
+pub fn highlight_viewer_html(raw: &str, path: &str, ft: ZahirFT, palette: &Palette) -> String {
     let default = &*DEFAULT_SYNTAX_SET;
     let extra = &*EXTRA_SYNTAX_SET;
     let (ss, syntax) = pick_syntax(default, extra, ft, path, raw);
-    let theme = theme_for_appearance(appearance);
+    let theme = themes::theme_for_palette(palette);
     match syntect::html::highlighted_html_for_string(raw, ss, syntax, theme) {
         Ok(html) => html,
         Err(_) => format!("<pre>{}</pre>", html_escape_minimal(raw)),
@@ -163,16 +158,16 @@ pub fn highlight_viewer_html(raw: &str, path: &str, ft: ZahirFT, appearance: App
 /// Syntax-highlight using DB [`UblxDbCategory`]; caller should only invoke for zahir types that use syntect.
 #[must_use]
 pub fn highlight_viewer(raw: &str, path: &str, cat: UblxDbCategory) -> Text<'static> {
-    highlight_viewer_with_appearance(raw, path, cat, themes::current().appearance)
+    highlight_viewer_for_palette(raw, path, cat, themes::current())
 }
 
-/// Same as [`highlight_viewer`], but with an explicit [`Appearance`] (e.g. background worker without `themes::current()`).
+/// Same as [`highlight_viewer`], but with an explicit palette (e.g. background worker without `themes::current()`).
 #[must_use]
-pub fn highlight_viewer_with_appearance(
+pub fn highlight_viewer_for_palette(
     raw: &str,
     path: &str,
     cat: UblxDbCategory,
-    appearance: Appearance,
+    palette: &Palette,
 ) -> Text<'static> {
     let UblxDbCategory::Zahir(ft) = cat else {
         return Text::from(raw.to_string());
@@ -180,7 +175,8 @@ pub fn highlight_viewer_with_appearance(
     let default = &*DEFAULT_SYNTAX_SET;
     let extra = &*EXTRA_SYNTAX_SET;
     let (ss, syntax) = pick_syntax(default, extra, ft, path, raw);
-    let theme = theme_for_appearance(appearance);
+    let theme = themes::theme_for_palette(palette);
+    let line_bg = theme_bg_style(theme);
     let mut h = HighlightLines::new(syntax, theme);
     let mut lines = Vec::new();
     for line in LinesWithEndings::from(raw) {
@@ -193,8 +189,9 @@ pub fn highlight_viewer_with_appearance(
                     }
                     spans.push(Span::styled(text.to_string(), syn_style_to_ratatui(&style)));
                 }
+                // Empty lines / trailing space still need the syntect page bg (not UBLX chrome).
                 lines.push(if spans.is_empty() {
-                    Line::default()
+                    Line::from(Span::styled(" ", line_bg))
                 } else {
                     Line::from(spans)
                 });

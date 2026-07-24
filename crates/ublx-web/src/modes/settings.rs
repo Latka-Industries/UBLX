@@ -116,6 +116,9 @@ pub(crate) fn SettingsMode() -> impl IntoView {
             match res {
                 Ok(v) => {
                     apply_theme_css_body(&v.css);
+                    if !v.theme.is_empty() {
+                        command_mode.highlight_theme.set(v.theme.clone());
+                    }
                     set_live.set(Some(v));
                     set_err.set(None);
                 }
@@ -135,6 +138,9 @@ pub(crate) fn SettingsMode() -> impl IntoView {
             match patch_settings(s, &patch).await {
                 Ok(v) => {
                     apply_theme_css_body(&v.css);
+                    if !v.theme.is_empty() {
+                        command_mode.highlight_theme.set(v.theme.clone());
+                    }
                     set_live.set(Some(v));
                     set_err.set(None);
                 }

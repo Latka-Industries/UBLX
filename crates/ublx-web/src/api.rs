@@ -386,12 +386,21 @@ pub(crate) async fn fetch_entry_content(
     fetch_entry_content_page(path, format, None).await
 }
 
+/// HTML Viewer fetch with optional UBLX theme override for syntect (`?theme=`).
+pub(crate) async fn fetch_entry_content_themed(
+    path: &str,
+    format: Option<&str>,
+    theme: Option<String>,
+) -> Result<EntryContent, String> {
+    fetch_entry_content_query(path, format, None, None, None, theme.as_deref()).await
+}
+
 pub(crate) async fn fetch_entry_content_page(
     path: &str,
     format: Option<&str>,
     page: Option<u32>,
 ) -> Result<EntryContent, String> {
-    fetch_entry_content_query(path, format, page, None, None).await
+    fetch_entry_content_query(path, format, page, None, None, None).await
 }
 
 pub(crate) async fn fetch_entry_content_window(
@@ -399,7 +408,7 @@ pub(crate) async fn fetch_entry_content_window(
     offset: u64,
     limit: u64,
 ) -> Result<EntryContent, String> {
-    fetch_entry_content_query(path, Some("text"), None, Some(offset), Some(limit)).await
+    fetch_entry_content_query(path, Some("text"), None, Some(offset), Some(limit), None).await
 }
 
 async fn fetch_entry_content_query(
@@ -408,6 +417,7 @@ async fn fetch_entry_content_query(
     page: Option<u32>,
     offset: Option<u64>,
     limit: Option<u64>,
+    theme: Option<&str>,
 ) -> Result<EntryContent, String> {
     let mut url = format!("/content/{}", encode_entry_path(path));
     let mut q: Vec<String> = Vec::new();
@@ -422,6 +432,9 @@ async fn fetch_entry_content_query(
     }
     if let Some(l) = limit {
         q.push(format!("limit={l}"));
+    }
+    if let Some(t) = theme.filter(|s| !s.is_empty()) {
+        q.push(format!("theme={}", urlencoding::encode(t)));
     }
     if !q.is_empty() {
         url.push('?');

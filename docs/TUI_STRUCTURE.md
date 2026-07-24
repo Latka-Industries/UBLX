@@ -191,7 +191,7 @@ Right pane is not a list-focus target. Focused pane: focused border + active tit
 | Catalog search | status strip | landed | — |
 | Metadata / Writing | pretty KV + column tables | thin / JSON-ish | **#5** |
 | Viewer markdown | full md pipeline | stub | **#6** |
-| Viewer code | syntect | syntect HTML | **#7** |
+| Viewer code | syntect + per-palette `.tmTheme` | same HTML (`?theme=` on preview) | **#7** / THI-170 |
 | Viewer tables/CSV | pretty / csv | HTML table / Text `<pre>` | **#8** |
 | Viewer images | raster / svg + covers | `<img>` via `/content?format=raw|cover` | **#9** |
 | Viewer PDF/video | optional tools + Shift+J/K pages | PNG preview + PDF page keys / footer | **#10** |

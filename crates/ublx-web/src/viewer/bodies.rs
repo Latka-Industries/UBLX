@@ -7,8 +7,9 @@ use wasm_bindgen::closure::Closure;
 
 use crate::api::{
     CONTENT_WINDOW_BYTES, EntryContent, encode_entry_path, fetch_entry_content,
-    fetch_entry_content_page, fetch_entry_content_window,
+    fetch_entry_content_page, fetch_entry_content_themed, fetch_entry_content_window,
 };
+use crate::command_mode::CommandModeCtx;
 use crate::focus::{PdfPageCtl, PdfPageNav, PreviewKeysBus, TextWindowCtl};
 use crate::kv_tables::CollapsibleTree;
 use crate::viewer_find::ViewerFind;
@@ -311,9 +312,19 @@ fn goto_pdf_page(n: u32, set_page: WriteSignal<u32>, page_count: ReadSignal<Opti
 #[component]
 pub(super) fn HostHtmlBody(path: String, class: &'static str) -> impl IntoView {
     let path_for_fetch = path.clone();
+    let cmd = CommandModeCtx::expect();
     let content = LocalResource::new(move || {
         let p = path_for_fetch.clone();
-        async move { fetch_entry_content(&p, Some("html")).await }
+        let theme = cmd.highlight_theme.get();
+        async move {
+            // Syntect HTML is theme-keyed; pass name so preview/commit refetch (not only path).
+            if class == "code-viewer" {
+                let theme = (!theme.is_empty()).then_some(theme);
+                fetch_entry_content_themed(&p, Some("html"), theme).await
+            } else {
+                fetch_entry_content(&p, Some("html")).await
+            }
+        }
     });
 
     view! {
