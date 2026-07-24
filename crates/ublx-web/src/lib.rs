@@ -58,7 +58,7 @@ use leptos::task::spawn_local;
 use wasm_bindgen::prelude::wasm_bindgen;
 
 #[cfg(target_arch = "wasm32")]
-use crate::api::{SettingsScope, fetch_settings, load_catalog_flags};
+use crate::api::{CatalogFlags, SettingsScope, fetch_settings, load_catalog_flags};
 #[cfg(target_arch = "wasm32")]
 use crate::shell::Shell;
 #[cfg(target_arch = "wasm32")]
@@ -76,9 +76,10 @@ pub fn main() {
 #[cfg(target_arch = "wasm32")]
 #[component]
 fn App() -> impl IntoView {
-    let catalog = LocalResource::new(load_catalog_flags);
+    // Plain signal boot gate — do **not** wrap Shell in Suspense. Nested LocalResources
+    // (Settings scope fetch, CatalogData, etc.) would otherwise re-trip the boot splash.
+    let (flags, set_flags) = signal(None::<CatalogFlags>);
 
-    // Bootstrap live CSS tokens from effective (merged local) settings.
     Effect::new(move |_| {
         spawn_local(async move {
             if let Ok(v) = fetch_settings(SettingsScope::Local).await {
@@ -87,30 +88,26 @@ fn App() -> impl IntoView {
         });
     });
 
+    Effect::new(move |_| {
+        spawn_local(async move {
+            set_flags.set(Some(load_catalog_flags().await));
+        });
+    });
+
     view! {
-        <Suspense fallback=move || {
-            view! {
+        {move || match flags.get() {
+            None => view! {
                 <div class="shell-boot">
                     <p class="shell-loading">"Connecting to UBLX…"</p>
                 </div>
             }
-        }>
-            {move || match catalog.get() {
-                None => {
-                    view! {
-                        <div class="shell-boot">
-                            <p class="shell-loading">"…"</p>
-                        </div>
-                    }
-                    .into_any()
-                }
-                Some(flags) => view! {
-                    <div class="tui-shell">
-                        <Shell flags=flags/>
-                    </div>
-                }
-                .into_any(),
-            }}
-        </Suspense>
+            .into_any(),
+            Some(flags) => view! {
+                <div class="tui-shell">
+                    <Shell flags=flags/>
+                </div>
+            }
+            .into_any(),
+        }}
     }
 }

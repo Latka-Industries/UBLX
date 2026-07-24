@@ -98,22 +98,15 @@ pub(crate) fn SettingsMode() -> impl IntoView {
     let (busy, set_busy) = signal(false);
     let command_mode = CommandModeCtx::expect();
 
-    let loaded = LocalResource::new(move || {
+    // Fetch via spawn_local (not LocalResource) so scope switches never notify App/Shell Suspense.
+    Effect::new(move |_| {
         let s = scope.get();
         let _ = command_mode.theme_committed.get();
-        async move { fetch_settings(s).await }
-    });
-
-    Effect::new(move |_| {
-        let _ = scope.get();
-        set_live.set(None);
         set_focus.set(None);
         set_err.set(None);
-    });
-
-    Effect::new(move |_| {
-        if let Some(res) = loaded.get() {
-            match res {
+        set_busy.set(true);
+        spawn_local(async move {
+            match fetch_settings(s).await {
                 Ok(v) => {
                     apply_theme_css_body(&v.css);
                     if !v.theme.is_empty() {
@@ -124,7 +117,8 @@ pub(crate) fn SettingsMode() -> impl IntoView {
                 }
                 Err(e) => set_err.set(Some(e)),
             }
-        }
+            set_busy.set(false);
+        });
     });
 
     let apply = Callback::new(move |patch: SettingsPatch| {
