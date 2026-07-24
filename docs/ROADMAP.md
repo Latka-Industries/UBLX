@@ -2,7 +2,7 @@
 
 Living backlog for **UBLX** (TUI catalog browser). Not a release promise — prioritize by profiling, user need, and architectural fit.
 
-**Status (v0.2.0):** Index → SQLite → Snapshot / Delta / Lenses / Duplicates / Settings; ZahirScan enrichment; strong Viewer (markdown, tables, images, PDF/video via optional tools, syntect code, Zarr, `.tet`). Config is TOML with hot reload. Headless catalog CLI: `ublx query` / `ublx doctor` / `ublx serve` (JSON API via panza); remote `--url` / `UBLX_URL` on query+doctor. Optional embedded web UI (`--features ui`, THI-157) landed — crates.io stays API-only; Homebrew / source builds embed `crates/ublx-web/dist/`. No plugin system, Lua, in-TUI runner, or user-authored themes yet.
+**Status (v0.2.x):** Index → SQLite → Snapshot / Delta / Lenses / Duplicates / Settings; ZahirScan enrichment; strong Viewer (markdown, tables, images, PDF/video via optional tools, syntect code, Zarr, `.tet`). Config is TOML with hot reload. Headless catalog CLI: `ublx query` / `ublx doctor` / `ublx serve` (JSON API via panza); remote `--url` / `UBLX_URL` on query+doctor. Optional embedded web UI (`--features ui`, THI-157) — `cargo install ublx --features ui` embeds `assets/web-ui/` from the crates.io tarball; Homebrew / source `build.sh` same path. No plugin system, Lua, in-TUI runner, or user-authored themes yet.
 
 Track work in GitHub Issues — **parent** issues by category, **sub-issues** for concrete tasks:
 
@@ -123,7 +123,7 @@ Engineering notes also live in local `TODO.md` (gitignored); items below are the
 
 ## Suggested sequencing
 
-1. **Optional web UI for serve** — ✅ **v0.2.0** Leptos CSR + `--features ui` (THI-157); crates.io API-only, Homebrew/source embed ([WEB_UI.md](WEB_UI.md)).
+1. **Optional web UI for serve** — ✅ **v0.2.x** Leptos CSR + `--features ui` (THI-157); crates.io `cargo install --features ui` embeds `assets/web-ui/` ([WEB_UI.md](WEB_UI.md)).
 2. **Lenses** — notes + export (user-visible, low architectural risk).
 3. **Performance** — memory / large-file hardening.
 4. **Platform ADR** — plugins / extension contract before Lua, runner, user themes.

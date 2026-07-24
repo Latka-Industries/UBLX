@@ -1,17 +1,19 @@
-//! Host-only: pack `crates/ublx-web/dist/` for panza `StaticMount::Embedded`.
+//! Host-only: pack `assets/web-ui/` for panza `StaticMount::Embedded`.
 //!
 //! Lives in `ublx` (not `ublx-web`) so crates.io can publish without a path-only
 //! workspace dependency. `ublx-web` stays `publish = false` (WASM CSR only).
+//! `./crates/ublx-web/build.sh` writes `crates/ublx-web/dist/` then syncs here so
+//! the published crate tarball includes the SPA for `cargo install --features ui`.
 
 use std::collections::HashMap;
 
 use rust_embed::Embed;
 
-/// Built CSR assets (`./crates/ublx-web/build.sh` → `dist/`).
+/// Built CSR assets (`./crates/ublx-web/build.sh` → `assets/web-ui/`).
 ///
-/// Compile fails clearly if `dist/index.html` is missing — run `build.sh` first.
+/// Compile fails clearly if `index.html` is missing — run `build.sh` first.
 #[derive(Embed)]
-#[folder = "crates/ublx-web/dist/"]
+#[folder = "assets/web-ui/"]
 struct Dist;
 
 /// URL-path keys without a leading slash (`index.html`, `styles/shell.css`, …).

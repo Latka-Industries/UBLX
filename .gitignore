@@ -65,6 +65,7 @@ Thumbs.db
 .nefaxer
 TODO.md
 
-# WASM UI build output (crates/ublx-web/build.sh)
+# WASM UI build output (crates/ublx-web/build.sh → dist/ + assets/web-ui/)
 crates/ublx-web/dist/
 crates/ublx-web/node_modules/
+assets/web-ui/

@@ -16,7 +16,7 @@ Work lands as **mini-PRs onto long-lived `dev`**, then a fat PR `dev` → `main`
 
 Optional **embedded catalog browser** for `ublx serve`: the TUI experience in a browser — same chrome, focus model, hotkeys, viewers, and theme personality — not a thin dashboard over JSON.
 
-Default crates.io installs stay **API-only** (`StaticMount::None`). Opt in from a full checkout with `./crates/ublx-web/build.sh` then `cargo install --path . --features ui`. **Homebrew** ships with `--features ui` (Embedded) by default.
+Default crates.io install is **API-only** (`StaticMount::None`). Opt in with `cargo install ublx --features ui` (SPA assets ship in the crate tarball as `assets/web-ui/`). **Homebrew** also builds with `--features ui` (Embedded) by default.
 
 ---
 
@@ -50,7 +50,7 @@ Dev loop may use `StaticMount::Dir("…/dist")` / `UBLX_WEB_DIST` so assets rebu
 ```toml
 [features]
 default = ["zahir-netcdf"]           # unchanged — no UI
-ui = ["dep:rust-embed"]              # embeds dist/ into the host binary
+ui = ["dep:rust-embed"]              # embeds assets/web-ui/ into the host binary
 ```
 
 Rules:
@@ -59,16 +59,16 @@ Rules:
 - `--features ui` enables embedded assets and switches serve to `StaticMount::Embedded` ([`web_embed.rs`](../src/cli/serve/web_embed.rs)).
 - `UBLX_WEB_DIST` overrides to `StaticMount::Dir` for the `mise run web` rebuild loop (no host recompile).
 - Do **not** hide API-only serve behind `ui`.
-- Workspace crate **`crates/ublx-web/`** is WASM CSR only (`publish = false`). It is **not** a crates.io dependency of `ublx` — that kept `cargo publish` from working with a path-only dep. Host embedding lives in `ublx` via rust-embed of `crates/ublx-web/dist/`.
-- crates.io / `cargo install ublx` stays API-only. Embedded UI: git checkout + `build.sh` + `--features ui`, or Homebrew.
+- Workspace crate **`crates/ublx-web/`** is WASM CSR only (`publish = false`). It is **not** a crates.io dependency of `ublx`. Host embedding lives in `ublx` via rust-embed of **`assets/web-ui/`** (synced from `crates/ublx-web/dist/` by `build.sh`).
+- `cargo install ublx` → API-only. `cargo install ublx --features ui` → SPA (assets are in the published tarball). Homebrew / source `build.sh` also produce Embedded builds.
 
 ### Build story
 
-1. Build CSR assets (`./crates/ublx-web/build.sh` / `mise run web`) → `dist/`.
-2. `cargo build --features ui` embeds `dist/` into the binary (`StaticMount::Embedded`).
+1. Build CSR assets (`./crates/ublx-web/build.sh` / `mise run web`) → `crates/ublx-web/dist/` and sync → `assets/web-ui/`.
+2. `cargo build --features ui` embeds `assets/web-ui/` into the binary (`StaticMount::Embedded`).
 3. Dev loop: set `UBLX_WEB_DIST=…/crates/ublx-web/dist` (mise `web` does this) so Dir serves fresh assets without re-embedding.
 4. `build.sh` also emits `dist/tailwind.css` (no CDN) — needs Node/npm.
-5. `cargo publish` packages `ublx` only (default features); does not require or publish `ublx-web`.
+5. `cargo publish` (release CI) runs `build.sh` first, then packs `assets/web-ui/` into the crates.io tarball (`include` + `--allow-dirty`).
 
 ---
 
@@ -180,7 +180,7 @@ Mouse click remains supported; keyboard is first-class.
 - [x] Contents `n/N` bottom-right (`PathsPane`)
 - [x] Catalog search (`/` strip + Skim fuzzy)
 - [x] Settings controls + live read-only TOML; `GET`/`PATCH /settings/{scope}`; `GET /duplicates`
-- [x] Feature `ui` + Embedded (`crates/ublx-web/dist/` via rust-embed); Dir via `UBLX_WEB_DIST` for `mise run web`
+- [x] Feature `ui` + Embedded (`assets/web-ui/` via rust-embed; crates.io tarball includes assets); Dir via `UBLX_WEB_DIST` for `mise run web`
 - [x] Keyboard focus + hotkeys (digits/`~`/hjkl/arrows/`g``G`/Tab/`vtmw`/Shift+Tab/`s` sort)
 - [x] Help overlay (`?`) + footer `? — Help` chip; 7px shell inset from browser edge
 - [x] Palette → CSS tokens (`themes::css`); Settings theme dropdown applies live

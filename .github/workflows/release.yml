@@ -72,15 +72,30 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: '1.95'
+          targets: wasm32-unknown-unknown
+
+      - name: Install wasm-bindgen-cli
+        run: cargo install wasm-bindgen-cli --locked
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: crates/ublx-web/package-lock.json
 
       - name: Install NetCDF (Ubuntu)
         run: |
           sudo apt-get update
           sudo apt-get install -y libnetcdf-dev pkg-config
 
+      - name: Build web UI assets (assets/web-ui/)
+        run: ./crates/ublx-web/build.sh
+
       - uses: rust-lang/crates-io-auth-action@v1
         id: auth
 
-      - run: cargo publish
+      # assets/web-ui is gitignored; include + --allow-dirty packs the built SPA.
+      - run: cargo publish --allow-dirty
         env:
           CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
