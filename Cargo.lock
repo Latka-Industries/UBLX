@@ -6506,9 +6506,9 @@ dependencies = [
 
 [[package]]
 name = "rustls-pki-types"
-version = "1.15.0"
+version = "1.15.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "764899a24af3980067ee14bc143654f297b22eaebfe3c7b6b211920a5a59b046"
+checksum = "2f4925028c7eb5d1fcdaf196971378ed9d2c1c4efc7dc5d011256f76c99c0a96"
 dependencies = [
  "zeroize",
 ]
@@ -7949,7 +7949,7 @@ checksum = "b6f5e870be6c3b371b77fe0ee0bafb859fa4964b4404c27de1d380043c4dda20"
 
 [[package]]
 name = "ublx"
-version = "0.1.14"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "axum",
@@ -9135,9 +9135,9 @@ dependencies = [
 
 [[package]]
 name = "zarrs_filesystem"
-version = "0.3.11"
+version = "0.3.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "313fc489b285b21bf451ee20d0c73264703d09d7fb2b43a81bca09a8acca22af"
+checksum = "32d9010e13dcde15100ba7eea4ca8af34521110782ed0eeb170e7ca872ac786d"
 dependencies = [
  "bytes",
  "derive_more",
@@ -9196,9 +9196,9 @@ dependencies = [
 
 [[package]]
 name = "zarrs_storage"
-version = "0.4.4"
+version = "0.4.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cf372205f5ab996c7e48ead8c68188c0bc3aaf205f3aa3afe8d7eb8db178a592"
+checksum = "e13f043c9bd3de69637574f7a2c4b3450f8e310d650fe5c2a78a08d13095cbf9"
 dependencies = [
  "auto_impl",
  "bytes",
