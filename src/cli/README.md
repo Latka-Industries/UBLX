@@ -57,6 +57,7 @@ curl -s -X PATCH http://127.0.0.1:8787/settings/local \
   -H 'content-type: application/json' \
   -d '{"show_hidden_files":true}'
 ```
+
 Notes:
 
 - Cold start (THI-172 / v0.2.2): missing catalog → in-memory placeholder + auto `POST`-equivalent snapshot unless `--no-auto-snapshot`; serve also writes `recents/{hash}.txt` (same as TUI session open) so the project switcher lists the root after the DB lands

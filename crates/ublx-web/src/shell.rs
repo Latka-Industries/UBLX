@@ -6,6 +6,7 @@ use wasm_bindgen::JsCast;
 use web_sys::KeyboardEvent;
 
 use crate::api::{CatalogFlags, format_timestamp_ns};
+use crate::catalog_data::CatalogData;
 use crate::catalog_refresh::CatalogRefresh;
 use crate::command_mode::{CommandModeCtx, CommandModePopup, open_root_picker};
 use crate::focus::{PaneFocus, PdfPageNav, PreviewKeysBus, RightTabBus, UiNav};
@@ -35,10 +36,36 @@ pub(crate) fn Shell(flags: CatalogFlags) -> impl IntoView {
     let help = HelpOverlay::provide();
     let multiselect = MultiselectCtx::provide();
     let catalog_refresh = CatalogRefresh::provide();
+    let catalog = CatalogData::provide(catalog_refresh);
     let toasts = ToastCtx::provide();
     let space_menu = SpaceMenuCtx::provide(catalog_refresh, multiselect, toasts);
     space_menu.catalog_root.set(flags.get_value().root.clone());
     let command_mode = CommandModeCtx::provide(catalog_refresh, set_mode, toasts);
+
+    // Tab visibility tracks shared catalog resources (e.g. first lens create shows Lenses).
+    // Updated via effects (not read in render) so resource pending states never trip the
+    // App-level Suspense boot splash on tab switches.
+    let (has_lenses, set_has_lenses) = signal(flags.get_value().has_lenses);
+    let (has_delta, set_has_delta) = signal(flags.get_value().has_delta);
+    let (has_duplicates, set_has_duplicates) = signal(flags.get_value().has_duplicates);
+    Effect::new(move |_| {
+        if let Some(names) = catalog.lens_names.get() {
+            set_has_lenses.set(!names.is_empty());
+        }
+    });
+    Effect::new(move |_| {
+        if let Some(delta) = catalog.delta.get() {
+            set_has_delta.set(!delta.rows.is_empty());
+        }
+    });
+    Effect::new(move |_| {
+        if let Some(dupes) = catalog.duplicates.get() {
+            set_has_duplicates.set(!dupes.groups.is_empty());
+        }
+    });
+    let has_lenses: Signal<bool> = has_lenses.into();
+    let has_delta: Signal<bool> = has_delta.into();
+    let has_duplicates: Signal<bool> = has_duplicates.into();
 
     // Cold-start / in-flight snapshot: toast + refresh when indexing finishes.
     Effect::new(move |_| {
@@ -60,11 +87,14 @@ pub(crate) fn Shell(flags: CatalogFlags) -> impl IntoView {
         });
     });
 
-    // Deep-link may name a tab that is hidden for this catalog — fall back to Snapshot.
+    // Deep-link / chrome flag changes may hide the current tab — fall back to Snapshot.
     Effect::new(move |_| {
-        let f = flags.get_value();
-        let clamped =
-            clamp_mode_to_visible(mode.get(), f.has_lenses, f.has_delta, f.has_duplicates);
+        let clamped = clamp_mode_to_visible(
+            mode.get(),
+            has_lenses.get(),
+            has_delta.get(),
+            has_duplicates.get(),
+        );
         if clamped != mode.get_untracked() {
             select_mode(set_mode, clamped);
         }
@@ -122,6 +152,9 @@ pub(crate) fn Shell(flags: CatalogFlags) -> impl IntoView {
         let mode = mode;
         let set_mode = set_mode;
         let flags = flags;
+        let has_lenses = has_lenses;
+        let has_delta = has_delta;
+        let has_duplicates = has_duplicates;
         let help = help;
         let preview = preview;
         let multiselect = multiselect;
@@ -187,6 +220,9 @@ pub(crate) fn Shell(flags: CatalogFlags) -> impl IntoView {
                     mode,
                     set_mode,
                     flags,
+                    has_lenses,
+                    has_delta,
+                    has_duplicates,
                     help,
                     multiselect,
                     space_menu,
@@ -208,9 +244,9 @@ pub(crate) fn Shell(flags: CatalogFlags) -> impl IntoView {
             <MainTabBar
                 mode=mode
                 set_mode=set_mode
-                has_lenses=Signal::derive(move || flags.get_value().has_lenses)
-                has_delta=Signal::derive(move || flags.get_value().has_delta)
-                has_duplicates=Signal::derive(move || flags.get_value().has_duplicates)
+                has_lenses=has_lenses
+                has_delta=has_delta
+                has_duplicates=has_duplicates
             />
             <div class="brand" aria-label="UBLX">"UBLX"</div>
         </header>
@@ -274,6 +310,9 @@ struct KeybusCtx {
     mode: ReadSignal<MainMode>,
     set_mode: WriteSignal<MainMode>,
     flags: StoredValue<CatalogFlags>,
+    has_lenses: Signal<bool>,
+    has_delta: Signal<bool>,
+    has_duplicates: Signal<bool>,
     help: HelpOverlay,
     multiselect: MultiselectCtx,
     space_menu: SpaceMenuCtx,
@@ -281,7 +320,9 @@ struct KeybusCtx {
 }
 
 fn dispatch_action(action: WebAction, ctx: KeybusCtx) {
-    let f = ctx.flags.get_value();
+    let has_lenses = ctx.has_lenses.get_untracked();
+    let has_delta = ctx.has_delta.get_untracked();
+    let has_duplicates = ctx.has_duplicates.get_untracked();
     match action {
         WebAction::HelpToggle => {
             ctx.space_menu.close();
@@ -377,16 +418,16 @@ fn dispatch_action(action: WebAction, ctx: KeybusCtx) {
         WebAction::PreviewTop => apply_preview_keys(ctx.preview, PdfPageNav::Top),
         WebAction::PreviewBottom => apply_preview_keys(ctx.preview, PdfPageNav::Bottom),
         WebAction::MainMode(m) => {
-            if m.is_visible(f.has_lenses, f.has_delta, f.has_duplicates) {
+            if m.is_visible(has_lenses, has_delta, has_duplicates) {
                 select_mode(ctx.set_mode, m);
             }
         }
         WebAction::MainModeToggle => {
             let next = next_visible_mode(
                 ctx.mode.get_untracked(),
-                f.has_lenses,
-                f.has_delta,
-                f.has_duplicates,
+                has_lenses,
+                has_delta,
+                has_duplicates,
             );
             select_mode(ctx.set_mode, next);
         }

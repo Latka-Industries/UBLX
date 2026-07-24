@@ -13,16 +13,35 @@ pub(crate) fn SpaceMenuPopup() -> impl IntoView {
     let menu = SpaceMenuCtx::expect();
     let panel_ref = NodeRef::<leptos::html::Div>::new();
 
-    // Focus the panel when the menu opens so Enter / letters aren't lost to a leftover focus target.
-    Effect::new(move |_| {
+    // Discriminant only — ignore draft text so typing does not re-select the field.
+    let focus_kind = Memo::new(move |_| {
         if !menu.visible.get() {
-            return;
+            return FocusKind::Closed;
         }
+        match menu.pending.get() {
+            Some(Pending::Rename { .. }) => FocusKind::Rename,
+            Some(Pending::NewLens { .. }) => FocusKind::NewLens,
+            Some(Pending::BulkRename { .. }) => FocusKind::BulkRename,
+            _ => FocusKind::List,
+        }
+    });
+
+    // Focus panel for list menus; focus + select the text field when entering a text pending.
+    Effect::new(move |_| {
+        let kind = focus_kind.get();
         let panel_ref = panel_ref;
         spawn_local(async move {
             sleep_ms(0).await;
-            if let Some(el) = panel_ref.get_untracked() {
-                let _ = el.focus();
+            match kind {
+                FocusKind::Closed => {}
+                FocusKind::List => {
+                    if let Some(el) = panel_ref.get_untracked() {
+                        let _ = el.focus();
+                    }
+                }
+                FocusKind::Rename | FocusKind::NewLens | FocusKind::BulkRename => {
+                    focus_space_menu_text_field();
+                }
             }
         });
     });
@@ -238,6 +257,33 @@ fn handle_enter_escape(ev: &web_sys::KeyboardEvent, menu: SpaceMenuCtx, on_enter
     } else if ev.key() == "Escape" {
         ev.prevent_default();
         menu.close();
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum FocusKind {
+    Closed,
+    List,
+    Rename,
+    NewLens,
+    BulkRename,
+}
+
+fn focus_space_menu_text_field() {
+    let Some(doc) = web_sys::window().and_then(|w| w.document()) else {
+        return;
+    };
+    let Ok(Some(el)) = doc.query_selector(".space-menu-input, .space-menu-textarea") else {
+        return;
+    };
+    if let Ok(input) = el.clone().dyn_into::<web_sys::HtmlInputElement>() {
+        let _ = input.focus();
+        input.select();
+        return;
+    }
+    if let Ok(area) = el.dyn_into::<web_sys::HtmlTextAreaElement>() {
+        let _ = area.focus();
+        area.select();
     }
 }
 

@@ -2,7 +2,8 @@
 
 use leptos::prelude::*;
 
-use crate::api::{fetch_entry_detail_opt, fetch_lens_entries, fetch_lens_names};
+use crate::api::fetch_entry_detail_opt;
+use crate::catalog_data::CatalogData;
 use crate::catalog_refresh::CatalogRefresh;
 use crate::focus::{UiNav, install_list_nav, string_list_nav};
 use crate::nav::MainMode;
@@ -15,10 +16,8 @@ pub(crate) fn LensesMode() -> impl IntoView {
     let search = CatalogSearch::expect();
     let space_menu = SpaceMenuCtx::expect();
     let refresh = CatalogRefresh::expect();
-    let lenses = LocalResource::new(move || {
-        let _ = refresh.tick.get();
-        async move { fetch_lens_names().await }
-    });
+    let shared = CatalogData::expect();
+    let lenses = shared.lens_names;
     let (selected_lens, set_selected_lens) = signal::<Option<String>>(None);
     let (selected_path, set_selected_path) = signal::<Option<String>>(None);
 
@@ -45,14 +44,9 @@ pub(crate) fn LensesMode() -> impl IntoView {
     });
 
     let members = LocalResource::new(move || {
-        let _ = refresh.tick.get();
+        let tick = refresh.tick.get();
         let name = selected_lens.get();
-        async move {
-            match name {
-                Some(n) => fetch_lens_entries(&n).await,
-                None => Vec::new(),
-            }
-        }
+        async move { shared.lens_members_for(name, tick).await }
     });
 
     let paths = Signal::derive(move || {
