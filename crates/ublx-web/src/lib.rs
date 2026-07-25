@@ -58,7 +58,10 @@ use leptos::task::spawn_local;
 use wasm_bindgen::prelude::wasm_bindgen;
 
 #[cfg(target_arch = "wasm32")]
-use crate::api::{CatalogFlags, SettingsScope, fetch_settings, load_catalog_flags};
+use crate::api::{
+    SettingsScope, fetch_settings, load_cached_catalog_flags, load_catalog_flags,
+    persist_catalog_flags,
+};
 #[cfg(target_arch = "wasm32")]
 use crate::shell::Shell;
 #[cfg(target_arch = "wasm32")]
@@ -76,9 +79,11 @@ pub fn main() {
 #[cfg(target_arch = "wasm32")]
 #[component]
 fn App() -> impl IntoView {
-    // Plain signal boot gate — do **not** wrap Shell in Suspense. Nested LocalResources
-    // (Settings scope fetch, CatalogData, etc.) would otherwise re-trip the boot splash.
-    let (flags, set_flags) = signal(None::<CatalogFlags>);
+    // Soft-boot: seed from sessionStorage so a hard refresh skips "Connecting…".
+    // Do **not** wrap Shell in Suspense — nested LocalResources would re-trip the splash.
+    let cached = load_cached_catalog_flags();
+    let flags = RwSignal::new(cached.clone().unwrap_or_default());
+    let (booted, set_booted) = signal(cached.is_some());
 
     Effect::new(move |_| {
         spawn_local(async move {
@@ -90,24 +95,35 @@ fn App() -> impl IntoView {
 
     Effect::new(move |_| {
         spawn_local(async move {
-            set_flags.set(Some(load_catalog_flags().await));
+            let fresh = load_catalog_flags().await;
+            flags.set(persist_catalog_flags(fresh));
+            // Only false → true. Setting `true` again would re-run the boot branch and
+            // dispose Shell while its effects/resources are still live.
+            if !booted.get_untracked() {
+                set_booted.set(true);
+            }
         });
     });
 
     view! {
-        {move || match flags.get() {
-            None => view! {
-                <div class="shell-boot">
-                    <p class="shell-loading">"Connecting to UBLX…"</p>
-                </div>
+        {move || {
+            if !booted.get() {
+                view! {
+                    <div class="shell-boot">
+                        <p class="shell-loading">"Connecting to UBLX…"</p>
+                    </div>
+                }
+                .into_any()
+            } else {
+                // Only subscribe to `booted` here — background flag refresh updates the
+                // signal in place so Shell does not remount.
+                view! {
+                    <div class="tui-shell">
+                        <Shell flags=flags/>
+                    </div>
+                }
+                .into_any()
             }
-            .into_any(),
-            Some(flags) => view! {
-                <div class="tui-shell">
-                    <Shell flags=flags/>
-                </div>
-            }
-            .into_any(),
         }}
     }
 }

@@ -26,8 +26,7 @@ use crate::viewer::scroll_right_preview;
 use crate::viewer_find::ViewerFind;
 
 #[component]
-pub(crate) fn Shell(flags: CatalogFlags) -> impl IntoView {
-    let flags = RwSignal::new(flags);
+pub(crate) fn Shell(flags: RwSignal<CatalogFlags>) -> impl IntoView {
     let (mode, set_mode) = use_main_mode();
     let search = CatalogSearch::provide();
     let find = ViewerFind::provide();
