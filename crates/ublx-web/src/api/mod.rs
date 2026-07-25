@@ -12,7 +12,7 @@ mod settings;
 
 pub(crate) use catalog::{
     CatalogFlags, DuplicatesResponse, fetch_duplicates, fetch_lens_entries, fetch_lens_names,
-    load_catalog_flags,
+    load_cached_catalog_flags, load_catalog_flags, persist_catalog_flags,
 };
 pub(crate) use content::{
     CONTENT_WINDOW_BYTES, CONTENT_WINDOW_MIN_FILE_BYTES, EntryContent, content_cover_url,

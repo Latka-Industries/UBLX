@@ -6,8 +6,8 @@ use wasm_bindgen::JsCast;
 
 use crate::api::{
     SettingsPatch, SettingsScope, fetch_duplicates, fetch_roots, fetch_settings,
-    load_catalog_flags, patch_settings, post_export_lenses, post_export_zahir, post_snapshot,
-    switch_root,
+    load_catalog_flags, patch_settings, persist_catalog_flags, post_export_lenses,
+    post_export_zahir, post_snapshot, switch_root,
 };
 use crate::catalog_refresh::CatalogScope;
 use crate::nav::MainMode;
@@ -225,7 +225,7 @@ pub(super) fn submit_picker(ctx: CommandModeCtx) {
                         ctx.refresh.bump(CatalogScope::ALL);
                         ctx.multiselect.clear();
                         ctx.space_menu.close();
-                        ctx.flags.set(new_flags);
+                        ctx.flags.set(persist_catalog_flags(new_flags));
                         ctx.space_menu
                             .catalog_root
                             .set(ctx.flags.get_untracked().root.clone());
