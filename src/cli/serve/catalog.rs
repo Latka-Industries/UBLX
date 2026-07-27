@@ -94,13 +94,12 @@ pub(super) async fn get_entry(
             return Ok(Json(row).into_response());
         }
         let typed = settings_api::effective_typed_column_tables(&dir);
-        let (metadata_tables, writing_tables, template_views) =
-            entry_structured_views(row.zahir.as_ref(), typed);
+        let views = entry_structured_views(row.zahir.as_ref(), typed);
         Ok(Json(EntryDetailResponse {
             row,
-            metadata_tables,
-            writing_tables,
-            template_views,
+            metadata_tables: views.metadata_tables,
+            writing_tables: views.writing_tables,
+            template_views: views.template_views,
         })
         .into_response())
     })
@@ -134,13 +133,9 @@ struct EntryDetailResponse {
 fn entry_structured_views(
     zahir: Option<&serde_json::Value>,
     typed: crate::config::ColumnStatsDisplay,
-) -> (
-    Option<Vec<SectionView>>,
-    Option<Vec<SectionView>>,
-    Option<Vec<TemplateView>>,
-) {
+) -> StructuredEntryViews {
     let Some(value) = zahir else {
-        return (None, None, None);
+        return StructuredEntryViews::default();
     };
     let preview = sectioned_preview_from_zahir(value);
     let metadata_tables = preview.metadata.as_deref().and_then(|json| {
@@ -155,7 +150,18 @@ fn entry_structured_views(
         let views = template_views_from_value(value);
         (!views.is_empty()).then_some(views)
     };
-    (metadata_tables, writing_tables, template_views)
+    StructuredEntryViews {
+        metadata_tables,
+        writing_tables,
+        template_views,
+    }
+}
+
+#[derive(Default)]
+struct StructuredEntryViews {
+    metadata_tables: Option<Vec<SectionView>>,
+    writing_tables: Option<Vec<SectionView>>,
+    template_views: Option<Vec<TemplateView>>,
 }
 
 pub(super) async fn get_delta(
