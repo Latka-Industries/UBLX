@@ -149,6 +149,7 @@ fn sync_preview_scroll(state_mut: &mut setup::UblxState, category_idx: usize) {
     let preview_key = (category_idx, content_sel);
     if state_mut.panels.prev_preview_key.as_ref() != Some(&preview_key) {
         state_mut.panels.preview_scroll = 0;
+        state_mut.panels.template_list.select(Some(0));
         state_mut.panels.prev_preview_key = Some(preview_key);
     }
 }

@@ -442,93 +442,29 @@ fn push_wrapped_hint_footnote(
     }
 }
 
-/// `FFmpeg` + `resvg` + PDF raster backends (same binaries as video / SVG / PDF preview).
-fn push_external_apps_section(
+fn push_external_tool_row(left_lines: &mut Vec<Line>, label: &str, detail: &str, ok: bool) {
+    left_lines.push(Line::from(vec![
+        Span::styled(
+            format!("{}{label}", UI_GLYPHS.indent_two_spaces),
+            style::text_style(),
+        ),
+        Span::styled(
+            detail.to_string(),
+            if ok {
+                style::tab_active()
+            } else {
+                style::hint_text()
+            },
+        ),
+    ]));
+}
+
+fn push_external_apps_footnotes(
     left_lines: &mut Vec<Line>,
     hint_wrap: usize,
     scope: SettingsConfigScope,
-    state: &mut UblxState,
 ) {
     let s = &UI_STRINGS.settings_pane;
-    left_lines.push(Line::from(""));
-    left_lines.push(Line::from(Span::styled(
-        s.external_apps_title,
-        style::hint_text().add_modifier(Modifier::BOLD),
-    )));
-    let ffmpeg_ok = crate::utils::ffmpeg_available();
-    left_lines.push(Line::from(vec![
-        Span::styled(
-            format!("{}{}", UI_GLYPHS.indent_two_spaces, s.ffmpeg_label),
-            style::text_style(),
-        ),
-        Span::styled(
-            if ffmpeg_ok {
-                s.tool_available
-            } else {
-                s.tool_not_found
-            },
-            if ffmpeg_ok {
-                style::tab_active()
-            } else {
-                style::hint_text()
-            },
-        ),
-    ]));
-    let resvg_ok = crate::utils::resvg_available();
-    left_lines.push(Line::from(vec![
-        Span::styled(
-            format!("{}{}", UI_GLYPHS.indent_two_spaces, s.resvg_label),
-            style::text_style(),
-        ),
-        Span::styled(
-            if resvg_ok {
-                s.tool_available
-            } else {
-                s.tool_not_found
-            },
-            if resvg_ok {
-                style::tab_active()
-            } else {
-                style::hint_text()
-            },
-        ),
-    ]));
-    let pop = utils::poppler_pdftoppm_available();
-    let mu = utils::mutool_available();
-    let pdf_detail: &'static str = match (pop, mu) {
-        (true, true) => s.pdf_backends_poppler_and_mupdf,
-        (true, false) => s.pdf_backends_poppler_only,
-        (false, true) => s.pdf_backends_mupdf_only,
-        (false, false) => s.tool_not_found,
-    };
-    let pdf_st = if pop || mu {
-        style::tab_active()
-    } else {
-        style::hint_text()
-    };
-    left_lines.push(Line::from(vec![
-        Span::styled(
-            format!("{}{}", UI_GLYPHS.indent_two_spaces, s.pdf_label),
-            style::text_style(),
-        ),
-        Span::styled(pdf_detail, pdf_st),
-    ]));
-    let proto_label = images::viewer_image_protocol_label(state);
-    let proto_ok = images::viewer_image_protocol_is_graphics(state);
-    left_lines.push(Line::from(vec![
-        Span::styled(
-            format!("{}{}", UI_GLYPHS.indent_two_spaces, s.image_protocol_label),
-            style::text_style(),
-        ),
-        Span::styled(
-            proto_label,
-            if proto_ok {
-                style::tab_active()
-            } else {
-                style::hint_text()
-            },
-        ),
-    ]));
     left_lines.push(Line::from(""));
     left_lines.push(Line::from(""));
     left_lines.push(Line::from(Span::styled(
@@ -550,6 +486,61 @@ fn push_external_apps_section(
             UI_GLYPHS.settings_note_arrow,
         );
     }
+}
+
+/// `FFmpeg` + `resvg` + PDF raster backends (same binaries as video / SVG / PDF preview).
+fn push_external_apps_section(
+    left_lines: &mut Vec<Line>,
+    hint_wrap: usize,
+    scope: SettingsConfigScope,
+    state: &mut UblxState,
+) {
+    let s = &UI_STRINGS.settings_pane;
+    left_lines.push(Line::from(""));
+    left_lines.push(Line::from(Span::styled(
+        s.external_apps_title,
+        style::hint_text().add_modifier(Modifier::BOLD),
+    )));
+
+    let ffmpeg_ok = crate::utils::ffmpeg_available();
+    push_external_tool_row(
+        left_lines,
+        s.ffmpeg_label,
+        if ffmpeg_ok {
+            s.tool_available
+        } else {
+            s.tool_not_found
+        },
+        ffmpeg_ok,
+    );
+
+    let resvg_ok = crate::utils::resvg_available();
+    push_external_tool_row(
+        left_lines,
+        s.resvg_label,
+        if resvg_ok {
+            s.tool_available
+        } else {
+            s.tool_not_found
+        },
+        resvg_ok,
+    );
+
+    let pop = utils::poppler_pdftoppm_available();
+    let mu = utils::mutool_available();
+    let pdf_detail: &'static str = match (pop, mu) {
+        (true, true) => s.pdf_backends_poppler_and_mupdf,
+        (true, false) => s.pdf_backends_poppler_only,
+        (false, true) => s.pdf_backends_mupdf_only,
+        (false, false) => s.tool_not_found,
+    };
+    push_external_tool_row(left_lines, s.pdf_label, pdf_detail, pop || mu);
+
+    let proto_label = images::viewer_image_protocol_label(state);
+    let proto_ok = images::viewer_image_protocol_is_graphics(state);
+    push_external_tool_row(left_lines, s.image_protocol_label, proto_label, proto_ok);
+
+    push_external_apps_footnotes(left_lines, hint_wrap, scope);
 }
 
 fn render_settings_toml_preview(

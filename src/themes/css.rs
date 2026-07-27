@@ -35,7 +35,7 @@ fn insert(vars: &mut BTreeMap<String, String>, name: &str, color: Color) {
     vars.insert(name.to_string(), token(color));
 }
 
-/// Build CSS tokens from a [`Palette`] using the WEB_UI theming map.
+/// Build CSS tokens from a [`Palette`] using the `WEB_UI` theming map.
 #[must_use]
 pub fn tokens_from_palette(palette: &Palette) -> ThemeCss {
     let mut vars = BTreeMap::new();

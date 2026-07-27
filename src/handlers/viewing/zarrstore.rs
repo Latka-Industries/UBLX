@@ -72,11 +72,12 @@ pub(crate) fn right_pane_from_zarr_tree_and_zahir(
     zahir_json: &str,
     view: &ZarrStoreRightPaneView<'_>,
 ) -> RightPaneContent {
-    let (templates, metadata, writing, offer_zahir) =
+    let (templates, template_views, metadata, writing, offer_zahir) =
         zahir_derived_pane_fields(zahir_json, view.enable_enhance_all);
     let policy_line = Some(directory_tree_policy_line(view.ublx_opts, view.path));
     RightPaneContent {
         templates,
+        template_views,
         metadata,
         writing,
         viewer: Some(Arc::from(tree_str)),

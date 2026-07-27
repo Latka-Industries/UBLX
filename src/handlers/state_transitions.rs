@@ -73,6 +73,42 @@ fn apply_preview_scroll(state_mut: &mut UblxState, action: UblxAction) {
     }
 }
 
+/// Templates tab with structured views:
+/// Shift+J/K move pattern selection; Shift+B/E scroll the inline examples block.
+fn apply_template_list_nav(
+    state_mut: &mut UblxState,
+    right_content_ref: &RightPaneContent,
+    action: UblxAction,
+) -> bool {
+    if state_mut.right_pane_mode != RightPaneMode::Templates
+        || right_content_ref.template_views.is_empty()
+    {
+        return false;
+    }
+    match action {
+        UblxAction::ScrollPreviewDown | UblxAction::ScrollPreviewUp => {
+            let n = right_content_ref.template_views.len();
+            let cur = state_mut.panels.template_list.selected().unwrap_or(0);
+            let next = if action == UblxAction::ScrollPreviewDown {
+                (cur + 1).min(n.saturating_sub(1))
+            } else {
+                cur.saturating_sub(1)
+            };
+            if next != cur {
+                state_mut.panels.template_list.select(Some(next));
+                state_mut.panels.preview_scroll = 0;
+            }
+            true
+        }
+        UblxAction::PreviewTop | UblxAction::PreviewBottom => {
+            // Inner scroll for the framed examples under the selected pattern.
+            apply_preview_scroll(state_mut, action);
+            true
+        }
+        _ => false,
+    }
+}
+
 /// Check if PDF page navigation applies
 fn pdf_page_nav_applies(state_ref: &UblxState, right_content_ref: &RightPaneContent) -> bool {
     state_ref.right_pane_mode == RightPaneMode::Viewer
@@ -193,6 +229,8 @@ impl<'a> UblxActionContext<'a> {
             | UblxAction::PreviewBottom => {
                 if pdf_page_nav_applies(state_mut, self.right_content_ref) {
                     apply_pdf_page_scroll(state_mut, action);
+                } else if apply_template_list_nav(state_mut, self.right_content_ref, action) {
+                    // Templates: Shift+J/K = patterns; Shift+B/E = examples scroll.
                 } else {
                     apply_preview_scroll(state_mut, action);
                 }

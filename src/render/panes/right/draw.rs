@@ -14,7 +14,7 @@ use crate::layout::{
 };
 use crate::modules::viewer_search;
 use crate::render::viewers::images;
-use crate::render::{kv_tables, scrollable_content};
+use crate::render::{kv_tables, scrollable_content, templates};
 use crate::ui::UI_CONSTANTS;
 
 use super::chrome;
@@ -27,12 +27,34 @@ fn draw_right_pane_scrollable_body(
     scroll_area: Rect,
     bottom_pad: u16,
 ) {
-    let padded = scrollable_content::area_above_bottom_pad(scroll_area, bottom_pad);
     let use_kv_tables = match state.right_pane_mode {
         RightPaneMode::Metadata => right_content.metadata.as_deref(),
         RightPaneMode::Writing => right_content.writing.as_deref(),
         _ => None,
     };
+    let use_template_views = state.right_pane_mode == RightPaneMode::Templates
+        && !right_content.template_views.is_empty();
+
+    if use_template_views {
+        // Structured Templates: 1 top + 1 bottom (symmetric); other tabs stay bottom-only.
+        let body = scrollable_content::area_with_vertical_pad(scroll_area, bottom_pad.max(1));
+        let n = right_content.template_views.len();
+        if state.panels.template_list.selected().is_none_or(|i| i >= n) {
+            state.panels.template_list.select(Some(0));
+        }
+        templates::draw_templates(
+            f,
+            body,
+            &right_content.template_views,
+            &mut state.panels.template_list,
+            state.panels.preview_scroll,
+        );
+        state.panels.right_pane_text_w = Some(body.width);
+        return;
+    }
+
+    let padded = scrollable_content::area_above_bottom_pad(scroll_area, bottom_pad);
+
     images::ensure_viewer_image(state, right_content, Some((padded.width, padded.height)));
     let mut text_w = padded.width;
     for _ in 0..6 {

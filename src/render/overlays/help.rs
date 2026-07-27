@@ -58,8 +58,14 @@ const HELP_VIEWER: &[(&str, &str)] = help_entries![
         "Focus on Viewer/Templates/Metadata/Writing tab in right pane"
     ),
     ("Shift+Tab", "Cycle right pane tab(s)"),
-    ("Shift+↓↑ | Shift+J/+K", "Scroll down / up in right pane"),
-    ("Shift+b | Shift+e", "Jump right pane to top / bottom"),
+    (
+        "Shift+↓↑ | Shift+J/+K",
+        "Scroll down / up in right pane (Templates: next/prev pattern)"
+    ),
+    (
+        "Shift+b | Shift+e",
+        "Jump right pane to top / bottom (Templates: scroll examples ↑↓)"
+    ),
     (
         "Shift+S",
         "Viewer literal search; Enter (apply) · Shift+S (re-edit) · n/N (next/prev) · Esc (clear)"
