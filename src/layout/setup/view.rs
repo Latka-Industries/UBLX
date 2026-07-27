@@ -42,6 +42,8 @@ pub struct RightPaneAsync {
 /// Per-pane content from zahir JSON. Templates always present; metadata and writing only if keys exist.
 pub struct SectionedPreview {
     pub templates: String,
+    /// Structured parse of `templates` (empty if raw dump / invalid).
+    pub template_views: Vec<crate::render::templates::TemplateView>,
     pub metadata: Option<String>,
     pub writing: Option<String>,
 }
@@ -148,6 +150,8 @@ pub struct RightPaneContentDerived {
 #[derive(Default, Clone, Debug)]
 pub struct RightPaneContent {
     pub templates: String,
+    /// Structured Templates tab rows (THI-177); empty → fall back to raw `templates` dump.
+    pub template_views: Vec<crate::render::templates::TemplateView>,
     pub metadata: Option<String>,
     pub writing: Option<String>,
     /// File/tree preview body; shared by reference for async highlight jobs (cheap `Arc::clone`).

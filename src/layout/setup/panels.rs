@@ -29,6 +29,8 @@ impl ContentMarqueeState {
 pub struct PanelState {
     pub category_state: ListState,
     pub content_state: ListState,
+    /// Templates tab pattern list (THI-177).
+    pub template_list: ListState,
     pub focus: PanelFocus,
     pub preview_scroll: u16,
     pub prev_preview_key: Option<(usize, Option<usize>)>,
@@ -54,6 +56,7 @@ impl PanelState {
         };
         p.category_state.select(Some(0));
         p.content_state.select(Some(0));
+        p.template_list.select(Some(0));
         p
     }
 }

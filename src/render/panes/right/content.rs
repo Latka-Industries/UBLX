@@ -309,7 +309,14 @@ pub fn viewer_total_lines(
         (RightPaneMode::Viewer, _) => {
             viewer_total_lines_for_viewer(right_content, content_width, state, scroll_viewport_h)
         }
-        (RightPaneMode::Templates, _) => right_content.templates.lines().count(),
+        (RightPaneMode::Templates, _) => {
+            if right_content.template_views.is_empty() {
+                right_content.templates.lines().count()
+            } else {
+                // Structured path paints its own layout; scrollbar geometry unused.
+                1
+            }
+        }
         (RightPaneMode::Writing | RightPaneMode::Metadata, _) => 0,
     }
 }
@@ -636,7 +643,15 @@ pub fn content_display_text(
         RightPaneMode::Viewer => {
             viewer_display_text(state, right_content, content_width, text_viewport)
         }
-        RightPaneMode::Templates => Text::from(right_content.templates.clone()),
+        RightPaneMode::Templates => {
+            if right_content.template_views.is_empty() {
+                Text::from(right_content.templates.clone())
+            } else {
+                Text::from(crate::render::templates::templates_searchable_text(
+                    &right_content.template_views,
+                ))
+            }
+        }
         RightPaneMode::Metadata => Text::from(
             right_content
                 .metadata
@@ -678,6 +693,11 @@ pub fn json_tab_find_haystack(
     let json = match mode {
         RightPaneMode::Metadata => right_content.metadata.as_deref(),
         RightPaneMode::Writing => right_content.writing.as_deref(),
+        RightPaneMode::Templates if !right_content.template_views.is_empty() => {
+            return Some(crate::render::templates::templates_searchable_text(
+                &right_content.template_views,
+            ));
+        }
         _ => None,
     }?;
     if json.trim().is_empty() {

@@ -169,6 +169,7 @@ fn tree_viewer(
 ) -> RightPaneContent {
     RightPaneContent {
         templates: String::new(),
+        template_views: Vec::new(),
         metadata: None,
         writing: None,
         viewer: Some(Arc::from(tree_str)),
@@ -280,16 +281,22 @@ fn resolve_viewer_disk_payload(
 pub(crate) fn zahir_derived_pane_fields(
     zahir_json: &str,
     enable_enhance_all: bool,
-) -> (String, Option<String>, Option<String>, bool) {
+) -> (
+    String,
+    Vec<crate::render::templates::TemplateView>,
+    Option<String>,
+    Option<String>,
+    bool,
+) {
     if zahir_json.is_empty() {
-        return (String::new(), None, None, !enable_enhance_all);
+        return (String::new(), Vec::new(), None, None, !enable_enhance_all);
     }
     match serde_json::from_str::<Value>(zahir_json) {
         Ok(v) => {
             let s = sectioned_preview_from_zahir(&v);
-            (s.templates, s.metadata, s.writing, false)
+            (s.templates, s.template_views, s.metadata, s.writing, false)
         }
-        _ => (String::new(), None, None, false),
+        _ => (String::new(), Vec::new(), None, None, false),
     }
 }
 
@@ -334,11 +341,12 @@ pub fn build_non_directory_right_pane_inner(
     let viewer_byte_size = viewer_str.as_ref().map(|_| size);
     let zahir_json = zahir_json_string_for_path(db_path_ref, path);
 
-    let (templates, metadata, writing, viewer_offer_enhance_zahir) =
+    let (templates, template_views, metadata, writing, viewer_offer_enhance_zahir) =
         zahir_derived_pane_fields(&zahir_json, enable_enhance_all);
 
     let content = RightPaneContent {
         templates,
+        template_views,
         metadata,
         writing,
         viewer: viewer_str.map(Arc::from),
@@ -506,6 +514,7 @@ fn scrub_placeholder_image_dimensions(meta: &mut serde_json::Map<String, Value>)
 /// Build `SectionedPreview` (templates, metadata, writing) from zahir JSON value.
 #[must_use]
 pub fn sectioned_preview_from_zahir(value_ref: &serde_json::Value) -> SectionedPreview {
+    let template_views = crate::render::templates::template_views_from_value(value_ref);
     let templates = value_ref
         .get("templates")
         .and_then(|t| serde_json::to_string_pretty(t).ok())
@@ -549,6 +558,7 @@ pub fn sectioned_preview_from_zahir(value_ref: &serde_json::Value) -> SectionedP
 
     SectionedPreview {
         templates,
+        template_views,
         metadata,
         writing,
     }

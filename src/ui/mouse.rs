@@ -484,11 +484,31 @@ pub fn handle_mouse_event(
             return true;
         }
         MouseEventKind::ScrollUp if contains(areas.right, x, y) => {
-            state_mut.panels.preview_scroll = state_mut.panels.preview_scroll.saturating_sub(3);
+            if state_mut.right_pane_mode == RightPaneMode::Templates
+                && !right_content_ref.template_views.is_empty()
+            {
+                crate::handlers::state_transitions::nudge_template_pattern_selection(
+                    state_mut,
+                    right_content_ref.template_views.len(),
+                    false,
+                );
+            } else {
+                state_mut.panels.preview_scroll = state_mut.panels.preview_scroll.saturating_sub(3);
+            }
             return true;
         }
         MouseEventKind::ScrollDown if contains(areas.right, x, y) => {
-            state_mut.panels.preview_scroll = state_mut.panels.preview_scroll.saturating_add(3);
+            if state_mut.right_pane_mode == RightPaneMode::Templates
+                && !right_content_ref.template_views.is_empty()
+            {
+                crate::handlers::state_transitions::nudge_template_pattern_selection(
+                    state_mut,
+                    right_content_ref.template_views.len(),
+                    true,
+                );
+            } else {
+                state_mut.panels.preview_scroll = state_mut.panels.preview_scroll.saturating_add(3);
+            }
             return true;
         }
         _ => {}

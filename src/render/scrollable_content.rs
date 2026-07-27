@@ -6,6 +6,25 @@ use ratatui::widgets::ScrollbarState;
 
 use crate::layout::style;
 
+/// Region inset by the same pad on top and bottom (Templates structured view).
+#[must_use]
+pub fn area_with_vertical_pad(area: Rect, pad: u16) -> Rect {
+    let pad2 = pad.saturating_mul(2);
+    if area.height > pad2 {
+        let chunks = style::split_vertical(
+            area,
+            &[
+                Constraint::Length(pad),
+                Constraint::Min(0),
+                Constraint::Length(pad),
+            ],
+        );
+        chunks[1]
+    } else {
+        area
+    }
+}
+
 /// Region above the bottom padding strip (same geometry as the first split inside [`layout_scrollable_content`]).
 #[must_use]
 pub fn area_above_bottom_pad(area: Rect, bottom_pad: u16) -> Rect {

@@ -202,6 +202,12 @@ pub fn theme_for_palette(palette: &Palette) -> &'static Theme {
 }
 
 /// Look up a syntect theme by key with appearance fallback.
+///
+/// # Panics
+///
+/// Panics if neither the appearance fallback nor the global
+/// [`SYNTECT_THEME_KEYS`] fallback theme is present in the loaded set
+/// (should not happen with the embedded defaults).
 #[must_use]
 pub fn theme_for_key(key: &str, appearance: Appearance) -> &'static Theme {
     if let Some(t) = THEME_SET.themes.get(key) {
