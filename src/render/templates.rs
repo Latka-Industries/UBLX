@@ -10,6 +10,7 @@ use ratatui::text::{Line, Span};
 use ratatui::widgets::{List, ListItem, ListState};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::collections::BTreeMap;
 use std::fmt::Write as _;
 use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 
@@ -22,25 +23,8 @@ pub struct TemplateView {
     pub pattern: String,
     pub count: usize,
     /// Placeholder → example values; keys sorted (matches zahirscan `BTreeMap` JSON order).
-    pub examples: Vec<(String, Vec<String>)>,
-}
-
-#[derive(Deserialize)]
-struct RawTemplate {
-    pattern: String,
-    count: usize,
     #[serde(default)]
-    examples: std::collections::BTreeMap<String, Vec<String>>,
-}
-
-impl From<RawTemplate> for TemplateView {
-    fn from(raw: RawTemplate) -> Self {
-        Self {
-            pattern: raw.pattern,
-            count: raw.count,
-            examples: raw.examples.into_iter().collect(),
-        }
-    }
+    pub examples: BTreeMap<String, Vec<String>>,
 }
 
 /// Parse `templates` array from a zahir JSON value. Empty on missing/invalid.
@@ -52,16 +36,15 @@ pub fn template_views_from_value(value: &Value) -> Vec<TemplateView> {
     template_views_from_json_value(arr)
 }
 
-/// Parse a templates JSON array (or the pretty-printed Templates tab string).
+/// Parse a templates JSON array.
 ///
 /// Drops empty/whitespace-only patterns (zahirscan blank-line noise until fixed upstream).
 #[must_use]
 pub fn template_views_from_json_value(value: &Value) -> Vec<TemplateView> {
-    match serde_json::from_value::<Vec<RawTemplate>>(value.clone()) {
+    match serde_json::from_value::<Vec<TemplateView>>(value.clone()) {
         Ok(rows) => rows
             .into_iter()
             .filter(|r| !r.pattern.trim().is_empty())
-            .map(TemplateView::from)
             .collect(),
         _ => Vec::new(),
     }
@@ -232,7 +215,7 @@ fn truncate_placeholder(ph: &str, cols: usize) -> String {
 
 /// Two-column example rows (header + placeholder/values); values wrap.
 fn example_body_lines(
-    examples: &[(String, Vec<String>)],
+    examples: &BTreeMap<String, Vec<String>>,
     content_width: usize,
     base: Style,
     placeholder: Style,
@@ -411,8 +394,14 @@ mod tests {
         assert_eq!(views.len(), 1);
         assert_eq!(views[0].pattern, "[DATE] ERROR: [MSG]");
         assert_eq!(views[0].count, 3);
-        assert_eq!(views[0].examples[0].0, "DATE");
-        assert_eq!(views[0].examples[1].1, vec!["boom", "fail"]);
+        assert_eq!(
+            views[0].examples.get("DATE"),
+            Some(&vec!["2026-01-01".to_string()])
+        );
+        assert_eq!(
+            views[0].examples.get("MSG"),
+            Some(&vec!["boom".to_string(), "fail".to_string()])
+        );
     }
 
     #[test]

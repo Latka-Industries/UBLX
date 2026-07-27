@@ -13,6 +13,7 @@ use crate::cli::catalog_read::{
 use crate::cli::settings_api;
 use crate::handlers::viewing::sectioned_preview_from_zahir;
 use crate::render::kv_tables::{SectionView, parse_json_to_views};
+use crate::render::templates::{TemplateView, template_views_from_value};
 
 use super::content::paths::require_rel_path;
 use super::error::ApiError;
@@ -93,11 +94,13 @@ pub(super) async fn get_entry(
             return Ok(Json(row).into_response());
         }
         let typed = settings_api::effective_typed_column_tables(&dir);
-        let (metadata_tables, writing_tables) = entry_table_views(row.zahir.as_ref(), typed);
+        let (metadata_tables, writing_tables, template_views) =
+            entry_structured_views(row.zahir.as_ref(), typed);
         Ok(Json(EntryDetailResponse {
             row,
             metadata_tables,
             writing_tables,
+            template_views,
         })
         .into_response())
     })
@@ -123,14 +126,21 @@ struct EntryDetailResponse {
     metadata_tables: Option<Vec<SectionView>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     writing_tables: Option<Vec<SectionView>>,
+    /// Host-parsed Templates (`TemplateView`); present when `?zahir=1` and non-empty.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    template_views: Option<Vec<TemplateView>>,
 }
 
-fn entry_table_views(
+fn entry_structured_views(
     zahir: Option<&serde_json::Value>,
     typed: crate::config::ColumnStatsDisplay,
-) -> (Option<Vec<SectionView>>, Option<Vec<SectionView>>) {
+) -> (
+    Option<Vec<SectionView>>,
+    Option<Vec<SectionView>>,
+    Option<Vec<TemplateView>>,
+) {
     let Some(value) = zahir else {
-        return (None, None);
+        return (None, None, None);
     };
     let preview = sectioned_preview_from_zahir(value);
     let metadata_tables = preview.metadata.as_deref().and_then(|json| {
@@ -141,7 +151,11 @@ fn entry_table_views(
         let views = parse_json_to_views(json, typed);
         (!views.is_empty()).then_some(views)
     });
-    (metadata_tables, writing_tables)
+    let template_views = {
+        let views = template_views_from_value(value);
+        (!views.is_empty()).then_some(views)
+    };
+    (metadata_tables, writing_tables, template_views)
 }
 
 pub(super) async fn get_delta(

@@ -13,6 +13,7 @@ use crate::nav::MainMode;
 use crate::search;
 use crate::sort::ContentSortCtx;
 use crate::space_menu::SpaceMenuCtx;
+use crate::templates::TemplatesPane;
 use crate::viewer::EntryViewer;
 use crate::viewer_find::{ViewerFind, ViewerFindStrip, install_highlight_effect};
 
@@ -645,6 +646,7 @@ pub(crate) fn EntryRightPane(detail: Signal<Option<EntryDetail>>) -> impl IntoVi
                     let writing = d.writing.clone();
                     let metadata_tables = d.metadata_tables.clone();
                     let writing_tables = d.writing_tables.clone();
+                    let template_views = d.template_views.clone();
                     let show_templates = d.has_templates();
                     let show_metadata = d.has_metadata();
                     let show_writing = d.has_writing();
@@ -677,9 +679,19 @@ pub(crate) fn EntryRightPane(detail: Signal<Option<EntryDetail>>) -> impl IntoVi
                                     }
                                     .into_any()
                                 }
-                                RightTab::Templates => view! {
-                                    <pre class="detail-pre">{templates.clone()}</pre>
-                                }.into_any(),
+                                RightTab::Templates => {
+                                    if !template_views.is_empty() {
+                                        view! {
+                                            <TemplatesPane views=template_views.clone()/>
+                                        }
+                                        .into_any()
+                                    } else {
+                                        view! {
+                                            <pre class="detail-pre">{templates.clone()}</pre>
+                                        }
+                                        .into_any()
+                                    }
+                                }
                                 RightTab::Metadata => {
                                     if !metadata_tables.is_empty() {
                                         view! { <KvTables sections=metadata_tables.clone()/> }
