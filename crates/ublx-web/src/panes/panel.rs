@@ -237,10 +237,51 @@ pub(crate) fn schedule_scroll_selected_into_view(scroll: web_sys::HtmlElement) {
     let _ = window.request_animation_frame(cb.as_ref().unchecked_ref());
 }
 
+/// Match TUI [`CONTENTS_LIST_VIRTUALIZE_MIN`](../../../../src/render/panes/middle.rs): below this,
+/// mount every row (cheap); at/above, only the scroll window.
+const PATHS_VIRTUALIZE_MIN: usize = 512;
+const PATHS_OVERSCAN_ROWS: usize = 12;
+/// Fixed row pitch for spacer math (panel-row padding + line). Good enough for Snapshot;
+/// Delta headers may drift slightly — still far better than N DOM nodes.
+const PATHS_ROW_PX: f64 = 28.0;
+
+fn paths_list_window(total: usize, scroll_top: f64, viewport_h: f64) -> (usize, usize) {
+    if total == 0 {
+        return (0, 0);
+    }
+    if total < PATHS_VIRTUALIZE_MIN {
+        return (0, total);
+    }
+    let row = PATHS_ROW_PX.max(1.0);
+    let visible = ((viewport_h / row).ceil() as usize).max(1);
+    let mut start = ((scroll_top / row).floor() as usize).saturating_sub(PATHS_OVERSCAN_ROWS);
+    let cap = (visible + PATHS_OVERSCAN_ROWS * 2).min(total);
+    if start + cap > total {
+        start = total.saturating_sub(cap);
+    }
+    let end = (start + cap).min(total);
+    (start, end)
+}
+
+fn ensure_index_in_scroll_view(scroll: &web_sys::HtmlElement, index: usize) {
+    let row = PATHS_ROW_PX;
+    let top = index as f64 * row;
+    let bottom = top + row;
+    let st = f64::from(scroll.scroll_top());
+    let vh = f64::from(scroll.client_height()).max(1.0);
+    if top < st {
+        scroll.set_scroll_top(top as i32);
+    } else if bottom > st + vh {
+        scroll.set_scroll_top((bottom - vh).max(0.0) as i32);
+    }
+}
+
 /// Middle-pane path list with **right-aligned** sort (when TUI has it) + `current/total`
 /// (TUI: `title_bottom` via [`src/render/panes/middle.rs`](../../../../src/render/panes/middle.rs)).
 /// Used by Snapshot / Delta / Lenses / Duplicates.
 /// Rows with an empty key render as non-selectable timestamp headers.
+///
+/// Large lists (≥ [`PATHS_VIRTUALIZE_MIN`]) only mount the visible scroll window (THI-191).
 #[component]
 pub(crate) fn PathsPane(
     /// Caller mode — drives sort node visibility + `s` / click cycle target.
@@ -294,40 +335,98 @@ pub(crate) fn PathsPane(
 
     let sort_label = Signal::derive(move || sort_ctx.sort.get().node_text(main_mode));
     let scroll_ref = NodeRef::<leptos::html::Div>::new();
+    let (win, set_win) = signal((0usize, 0usize));
 
-    // Follow selection (arrows) + TUI `sort_anchor_path` when the list reorders.
+    let recompute_window = move || {
+        let total = paths.with_untracked(Vec::len);
+        let Some(scroll) = scroll_ref.get_untracked() else {
+            set_win.set(paths_list_window(total, 0.0, PATHS_ROW_PX * 24.0));
+            return;
+        };
+        let st = f64::from(scroll.scroll_top());
+        let vh = f64::from(scroll.client_height());
+        set_win.set(paths_list_window(total, st, vh));
+    };
+
+    // Remeasure when the list length changes or the scrollport mounts.
+    Effect::new(move |_| {
+        let _ = paths.with(Vec::len);
+        let _ = scroll_ref.get();
+        recompute_window();
+    });
+
+    // Follow selection (arrows) + sort reorder: scroll index into view, then refresh window.
     Effect::new(move |_| {
         let _ = sort_ctx.sort.get();
-        let _ = paths.get();
-        let _ = selected.get();
-        if selected.get_untracked().is_none() {
-            return;
-        }
+        let rows = paths.get();
+        let sel = selected.get();
         let Some(scroll) = scroll_ref.get() else {
             return;
         };
-        schedule_scroll_selected_into_view(scroll.into());
+        let total = rows.len();
+        let virtualized = total >= PATHS_VIRTUALIZE_MIN;
+        if let Some(ref s) = sel {
+            if let Some(idx) = rows.iter().position(|(_, k)| k == s) {
+                if virtualized {
+                    ensure_index_in_scroll_view(&scroll, idx);
+                    recompute_window();
+                }
+                schedule_scroll_selected_into_view(scroll.into());
+            }
+        } else if virtualized {
+            recompute_window();
+        }
     });
 
     view! {
         <div class="paths-pane">
-            <div class="panel-scroll" node_ref=scroll_ref>
+            <div
+                class="panel-scroll"
+                node_ref=scroll_ref
+                on:scroll=move |_| recompute_window()
+            >
                 <Show
-                    when=move || paths.get().is_empty()
+                    when=move || paths.with(Vec::is_empty)
                     fallback=move || {
                         view! {
-                            <ul class="panel-list">
+                            <ul
+                                class="panel-list"
+                                style=move || {
+                                    let total = paths.with(Vec::len);
+                                    if total < PATHS_VIRTUALIZE_MIN {
+                                        return String::new();
+                                    }
+                                    let (start, end) = win.get();
+                                    let top = start as f64 * PATHS_ROW_PX;
+                                    let bottom = total.saturating_sub(end) as f64 * PATHS_ROW_PX;
+                                    format!(
+                                        "padding-top:{top:.0}px;padding-bottom:{bottom:.0}px"
+                                    )
+                                }
+                            >
                                 <For
-                                    each=move || paths.get()
-                                    key=|(label, key)| {
+                                    each=move || {
+                                        let rows = paths.get();
+                                        let (start, end) = win.get();
+                                        let end = end.min(rows.len());
+                                        let start = start.min(end);
+                                        rows[start..end]
+                                            .iter()
+                                            .enumerate()
+                                            .map(|(i, (label, key))| {
+                                                (start + i, label.clone(), key.clone())
+                                            })
+                                            .collect::<Vec<_>>()
+                                    }
+                                    key=|(idx, label, key)| {
                                         if key.is_empty() {
                                             // Delta timestamp headers share empty key — stabilize for For.
-                                            format!("\0h:{label}")
+                                            format!("\0h:{idx}:{label}")
                                         } else {
                                             key.clone()
                                         }
                                     }
-                                    children=move |(label, key)| {
+                                    children=move |(_idx, label, key)| {
                                         if key.is_empty() {
                                             view! {
                                                 <li class="panel-heading">{label}</li>
