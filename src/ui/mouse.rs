@@ -487,10 +487,11 @@ pub fn handle_mouse_event(
             if state_mut.right_pane_mode == RightPaneMode::Templates
                 && !right_content_ref.template_views.is_empty()
             {
-                let cur = state_mut.panels.template_list.selected().unwrap_or(0);
-                let next = cur.saturating_sub(1);
-                state_mut.panels.template_list.select(Some(next));
-                state_mut.panels.preview_scroll = 0;
+                crate::handlers::state_transitions::nudge_template_pattern_selection(
+                    state_mut,
+                    right_content_ref.template_views.len(),
+                    false,
+                );
             } else {
                 state_mut.panels.preview_scroll = state_mut.panels.preview_scroll.saturating_sub(3);
             }
@@ -500,11 +501,11 @@ pub fn handle_mouse_event(
             if state_mut.right_pane_mode == RightPaneMode::Templates
                 && !right_content_ref.template_views.is_empty()
             {
-                let n = right_content_ref.template_views.len();
-                let cur = state_mut.panels.template_list.selected().unwrap_or(0);
-                let next = (cur + 1).min(n.saturating_sub(1));
-                state_mut.panels.template_list.select(Some(next));
-                state_mut.panels.preview_scroll = 0;
+                crate::handlers::state_transitions::nudge_template_pattern_selection(
+                    state_mut,
+                    right_content_ref.template_views.len(),
+                    true,
+                );
             } else {
                 state_mut.panels.preview_scroll = state_mut.panels.preview_scroll.saturating_add(3);
             }

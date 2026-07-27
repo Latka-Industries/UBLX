@@ -73,6 +73,27 @@ fn apply_preview_scroll(state_mut: &mut UblxState, action: UblxAction) {
     }
 }
 
+/// Move Templates pattern selection up/down; reset examples scroll when selection changes.
+pub(crate) fn nudge_template_pattern_selection(
+    state: &mut UblxState,
+    n_patterns: usize,
+    down: bool,
+) {
+    if n_patterns == 0 {
+        return;
+    }
+    let cur = state.panels.template_list.selected().unwrap_or(0);
+    let next = if down {
+        (cur + 1).min(n_patterns.saturating_sub(1))
+    } else {
+        cur.saturating_sub(1)
+    };
+    if next != cur {
+        state.panels.template_list.select(Some(next));
+        state.panels.preview_scroll = 0;
+    }
+}
+
 /// Templates tab with structured views:
 /// Shift+J/K move pattern selection; Shift+B/E scroll the inline examples block.
 fn apply_template_list_nav(
@@ -87,17 +108,11 @@ fn apply_template_list_nav(
     }
     match action {
         UblxAction::ScrollPreviewDown | UblxAction::ScrollPreviewUp => {
-            let n = right_content_ref.template_views.len();
-            let cur = state_mut.panels.template_list.selected().unwrap_or(0);
-            let next = if action == UblxAction::ScrollPreviewDown {
-                (cur + 1).min(n.saturating_sub(1))
-            } else {
-                cur.saturating_sub(1)
-            };
-            if next != cur {
-                state_mut.panels.template_list.select(Some(next));
-                state_mut.panels.preview_scroll = 0;
-            }
+            nudge_template_pattern_selection(
+                state_mut,
+                right_content_ref.template_views.len(),
+                action == UblxAction::ScrollPreviewDown,
+            );
             true
         }
         UblxAction::PreviewTop | UblxAction::PreviewBottom => {

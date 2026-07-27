@@ -67,19 +67,6 @@ pub fn template_views_from_json_value(value: &Value) -> Vec<TemplateView> {
     }
 }
 
-/// Parse the Templates tab body (pretty-printed JSON array). Empty → treat as unstructured.
-#[must_use]
-pub fn template_views_from_templates_str(templates: &str) -> Vec<TemplateView> {
-    let trimmed = templates.trim();
-    if trimmed.is_empty() || trimmed == "null" || trimmed == "[]" {
-        return Vec::new();
-    }
-    match serde_json::from_str::<Value>(trimmed) {
-        Ok(v) => template_views_from_json_value(&v),
-        Err(_) => Vec::new(),
-    }
-}
-
 /// Find / copy haystack from structured views (patterns + example values).
 #[must_use]
 pub fn templates_searchable_text(views: &[TemplateView]) -> String {
