@@ -22,6 +22,9 @@ pub(crate) struct EntryRow {
     /// Host-parsed Writing tables.
     #[serde(default)]
     pub writing_tables: Option<Vec<SectionView>>,
+    /// Host-parsed Templates accordion rows.
+    #[serde(default)]
+    pub template_views: Option<Vec<crate::templates::TemplateView>>,
 }
 
 /// One Metadata / Writing section from serve (`SectionView` export).
@@ -87,6 +90,7 @@ pub(crate) struct EntryDetail {
     pub writing: Option<String>,
     pub metadata_tables: Vec<SectionView>,
     pub writing_tables: Vec<SectionView>,
+    pub template_views: Vec<crate::templates::TemplateView>,
 }
 
 impl EntryDetail {
@@ -102,11 +106,12 @@ impl EntryDetail {
             writing: sections.writing,
             metadata_tables: row.metadata_tables.unwrap_or_default(),
             writing_tables: row.writing_tables.unwrap_or_default(),
+            template_views: row.template_views.unwrap_or_default(),
         }
     }
 
     pub(crate) fn has_templates(&self) -> bool {
-        !self.templates.is_empty()
+        !self.template_views.is_empty() || !self.templates.is_empty()
     }
 
     pub(crate) fn has_metadata(&self) -> bool {
