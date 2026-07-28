@@ -92,6 +92,7 @@ pub(crate) fn path_rows(paths: impl IntoIterator<Item = String>) -> Vec<(String,
 }
 
 /// Best fuzzy score for path or category (TUI `row_fuzzy_score`).
+#[allow(dead_code)] // retained for Delta/Lenses-style client filters / future dense fuzzy
 #[must_use]
 pub(crate) fn row_fuzzy_score(path: &str, category: &str, needle: &str) -> Option<i64> {
     match (fuzzy_score(path, needle), fuzzy_score(category, needle)) {
@@ -125,6 +126,7 @@ pub(crate) fn filter_labels(labels: &[String], search_query: &str) -> Vec<String
 }
 
 /// Categories kept when label matches or any row in that category matches.
+#[allow(dead_code)] // Snapshot Contents now uses server `contains=` (THI-207)
 #[must_use]
 pub(crate) fn filter_categories(
     categories: &[String],
@@ -148,6 +150,7 @@ pub(crate) fn filter_categories(
 }
 
 /// Snapshot contents: category gate + fuzzy; non-empty search sorts by score desc, path asc.
+#[allow(dead_code)] // Snapshot Contents now uses server `contains=` (THI-207)
 #[must_use]
 pub(crate) fn filter_snapshot_paths(
     rows: &[(String, String)],

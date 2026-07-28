@@ -277,6 +277,45 @@ fn ensure_index_in_scroll_view(scroll: &web_sys::HtmlElement, index: usize) {
     }
 }
 
+fn list_len_resolved(
+    list_total: Option<Signal<usize>>,
+    paths: Signal<Vec<(String, String)>>,
+    tracked: bool,
+) -> usize {
+    if tracked {
+        list_total
+            .map(|t| t.get())
+            .unwrap_or_else(|| paths.with(Vec::len))
+    } else {
+        list_total
+            .map(|t| t.get_untracked())
+            .unwrap_or_else(|| paths.with_untracked(Vec::len))
+    }
+}
+
+fn pending_abs_index(key: &str) -> Option<usize> {
+    key.strip_prefix(crate::entries_window::PENDING_KEY_PREFIX)?
+        .parse()
+        .ok()
+}
+
+fn abs_index_from_selection(
+    selected: &str,
+    paths: &[(String, String)],
+    paths_are_window: bool,
+    window_start: usize,
+) -> Option<usize> {
+    if let Some(i) = pending_abs_index(selected) {
+        return Some(i);
+    }
+    let i = paths.iter().position(|(_, k)| k == selected)?;
+    Some(if paths_are_window {
+        window_start + i
+    } else {
+        i
+    })
+}
+
 /// Middle-pane path list with **right-aligned** sort (when TUI has it) + `current/total`
 /// (TUI: `title_bottom` via [`src/render/panes/middle.rs`](../../../../src/render/panes/middle.rs)).
 /// Used by Snapshot / Delta / Lenses / Duplicates.
@@ -293,6 +332,18 @@ pub(crate) fn PathsPane(
     /// Optional path → catalog category (gates Open in new tab).
     #[prop(optional)]
     path_categories: Option<Signal<std::collections::HashMap<String, String>>>,
+    /// When set, spacer + counter use this length (THI-207 windowed Snapshot).
+    #[prop(optional)]
+    list_total: Option<Signal<usize>>,
+    /// Absolute selected index (windowed Snapshot) — scroll + highlight before path loads.
+    #[prop(optional)]
+    selected_index: Option<Signal<Option<usize>>>,
+    /// Fired when the visible virtual window `(start, end)` changes.
+    #[prop(optional)]
+    on_visible_range: Option<Callback<(usize, usize)>>,
+    /// When true, `paths` is only the current window slice (not the full list).
+    #[prop(optional)]
+    paths_are_window: bool,
 ) -> impl IntoView {
     let search_q = Signal::derive(move || search::CatalogSearch::expect().trimmed.get());
     let sort_ctx = ContentSortCtx::expect();
@@ -303,7 +354,7 @@ pub(crate) fn PathsPane(
         paths
             .get()
             .into_iter()
-            .filter_map(|(_, k)| (!k.is_empty()).then_some(k))
+            .filter_map(|(_, k)| (!k.is_empty() && !k.starts_with('\0')).then_some(k))
             .collect::<Vec<_>>()
     });
     let (bridge, set_bridge) = signal(selected.get_untracked());
@@ -318,7 +369,10 @@ pub(crate) fn PathsPane(
             on_select.run(p);
         }
     });
-    install_list_nav(nav.middle, string_list_nav(keys, bridge.into(), set_bridge));
+    // Windowed Snapshot installs its own index nav; skip path-list nav when paths_are_window.
+    if !paths_are_window {
+        install_list_nav(nav.middle, string_list_nav(keys, bridge.into(), set_bridge));
+    }
 
     // Keep Space-menu + multi-select cursor in sync with the middle selection.
     Effect::new(move |_| {
@@ -338,42 +392,57 @@ pub(crate) fn PathsPane(
     let scroll_ref = NodeRef::<leptos::html::Div>::new();
     let (win, set_win) = signal((0usize, 0usize));
 
+    let list_len = move || list_len_resolved(list_total, paths, true);
+
     let recompute_window = move || {
-        let total = paths.with_untracked(Vec::len);
+        let total = list_len_resolved(list_total, paths, false);
         let Some(scroll) = scroll_ref.get_untracked() else {
-            set_win.set(paths_list_window(total, 0.0, PATHS_ROW_PX * 24.0));
+            let next = paths_list_window(total, 0.0, PATHS_ROW_PX * 24.0);
+            set_win.set(next);
+            if let Some(cb) = on_visible_range {
+                cb.run(next);
+            }
             return;
         };
         let st = f64::from(scroll.scroll_top());
         let vh = f64::from(scroll.client_height());
-        set_win.set(paths_list_window(total, st, vh));
+        let next = paths_list_window(total, st, vh);
+        set_win.set(next);
+        if let Some(cb) = on_visible_range {
+            cb.run(next);
+        }
     };
 
     // Remeasure when the list length changes or the scrollport mounts.
     Effect::new(move |_| {
+        let _ = list_len();
         let _ = paths.with(Vec::len);
         let _ = scroll_ref.get();
         recompute_window();
     });
 
-    // Follow selection (arrows) + sort reorder: scroll index into view, then refresh window.
+    // Follow selection (arrows / gG) + sort reorder: scroll index into view, then refresh window.
     Effect::new(move |_| {
         let _ = sort_ctx.sort.get();
-        let rows = paths.get();
-        let sel = selected.get();
         let Some(scroll) = scroll_ref.get() else {
             return;
         };
-        let total = rows.len();
+        let total = list_len_resolved(list_total, paths, true);
         let virtualized = total >= PATHS_VIRTUALIZE_MIN;
-        if let Some(ref s) = sel {
-            if let Some(idx) = rows.iter().position(|(_, k)| k == s) {
-                if virtualized {
-                    ensure_index_in_scroll_view(&scroll, idx);
-                    recompute_window();
-                }
-                schedule_scroll_selected_into_view(scroll.into());
+
+        // Prefer absolute index (windowed g/G) so we scroll before the path page lands.
+        let abs = selected_index.and_then(|s| s.get()).or_else(|| {
+            let sel = selected.get()?;
+            let rows = paths.get();
+            abs_index_from_selection(&sel, &rows, paths_are_window, win.get_untracked().0)
+        });
+
+        if let Some(abs) = abs {
+            if virtualized {
+                ensure_index_in_scroll_view(&scroll, abs);
+                recompute_window();
             }
+            schedule_scroll_selected_into_view(scroll.into());
         } else if virtualized {
             recompute_window();
         }
@@ -387,13 +456,13 @@ pub(crate) fn PathsPane(
                 on:scroll=move |_| recompute_window()
             >
                 <Show
-                    when=move || paths.with(Vec::is_empty)
+                    when=move || list_len() == 0
                     fallback=move || {
                         view! {
                             <ul
                                 class="panel-list"
                                 style=move || {
-                                    let total = paths.with(Vec::len);
+                                    let total = list_len();
                                     if total < PATHS_VIRTUALIZE_MIN {
                                         return String::new();
                                     }
@@ -408,6 +477,16 @@ pub(crate) fn PathsPane(
                                 <For
                                     each=move || {
                                         let rows = paths.get();
+                                        if paths_are_window {
+                                            let start = win.get().0;
+                                            return rows
+                                                .iter()
+                                                .enumerate()
+                                                .map(|(i, (label, key))| {
+                                                    (start + i, label.clone(), key.clone())
+                                                })
+                                                .collect::<Vec<_>>();
+                                        }
                                         let (start, end) = win.get();
                                         let end = end.min(rows.len());
                                         let start = start.min(end);
@@ -421,32 +500,48 @@ pub(crate) fn PathsPane(
                                     }
                                     key=|(idx, label, key)| {
                                         if key.is_empty() {
-                                            // Delta timestamp headers share empty key — stabilize for For.
                                             format!("\0h:{idx}:{label}")
                                         } else {
                                             key.clone()
                                         }
                                     }
-                                    children=move |(_idx, label, key)| {
+                                    children=move |(abs_idx, label, key)| {
                                         if key.is_empty() {
                                             view! {
                                                 <li class="panel-heading">{label}</li>
                                             }
                                             .into_any()
                                         } else {
+                                            let pending = key.starts_with('\0');
                                             let pick = key.clone();
                                             let key_sel = key.clone();
                                             let key_chk = key.clone();
                                             let pick_menu = key.clone();
                                             let pick_toggle = key.clone();
-                                            let ms_applies = MultiselectCtx::applies(main_mode);
+                                            let ms_applies =
+                                                MultiselectCtx::applies(main_mode) && !pending;
+                                            let row_selected = Signal::derive(move || {
+                                                if let Some(sel_i) =
+                                                    selected_index.and_then(|s| s.get())
+                                                {
+                                                    return sel_i == abs_idx;
+                                                }
+                                                selected.get().as_ref() == Some(&key_sel)
+                                            });
                                             let on_select_cb = Callback::new({
                                                 let pick = pick.clone();
-                                                move |_| on_select.run(pick.clone())
+                                                move |_| {
+                                                    if !pending {
+                                                        on_select.run(pick.clone());
+                                                    }
+                                                }
                                             });
                                             let on_menu_cb = Callback::new({
                                                 let path_categories = path_categories;
                                                 move |_| {
+                                                    if pending {
+                                                        return;
+                                                    }
                                                     let path = pick_menu.clone();
                                                     on_select.run(path.clone());
                                                     if let Some(cats) = path_categories.as_ref() {
@@ -462,9 +557,7 @@ pub(crate) fn PathsPane(
                                                 view! {
                                                     <PanelRow
                                                         label=label
-                                                        selected=Signal::derive(move || {
-                                                            selected.get().as_ref() == Some(&key_sel)
-                                                        })
+                                                        selected=row_selected
                                                         checked=Signal::derive(move || {
                                                             multiselect.is_checked(&key_chk)
                                                         })
@@ -483,9 +576,7 @@ pub(crate) fn PathsPane(
                                                 view! {
                                                     <PanelRow
                                                         label=label
-                                                        selected=Signal::derive(move || {
-                                                            selected.get().as_ref() == Some(&key_sel)
-                                                        })
+                                                        selected=row_selected
                                                         on_select=on_select_cb
                                                         on_menu=on_menu_cb
                                                     />
@@ -520,14 +611,33 @@ pub(crate) fn PathsPane(
                 </Show>
                 <span class="status-node status-node--counter">
                     {move || {
-                        let rows = paths.get();
-                        let selectable: Vec<_> =
-                            rows.iter().filter(|(_, k)| !k.is_empty()).collect();
-                        let total = selectable.len();
-                        let current = selected
-                            .get()
-                            .and_then(|s| selectable.iter().position(|(_, k)| **k == s))
+                        let total = list_total.map(|t| t.get()).unwrap_or_else(|| {
+                            paths
+                                .get()
+                                .iter()
+                                .filter(|(_, k)| !k.is_empty() && !k.starts_with('\0'))
+                                .count()
+                        });
+                        let current = selected_index
+                            .and_then(|s| s.get())
                             .map(|i| i + 1)
+                            .or_else(|| {
+                                let s = selected.get()?;
+                                if let Some(i) = pending_abs_index(&s) {
+                                    return Some(i + 1);
+                                }
+                                let rows = paths.get();
+                                let i = rows.iter().position(|(_, k)| *k == s)?;
+                                Some(if paths_are_window {
+                                    win.get().0 + i + 1
+                                } else {
+                                    rows[..i]
+                                        .iter()
+                                        .filter(|(_, k)| !k.is_empty() && !k.starts_with('\0'))
+                                        .count()
+                                        + 1
+                                })
+                            })
                             .unwrap_or(0);
                         let base = format_selection_counter(current, total);
                         let n = if MultiselectCtx::applies(main_mode) {

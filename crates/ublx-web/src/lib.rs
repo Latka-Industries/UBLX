@@ -12,6 +12,7 @@ mod api;
 mod catalog_data;
 mod catalog_refresh;
 mod command_mode;
+mod entries_window;
 mod focus;
 mod help;
 mod keys;

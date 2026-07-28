@@ -10,6 +10,7 @@ use crate::api::{
     post_export_zahir, post_snapshot, switch_root,
 };
 use crate::catalog_refresh::CatalogScope;
+use crate::entries_window::EntriesWindow;
 use crate::nav::MainMode;
 use crate::snapshot_poll::{poll_until_settled, watch_snapshot_if_running};
 use crate::theme::apply_theme_css_body;
@@ -211,26 +212,33 @@ pub(super) fn submit_picker(ctx: CommandModeCtx) {
             spawn_local(async move {
                 match switch_root(&dir).await {
                     Ok(cur) => {
-                        // Soft switch: refresh chrome + catalog in place (no SPA reload).
-                        // Theme first so CSS tokens match the new root before the mode body remounts.
+                        ctx.flash(format!("Switched to {}", cur.path));
+                        // Point chrome at the new root and wipe Contents once — before awaits.
+                        ctx.flags.update(|f| {
+                            f.root = Some(cur.path.clone());
+                        });
+                        ctx.space_menu.catalog_root.set(Some(cur.path.clone()));
+                        EntriesWindow::expect().wipe_for_root();
                         if let Ok(v) = fetch_settings(SettingsScope::Local).await {
                             ctx.apply_theme_from_settings(&v);
                             ctx.mark_theme_committed();
                         }
                         let mut new_flags = load_catalog_flags().await;
-                        // The PUT response is authoritative for the new root.
                         if new_flags.root.as_deref() != Some(cur.path.as_str()) {
                             new_flags.root = Some(cur.path.clone());
                         }
-                        ctx.refresh.bump(CatalogScope::ALL);
-                        ctx.multiselect.clear();
-                        ctx.space_menu.close();
                         ctx.flags.set(persist_catalog_flags(new_flags));
                         ctx.space_menu
                             .catalog_root
                             .set(ctx.flags.get_untracked().root.clone());
+                        // Do **not** bump ENTRIES — that would wipe Contents again after a
+                        // successful small-catalog load (chrome flags refresh is enough).
+                        ctx.refresh.bump(
+                            CatalogScope::LENSES | CatalogScope::DUPLICATES | CatalogScope::DELTA,
+                        );
+                        ctx.multiselect.clear();
+                        ctx.space_menu.close();
                         ctx.set_mode.set(MainMode::Snapshot);
-                        ctx.flash(format!("Switched to {}", cur.path));
                         watch_snapshot_if_running(ctx.refresh, ctx.toasts).await;
                     }
                     Err(e) => ctx.flash_err(e),

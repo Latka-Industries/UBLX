@@ -11,6 +11,22 @@ pub(crate) fn encode_entry_path(path: &str) -> String {
         .join("/")
 }
 
+/// Build `path?k=v&…` with percent-encoded values (path itself is not re-encoded).
+#[must_use]
+pub(crate) fn path_with_query(path: &str, pairs: &[(&str, &str)]) -> String {
+    if pairs.is_empty() {
+        return path.to_owned();
+    }
+    let mut out = String::from(path);
+    for (i, (key, value)) in pairs.iter().enumerate() {
+        out.push(if i == 0 { '?' } else { '&' });
+        out.push_str(key);
+        out.push('=');
+        out.push_str(&urlencoding::encode(value));
+    }
+    out
+}
+
 pub(super) fn lens_url(name: &str) -> String {
     format!("/lenses/{}", encode_entry_path(name))
 }
