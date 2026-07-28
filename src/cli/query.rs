@@ -4,8 +4,9 @@ use rusqlite::Connection;
 
 use crate::cli::catalog::open_catalog_for_read;
 use crate::cli::catalog_read::{
-    DeltaRow, EntryListFilter, EntryRow, entry_detail, list_categories, list_delta, list_entries,
-    list_lens_entries, list_lens_names,
+    DeltaRow, EntryListFilter, EntryListPage, EntryListWindow, EntryRow, entry_detail,
+    list_categories, list_delta, list_entries, list_entries_page, list_lens_entries,
+    list_lens_names,
 };
 use crate::cli::output::{emit_json, emit_string_list};
 use crate::cli::remote::{encode_entry_path, get_json, path_with_query, resolve_base};
@@ -33,6 +34,8 @@ enum QueryResult {
         noun: &'static str,
     },
     Entries(Vec<EntryRow>),
+    /// Windowed list (`--limit`); JSON includes `total`.
+    EntryPage(EntryListPage),
     Delta(Vec<DeltaRow>),
     Detail {
         row: EntryRow,
@@ -68,10 +71,18 @@ fn collect_local(conn: &Connection, args: &QueryCli) -> Result<QueryResult, anyh
             zahir: args.zahir,
         });
     }
-    Ok(QueryResult::Entries(list_entries(
-        conn,
-        &entry_filter(args),
-    )?))
+    let filter = entry_filter(args);
+    if let Some(limit) = args.limit {
+        return Ok(QueryResult::EntryPage(list_entries_page(
+            conn,
+            &filter,
+            EntryListWindow {
+                offset: args.offset,
+                limit,
+            },
+        )?));
+    }
+    Ok(QueryResult::Entries(list_entries(conn, &filter)?))
 }
 
 fn collect_remote(base: &str, args: &QueryCli) -> Result<QueryResult, anyhow::Error> {
@@ -110,10 +121,11 @@ fn collect_remote(base: &str, args: &QueryCli) -> Result<QueryResult, anyhow::Er
             zahir: args.zahir,
         });
     }
-    Ok(QueryResult::Entries(get_json(
-        base,
-        &entries_list_path(args),
-    )?))
+    let path = entries_list_path(args);
+    if args.limit.is_some() {
+        return Ok(QueryResult::EntryPage(get_json(base, &path)?));
+    }
+    Ok(QueryResult::Entries(get_json(base, &path)?))
 }
 
 fn entries_list_path(args: &QueryCli) -> String {
@@ -129,6 +141,12 @@ fn entries_list_path(args: &QueryCli) -> String {
     }
     if let Some(ref c) = args.contains {
         pairs.push(("contains", c.clone()));
+    }
+    if let Some(n) = args.limit {
+        pairs.push(("limit", n.to_string()));
+        if args.offset > 0 {
+            pairs.push(("offset", args.offset.to_string()));
+        }
     }
     let refs: Vec<(&str, &str)> = pairs.iter().map(|(k, v)| (*k, v.as_str())).collect();
     path_with_query("/entries", &refs)
@@ -147,6 +165,7 @@ fn emit_result(result: &QueryResult, json: bool) -> Result<(), anyhow::Error> {
     match result {
         QueryResult::Strings { items, noun } => emit_string_list(items, noun, json),
         QueryResult::Entries(rows) => emit_entries(rows, json),
+        QueryResult::EntryPage(page) => emit_entry_page(page, json),
         QueryResult::Delta(rows) => emit_delta(rows, json),
         QueryResult::Detail { row, zahir } => emit_entry_detail(row, *zahir, json),
     }
@@ -202,6 +221,29 @@ fn emit_entries(rows: &[EntryRow], json: bool) -> Result<(), anyhow::Error> {
         );
     }
     eprintln!("{} entries", rows.len());
+    Ok(())
+}
+
+fn emit_entry_page(page: &EntryListPage, json: bool) -> Result<(), anyhow::Error> {
+    if json {
+        return emit_json(page);
+    }
+    println!("{:<12} {:>10}  PATH", "CATEGORY", "SIZE");
+    for r in &page.entries {
+        println!(
+            "{:<12} {:>10}  {}",
+            truncate(&r.category, 12),
+            format_bytes(r.size),
+            r.path
+        );
+    }
+    eprintln!(
+        "{} entries (offset={} limit={}, {} matching)",
+        page.entries.len(),
+        page.offset,
+        page.limit,
+        page.total
+    );
     Ok(())
 }
 

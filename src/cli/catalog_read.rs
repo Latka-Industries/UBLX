@@ -72,6 +72,37 @@ impl<'a> EntryListFilter<'a> {
     }
 }
 
+/// Window into a filtered entry list (`GET /entries?limit=&offset=`).
+#[derive(Debug, Clone, Copy)]
+pub struct EntryListWindow {
+    pub offset: usize,
+    pub limit: usize,
+}
+
+/// Hard cap when callers pass `limit` (serve / query). Prevents accidental huge pages.
+pub const ENTRY_LIST_LIMIT_MAX: usize = 10_000;
+
+impl EntryListWindow {
+    /// Clamp `limit` to `1..=ENTRY_LIST_LIMIT_MAX`.
+    #[must_use]
+    pub fn clamped(offset: usize, limit: usize) -> Self {
+        Self {
+            offset,
+            limit: limit.clamp(1, ENTRY_LIST_LIMIT_MAX),
+        }
+    }
+}
+
+/// Windowed list payload (THI-205). Used when `limit` is set on `GET /entries`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EntryListPage {
+    /// Rows matching filters (before limit/offset).
+    pub total: usize,
+    pub offset: usize,
+    pub limit: usize,
+    pub entries: Vec<EntryRow>,
+}
+
 /// Missing path / lens — map to HTTP 404 in serve; bail message for CLI.
 #[derive(Debug)]
 pub struct CatalogNotFound {
@@ -256,7 +287,7 @@ pub fn entry_detail(
     Ok(row)
 }
 
-/// List snapshot entries with optional filters (no zahir).
+/// List snapshot entries with optional filters (no zahir). Full result set.
 ///
 /// # Errors
 ///
@@ -276,6 +307,112 @@ pub fn list_entries(
         rows.retain(|r| r.path.contains(needle));
     }
     Ok(rows)
+}
+
+/// Filtered entry page with SQL `LIMIT`/`OFFSET` (THI-205). Prefer this for large catalogs.
+///
+/// Order matches TUI list queries: `category, path` when unfiltered by category; `path` when
+/// `category` is set.
+///
+/// # Errors
+///
+/// Propagates `SQLite` failures.
+pub fn list_entries_page(
+    conn: &Connection,
+    filter: &EntryListFilter<'_>,
+    window: EntryListWindow,
+) -> Result<EntryListPage, anyhow::Error> {
+    let window = EntryListWindow::clamped(window.offset, window.limit);
+    let (where_sql, bind) = snapshot_list_where(filter);
+    let order = if filter.category.is_some() {
+        "ORDER BY path"
+    } else {
+        "ORDER BY category, path"
+    };
+
+    let count_sql = format!("SELECT COUNT(*) FROM snapshot {where_sql}");
+    let total: i64 = {
+        let mut stmt = conn.prepare(&count_sql)?;
+        stmt.query_row(
+            rusqlite::params_from_iter(bind.iter().map(value_from_bind)),
+            |r| r.get(0),
+        )?
+    };
+    let total = usize::try_from(total.max(0)).unwrap_or(usize::MAX);
+
+    let select_sql =
+        format!("SELECT path, category, size FROM snapshot {where_sql} {order} LIMIT ? OFFSET ?");
+    let mut stmt = conn.prepare(&select_sql)?;
+    let limit_i = i64::try_from(window.limit).unwrap_or(i64::MAX);
+    let offset_i = i64::try_from(window.offset).unwrap_or(i64::MAX);
+    let mut params: Vec<rusqlite::types::Value> = bind.iter().map(value_from_bind).collect();
+    params.push(rusqlite::types::Value::Integer(limit_i));
+    params.push(rusqlite::types::Value::Integer(offset_i));
+    let entries = stmt
+        .query_map(rusqlite::params_from_iter(params), entry_from_row)?
+        .collect::<Result<Vec<_>, _>>()?;
+
+    Ok(EntryListPage {
+        total,
+        offset: window.offset,
+        limit: window.limit,
+        entries,
+    })
+}
+
+/// Bind values for dynamic snapshot list WHERE (owned for COUNT + SELECT).
+enum ListBind {
+    Text(String),
+    Integer(i64),
+}
+
+fn value_from_bind(b: &ListBind) -> rusqlite::types::Value {
+    match b {
+        ListBind::Text(s) => rusqlite::types::Value::Text(s.clone()),
+        ListBind::Integer(n) => rusqlite::types::Value::Integer(*n),
+    }
+}
+
+fn snapshot_list_where(filter: &EntryListFilter<'_>) -> (String, Vec<ListBind>) {
+    let mut clauses = Vec::new();
+    let mut bind = Vec::new();
+    if let Some(cat) = filter.category {
+        clauses.push("category = ?");
+        bind.push(ListBind::Text(cat.to_string()));
+    }
+    if let Some(needle) = filter.contains {
+        clauses.push("path LIKE ? ESCAPE '\\'");
+        bind.push(ListBind::Text(like_contains_pattern(needle)));
+    }
+    if let Some(min) = filter.min_size {
+        clauses.push("size >= ?");
+        bind.push(ListBind::Integer(i64::try_from(min).unwrap_or(i64::MAX)));
+    }
+    if let Some(max) = filter.max_size {
+        clauses.push("size <= ?");
+        bind.push(ListBind::Integer(i64::try_from(max).unwrap_or(i64::MAX)));
+    }
+    if clauses.is_empty() {
+        (String::new(), bind)
+    } else {
+        (format!("WHERE {}", clauses.join(" AND ")), bind)
+    }
+}
+
+/// `LIKE` pattern for substring match; escapes `\`, `%`, `_`.
+fn like_contains_pattern(needle: &str) -> String {
+    let mut out = String::from("%");
+    for c in needle.chars() {
+        match c {
+            '\\' | '%' | '_' => {
+                out.push('\\');
+                out.push(c);
+            }
+            _ => out.push(c),
+        }
+    }
+    out.push('%');
+    out
 }
 
 fn load_entries(conn: &Connection, category: Option<&str>) -> Result<Vec<EntryRow>, anyhow::Error> {
@@ -330,4 +467,111 @@ fn parse_zahir_value(raw: Option<&str>) -> Option<serde_json::Value> {
         return None;
     }
     Some(serde_json::from_str(s).unwrap_or_else(|_| serde_json::Value::String(s.to_string())))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rusqlite::Connection;
+
+    fn mem_snapshot() -> Connection {
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch(
+            "CREATE TABLE snapshot (
+                path TEXT PRIMARY KEY,
+                category TEXT,
+                size INTEGER NOT NULL DEFAULT 0
+            );
+            INSERT INTO snapshot (path, category, size) VALUES
+                ('a.rs', 'Code', 10),
+                ('b.rs', 'Code', 20),
+                ('c.md', 'Markdown', 5),
+                ('dir/x_%y.rs', 'Code', 30),
+                ('z.txt', 'Text', 100);",
+        )
+        .unwrap();
+        conn
+    }
+
+    #[test]
+    fn list_entries_page_window_and_total() {
+        let conn = mem_snapshot();
+        let page = list_entries_page(
+            &conn,
+            &EntryListFilter::default(),
+            EntryListWindow {
+                offset: 0,
+                limit: 2,
+            },
+        )
+        .unwrap();
+        assert_eq!(page.total, 5);
+        assert_eq!(page.entries.len(), 2);
+        assert_eq!(page.limit, 2);
+        assert_eq!(page.offset, 0);
+    }
+
+    #[test]
+    fn list_entries_page_offset_past_end() {
+        let conn = mem_snapshot();
+        let page = list_entries_page(
+            &conn,
+            &EntryListFilter::default(),
+            EntryListWindow {
+                offset: 100,
+                limit: 10,
+            },
+        )
+        .unwrap();
+        assert_eq!(page.total, 5);
+        assert!(page.entries.is_empty());
+    }
+
+    #[test]
+    fn list_entries_page_category_and_contains() {
+        let conn = mem_snapshot();
+        let page = list_entries_page(
+            &conn,
+            &EntryListFilter::new(Some("Code"), None, None, Some("b.")),
+            EntryListWindow {
+                offset: 0,
+                limit: 50,
+            },
+        )
+        .unwrap();
+        assert_eq!(page.total, 1);
+        assert_eq!(page.entries[0].path, "b.rs");
+    }
+
+    #[test]
+    fn list_entries_page_like_escape() {
+        let conn = mem_snapshot();
+        let page = list_entries_page(
+            &conn,
+            &EntryListFilter::new(None, None, None, Some("x_%y")),
+            EntryListWindow {
+                offset: 0,
+                limit: 10,
+            },
+        )
+        .unwrap();
+        assert_eq!(page.total, 1);
+        assert_eq!(page.entries[0].path, "dir/x_%y.rs");
+    }
+
+    #[test]
+    fn list_entries_page_clamps_limit() {
+        let conn = mem_snapshot();
+        let page = list_entries_page(
+            &conn,
+            &EntryListFilter::default(),
+            EntryListWindow {
+                offset: 0,
+                limit: 0,
+            },
+        )
+        .unwrap();
+        assert_eq!(page.limit, 1);
+        assert_eq!(page.entries.len(), 1);
+    }
 }
