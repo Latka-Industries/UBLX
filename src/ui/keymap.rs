@@ -419,3 +419,74 @@ pub fn viewer_find_consumes(action: UblxAction) -> bool {
             | UblxAction::ViewerFindChar(_)
     )
 }
+
+#[cfg(test)]
+mod tests {
+    use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
+
+    use super::{
+        AllowBools, KeyActionContext, KeyOptionalTabs, KeySearchState, MultiselectBools,
+        UblxAction, ViewerFinderBools, key_action_setup,
+    };
+    use crate::ui::consts::UblxTabNumber;
+
+    fn ctx() -> KeyActionContext {
+        KeyActionContext {
+            search: KeySearchState {
+                active: false,
+                has_filter: false,
+            },
+            viewer_find: ViewerFinderBools {
+                typing: false,
+                committed: false,
+            },
+            allow: AllowBools {
+                viewer_find: true,
+                lens_add_to_other_hotkey: false,
+            },
+            last_key_for_double: None,
+            tabs: KeyOptionalTabs {
+                lenses: false,
+                duplicates: false,
+            },
+            tab_keys: UblxTabNumber::DEFAULT,
+            multiselect: MultiselectBools {
+                active: false,
+                bulk_menu_visible: false,
+                block_bulk_activation: false,
+            },
+            panel_focus_contents: true,
+            lens_menu_list_open: false,
+        }
+    }
+
+    fn press(code: KeyCode, mods: KeyModifiers) -> KeyEvent {
+        KeyEvent {
+            code,
+            modifiers: mods,
+            kind: KeyEventKind::Press,
+            state: crossterm::event::KeyEventState::empty(),
+        }
+    }
+
+    #[test]
+    fn ctrl_arrows_jump_like_ctrl_jk() {
+        let c = ctx();
+        assert_eq!(
+            key_action_setup(press(KeyCode::Up, KeyModifiers::CONTROL), &c).action,
+            UblxAction::MoveUpFast
+        );
+        assert_eq!(
+            key_action_setup(press(KeyCode::Down, KeyModifiers::CONTROL), &c).action,
+            UblxAction::MoveDownFast
+        );
+        assert_eq!(
+            key_action_setup(press(KeyCode::Char('k'), KeyModifiers::CONTROL), &c).action,
+            UblxAction::MoveUpFast
+        );
+        assert_eq!(
+            key_action_setup(press(KeyCode::Char('j'), KeyModifiers::CONTROL), &c).action,
+            UblxAction::MoveDownFast
+        );
+    }
+}

@@ -202,13 +202,9 @@ pub(crate) fn action_from_keydown(
     }
 
     // Ctrl+leader begins Command Mode (not in Settings / help / search / Space menu).
-    if ctrl && !shift && !cmd.blocked {
-        let leader = cmd.leader.to_ascii_lowercase();
-        let hit = key.to_ascii_lowercase().starts_with(leader)
-            || code.eq_ignore_ascii_case(&format!("Key{}", leader.to_ascii_uppercase()));
-        if hit {
-            return Some(WebAction::CommandModeBegin);
-        }
+    // Exact letter / `KeyA`-style code only — never `starts_with` (ArrowUp/Down begin with 'a').
+    if ctrl && !shift && !cmd.blocked && ctrl_command_mode_leader_hit(&key, &code, cmd.leader) {
+        return Some(WebAction::CommandModeBegin);
     }
 
     if space.open {
@@ -376,6 +372,21 @@ pub(crate) fn action_from_keydown(
     }
 }
 
+/// True when `key` / `code` is exactly the Command Mode leader (e.g. `a` / `KeyA`).
+///
+/// Must not use prefix matching: browser `key` for arrows is `ArrowUp` / `ArrowDown`, both of
+/// which start with `a` and would falsely open Command Mode on Ctrl+↑/↓.
+#[must_use]
+fn ctrl_command_mode_leader_hit(key: &str, code: &str, leader: char) -> bool {
+    let leader = leader.to_ascii_lowercase();
+    if !leader.is_ascii_alphabetic() {
+        return false;
+    }
+    let leader_s = leader.to_string();
+    (key.len() == 1 && key.eq_ignore_ascii_case(&leader_s))
+        || code.eq_ignore_ascii_case(&format!("Key{}", leader.to_ascii_uppercase()))
+}
+
 pub(crate) fn typing_in_form_field() -> bool {
     let Some(doc) = web_sys::window().and_then(|w| w.document()) else {
         return false;
@@ -386,4 +397,30 @@ pub(crate) fn typing_in_form_field() -> bool {
     let tag = el.tag_name().to_ascii_lowercase();
     matches!(tag.as_str(), "input" | "textarea" | "select")
         || el.get_attribute("contenteditable").is_some()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::ctrl_command_mode_leader_hit;
+
+    #[test]
+    fn leader_a_matches_letter_and_code() {
+        assert!(ctrl_command_mode_leader_hit("a", "", 'a'));
+        assert!(ctrl_command_mode_leader_hit("A", "KeyB", 'a')); // key letter wins
+        assert!(ctrl_command_mode_leader_hit("", "KeyA", 'a'));
+        assert!(!ctrl_command_mode_leader_hit("b", "KeyB", 'a'));
+    }
+
+    #[test]
+    fn leader_a_does_not_match_arrow_keys() {
+        // Regression: `starts_with('a')` matched ArrowUp / ArrowDown.
+        assert!(!ctrl_command_mode_leader_hit("ArrowUp", "ArrowUp", 'a'));
+        assert!(!ctrl_command_mode_leader_hit("ArrowDown", "ArrowDown", 'a'));
+        assert!(!ctrl_command_mode_leader_hit("ArrowLeft", "ArrowLeft", 'a'));
+        assert!(!ctrl_command_mode_leader_hit(
+            "ArrowRight",
+            "ArrowRight",
+            'a'
+        ));
+    }
 }
