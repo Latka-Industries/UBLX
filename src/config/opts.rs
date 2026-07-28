@@ -117,6 +117,7 @@ pub struct UblxOpts {
 
 impl UblxOpts {
     /// Copy hot-reloadable right-pane display fields into [`crate::layout::setup::PanelState`].
+    #[cfg(feature = "tui")]
     pub fn sync_panels_display(&self, panels: &mut crate::layout::setup::PanelState) {
         panels.typed_column_tables = self.typed_column_tables;
     }

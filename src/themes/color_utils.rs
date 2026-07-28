@@ -1,10 +1,9 @@
 //! Color helpers (HSL lightening / darkening, theme-aware surface shifts).
 
-use ratatui::style::Color;
-
 use crate::utils::Epsilon;
 
 use super::Appearance;
+use super::Color;
 
 const RGB_MAX: f32 = 255.0;
 const HSL_SEGMENT_ANGLE: f32 = 60.0;

@@ -12,7 +12,7 @@ use crate::cli::catalog_read::{
     list_lens_names,
 };
 use crate::cli::settings_api;
-use crate::handlers::viewing::sectioned_preview_from_zahir;
+use crate::handlers::sectioned_preview_from_zahir;
 use crate::render::kv_tables::{SectionView, parse_json_to_views};
 use crate::render::templates::{TemplateView, template_views_from_value};
 

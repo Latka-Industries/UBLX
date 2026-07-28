@@ -2,13 +2,15 @@
 //!
 //! **Ownership vs [`crate::layout`]:** this crate owns named [`Palette`]s, appearance, and helpers (`current`, `get`, `adjust_surface_rgb`, etc.). It must not import `layout`—callers in `layout::style` and `render` read palettes from here. “Theme” in user-facing copy means the selectable name; [`Palette`] is the concrete color set.
 
+mod color;
 mod color_utils;
 pub mod css;
 mod palettes;
 pub mod syntect;
 
-use ratatui::style::Color;
 use std::cell::RefCell;
+
+pub use color::Color;
 
 pub use color_utils::{
     adjust_surface_rgb, color_rgb_to_hex6, color_to_hex6, color_to_hsl_token, color_to_osc11_hex8,

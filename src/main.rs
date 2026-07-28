@@ -52,12 +52,23 @@ fn load_startup_db_data(
             db_ops::load_settings_from_db(db_path_ref).ok().flatten(),
         )
     } else {
-        let load = utils::fatal_error_handler(
-            db_ops::load_tui_start_data(db_path_ref),
-            "failed to load snapshot: {}",
-        );
-        let (prior, preload, cached) = load.split_for_app();
-        (prior, Some(preload), cached)
+        #[cfg(feature = "tui")]
+        {
+            let load = utils::fatal_error_handler(
+                db_ops::load_tui_start_data(db_path_ref),
+                "failed to load snapshot: {}",
+            );
+            let (prior, preload, cached) = load.split_for_app();
+            (prior, Some(preload), cached)
+        }
+        #[cfg(not(feature = "tui"))]
+        {
+            (
+                None,
+                None,
+                db_ops::load_settings_from_db(db_path_ref).ok().flatten(),
+            )
+        }
     };
     (prior_nefax_owned, tui_start, cached_settings)
 }
@@ -127,6 +138,7 @@ fn build_ublx_opts(
 }
 
 /// Inputs for [`run_app_and_postprocess`]: paths, opts, DB preload, and run flags.
+#[cfg_attr(not(feature = "tui"), allow(dead_code))]
 struct RunAppInvocation<'a> {
     headless: &'a cli_parser::HeadlessModeFlags,
     dir_to_ublx: &'a Path,
@@ -144,6 +156,7 @@ struct RunAppInvocation<'a> {
 
 /// Runs the app (TUI or headless). After a snapshot-only run with no local config file, writes
 /// `ubli.toml` with the enhance-all flag so the next TUI session matches CLI intent.
+#[cfg(feature = "tui")]
 fn run_app_and_postprocess(inv: RunAppInvocation<'_>) {
     let headless_params = handlers::RunAppParamsHeadless {
         snapshot_only: inv.headless.snapshot.is_some(),
@@ -167,6 +180,45 @@ fn run_app_and_postprocess(inv: RunAppInvocation<'_>) {
         utils::fatal_error_handler(
             config::write_local_enhance_only_toml(inv.paths, inv.local_enhance_all),
             "failed to write local config: {}",
+        );
+    }
+}
+
+/// Headless-only dispatch when built without the `tui` feature (THI-213).
+#[cfg(not(feature = "tui"))]
+fn run_app_and_postprocess(inv: RunAppInvocation<'_>) {
+    let snapshot = inv.headless.snapshot.is_some();
+    let export = inv.headless.export;
+    if !snapshot && !export {
+        eprintln!(
+            "error: interactive TUI requires the `tui` Cargo feature (enabled by default).\n\
+             Rebuild without `--no-default-features`, or use `ublx query` / `ublx doctor` / `ublx serve`."
+        );
+        std::process::exit(2);
+    }
+    if snapshot {
+        utils::fatal_error_handler(
+            handlers::run_snapshot_pipeline_headless(
+                inv.dir_to_ublx,
+                inv.ublx_opts,
+                inv.prior_nefax_owned.as_ref(),
+                inv.start_time,
+            )
+            .map_err(|e| std::io::Error::other(e.to_string())),
+            "{}",
+        );
+        if inv.paths.toml_path().is_none() {
+            utils::fatal_error_handler(
+                config::write_local_enhance_only_toml(inv.paths, inv.local_enhance_all),
+                "failed to write local config: {}",
+            );
+        }
+    }
+    if export {
+        utils::fatal_error_handler(
+            db_ops::export_zahir_json_flat(inv.dir_to_ublx, inv.db_path)
+                .map_err(|e| std::io::Error::other(e.to_string())),
+            "{}",
         );
     }
 }

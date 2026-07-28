@@ -5,12 +5,13 @@ rust = { version = "1.95", targets = "wasm32-unknown-unknown" }
 # Full suite: `mise run test` (CI still runs `cargo test`).
 # THI-214: clippy each host feature matrix (default / serve / ui).
 [tasks.check]
-description = "fmt + clippy for default, serve, and ui features"
+description = "fmt + clippy for default, serve, ui, and serve-without-tui"
 run = [
   "cargo fmt --all",
   "cargo clippy -- -D warnings",
   "cargo clippy --features serve -- -D warnings",
   "cargo clippy --features ui -- -D warnings",
+  "cargo clippy --no-default-features --features serve -- -D warnings",
 ]
 
 [tasks.test]

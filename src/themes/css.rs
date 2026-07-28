@@ -7,11 +7,10 @@
 
 use std::collections::BTreeMap;
 
-use ratatui::style::Color;
 use serde::Serialize;
 
 use super::color_utils::{color_to_hsl_token, rgb_to_hsl_token};
-use super::{Appearance, Palette, adjust_surface_rgb, node_pill_background};
+use super::{Appearance, Color, Palette, adjust_surface_rgb, node_pill_background};
 
 /// Matches TUI `table_row_style` stripe strength (`UiConstants::table_stripe_lighten` = 0.06).
 const TABLE_STRIPE_LIGHTEN: f32 = 0.06;

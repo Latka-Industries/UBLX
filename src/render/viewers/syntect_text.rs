@@ -10,13 +10,19 @@
 use std::path::Path;
 use std::sync::LazyLock;
 
+#[cfg(feature = "tui")]
 use ratatui::style::{Color, Modifier, Style as RatStyle};
+#[cfg(feature = "tui")]
 use ratatui::text::{Line, Span, Text};
+#[cfg(feature = "tui")]
 use syntect::easy::HighlightLines;
+#[cfg(feature = "tui")]
 use syntect::highlighting::{FontStyle, Style as SynStyle};
 use syntect::parsing::{SyntaxReference, SyntaxSet};
+#[cfg(feature = "tui")]
 use syntect::util::LinesWithEndings;
 
+#[cfg(feature = "tui")]
 use crate::engine::db_ops::UblxDbCategory;
 use crate::integrations::ZahirFT;
 use crate::render::viewers::html_escape::html_escape_minimal;
@@ -69,6 +75,7 @@ fn pick_syntax_by_path<'a>(
         .unwrap_or_else(|| plain(default))
 }
 
+#[cfg(feature = "tui")]
 fn syn_style_to_ratatui(s: &SynStyle) -> RatStyle {
     let fg = s.foreground;
     let bg = s.background;
@@ -88,6 +95,7 @@ fn syn_style_to_ratatui(s: &SynStyle) -> RatStyle {
     st
 }
 
+#[cfg(feature = "tui")]
 fn theme_bg_style(theme: &syntect::highlighting::Theme) -> RatStyle {
     match theme.settings.background {
         Some(c) => RatStyle::default().bg(Color::Rgb(c.r, c.g, c.b)),
@@ -156,12 +164,14 @@ pub fn highlight_viewer_html(raw: &str, path: &str, ft: ZahirFT, palette: &Palet
 }
 
 /// Syntax-highlight using DB [`UblxDbCategory`]; caller should only invoke for zahir types that use syntect.
+#[cfg(feature = "tui")]
 #[must_use]
 pub fn highlight_viewer(raw: &str, path: &str, cat: UblxDbCategory) -> Text<'static> {
     highlight_viewer_for_palette(raw, path, cat, themes::current())
 }
 
 /// Same as [`highlight_viewer`], but with an explicit palette (e.g. background worker without `themes::current()`).
+#[cfg(feature = "tui")]
 #[must_use]
 pub fn highlight_viewer_for_palette(
     raw: &str,

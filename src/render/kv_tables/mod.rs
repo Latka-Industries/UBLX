@@ -28,10 +28,12 @@
 
 pub mod column_metadata;
 pub mod consts;
+#[cfg(feature = "tui")]
 pub mod draw;
 pub mod export;
 pub mod format;
 pub mod parse_ctx;
+#[cfg(feature = "tui")]
 pub mod ratatui_table;
 pub mod schema;
 pub mod sections;
@@ -39,6 +41,7 @@ pub mod tabular;
 pub mod walk;
 pub mod xlsx;
 
+#[cfg(feature = "tui")]
 pub use draw::*;
 pub use export::{SectionView, TreeNodeView, parse_json_to_views, tree_node_to_view};
 pub use parse_ctx::KvParseCtx;
