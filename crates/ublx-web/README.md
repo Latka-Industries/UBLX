@@ -10,8 +10,9 @@ Leptos CSR + [leptos-shadcn-ui](https://github.com/cloud-shuttle/leptos-shadcn-u
 | ------------- | -------------------------------------------------------------- |
 | `api`         | Same-origin JSON client + catalog types                        |
 | `nav`         | `MainMode` tabs + `/?mode=` (never UI-navigate to `/delta`, …) |
-| `shell`       | Tabs, project path, Last Snapshot footer                       |
+| `shell`       | Tabs, project path, Last Snapshot / catalog search footer      |
 | `panes`       | 3-pane boxes, list rows, right-pane tabs                       |
+| `marquee`     | Overflowing selected row label conveyor (TUI parity)           |
 | `viewer_find` | Shift+S in-pane find strip + DOM highlights                    |
 | `modes/*`     | Snapshot / Lenses / Delta / Duplicates / Settings              |
 

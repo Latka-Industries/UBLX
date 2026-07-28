@@ -46,6 +46,10 @@ pub(crate) enum WebAction {
     ViewerFindPrev,
     /// Clear Viewer find (Esc while committed).
     ViewerFindClear,
+    /// Toggle right-pane fullscreen (Shift+F).
+    ViewerFullscreenToggle,
+    /// Exit right-pane fullscreen (Esc / q while fullscreen).
+    ViewerFullscreenExit,
     /// Ctrl+Space — enter/exit multi-select (Snapshot / Lenses, contents).
     MultiselectToggleMode,
     /// Space — toggle cursor row while multi-select is active.
@@ -127,6 +131,7 @@ pub(crate) fn action_from_keydown(
     ms: MultiselectKeyCtx,
     space: SpaceMenuKeyCtx,
     cmd: CommandModeKeyCtx,
+    viewer_fullscreen: bool,
 ) -> Option<WebAction> {
     let key = ev.key();
     let code = ev.code();
@@ -270,6 +275,16 @@ pub(crate) fn action_from_keydown(
         return Some(WebAction::MultiselectOpenBulk);
     }
 
+    // TUI apply_quit: Esc / q leave fullscreen before anything else app-level.
+    if viewer_fullscreen && !ctrl {
+        if key == "Escape" {
+            return Some(WebAction::ViewerFullscreenExit);
+        }
+        if !shift && (key == "q" || key == "Q") {
+            return Some(WebAction::ViewerFullscreenExit);
+        }
+    }
+
     // Space opens quick-actions when multi-select is off.
     if !ms.active && !ctrl && !shift && (key == " " || code == "Space") && space.can_open {
         return Some(WebAction::SpaceMenuOpen);
@@ -277,8 +292,10 @@ pub(crate) fn action_from_keydown(
 
     // Preview scroll / PDF page nav (TUI Shift+J/K/B/E + Shift+arrows).
     // After Shift+S handling so find open wins over nothing on S.
+    // Shift+F toggles viewer fullscreen (TUI ViewerFullscreenToggle).
     if shift && !ctrl {
         match (key.as_str(), code.as_str()) {
+            ("F" | "f", _) | (_, "KeyF") => return Some(WebAction::ViewerFullscreenToggle),
             ("J" | "j", _) | (_, "ArrowDown") => return Some(WebAction::ScrollPreviewDown),
             ("K" | "k", _) | (_, "ArrowUp") => return Some(WebAction::ScrollPreviewUp),
             ("B" | "b", _) => return Some(WebAction::PreviewTop),

@@ -5,6 +5,7 @@ use wasm_bindgen::JsCast;
 use web_sys::{Element, HtmlElement, Node, Text};
 
 use crate::panes::RightTab;
+use crate::util::StripClear;
 
 /// Label matches TUI `UI_STRINGS.search.find_label`.
 pub(crate) const FIND_LABEL: &str = "Search: ";
@@ -455,6 +456,7 @@ pub(crate) fn ViewerFindStrip() -> impl IntoView {
                     }}
                 </span>
             </Show>
+            <StripClear noun="find" on_clear=Callback::new(move |_| find.clear())/>
         </div>
     }
 }

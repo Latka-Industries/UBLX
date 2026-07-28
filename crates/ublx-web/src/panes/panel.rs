@@ -8,6 +8,7 @@ use web_sys::{ScrollIntoViewOptions, ScrollLogicalPosition};
 use crate::api::{EntryDetail, format_bytes, format_timestamp_ns};
 use crate::focus::{PreviewKeysBus, UiNav, install_list_nav, string_list_nav};
 use crate::kv_tables::KvTables;
+use crate::marquee::PanelRowText;
 use crate::multiselect::MultiselectCtx;
 use crate::nav::MainMode;
 use crate::search;
@@ -158,7 +159,7 @@ pub(crate) fn PanelRow(
                     </span>
                 </Show>
                 <span class="panel-row__sym">{move || if selected.get() { "›" } else { " " }}</span>
-                <span class="panel-row__text">{label.clone()}</span>
+                <PanelRowText label=label.clone() selected=selected/>
             </button>
         </li>
     }

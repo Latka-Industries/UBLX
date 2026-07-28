@@ -8,6 +8,16 @@
   padding: 0.4rem;
 }
 
+/* TUI viewer_fullscreen: right pane fills the mode body. */
+.three-pane--viewer-fullscreen {
+  grid-template-columns: 1fr;
+}
+
+.three-pane--viewer-fullscreen > .panel:nth-child(1),
+.three-pane--viewer-fullscreen > .panel:nth-child(2) {
+  display: none;
+}
+
 .panel {
   display: flex;
   flex-direction: column;
@@ -179,11 +189,55 @@
 }
 
 .panel-row__text {
+  position: relative;
   flex: 1;
   min-width: 0;
   overflow: hidden;
+  white-space: nowrap;
+}
+
+.panel-row__text-inner {
+  display: block;
+  overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.panel-row__measure {
+  position: absolute;
+  left: 0;
+  top: 0;
+  visibility: hidden;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.panel-row__text--marquee {
+  text-overflow: clip;
+}
+
+.panel-row__marquee-track {
+  display: inline-block;
+  /* `nowrap` still collapses consecutive spaces — need `pre` for the pad gap. */
+  white-space: pre;
+  will-change: transform;
+  animation-name: panel-row-marquee;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+
+.panel-row__marquee-seg {
+  display: inline;
+  white-space: pre;
+}
+
+@keyframes panel-row-marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
 }
 
 .pane-empty {

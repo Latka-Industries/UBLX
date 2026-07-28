@@ -510,5 +510,9 @@ button.settings-theme-trigger:disabled {
     grid-template-columns: 1fr;
     grid-template-rows: minmax(8rem, 22%) minmax(10rem, 30%) 1fr;
   }
+
+  .three-pane--viewer-fullscreen {
+    grid-template-rows: 1fr;
+  }
 }
 

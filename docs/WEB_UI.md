@@ -157,7 +157,7 @@ API on `GET`/`PATCH /settings/{scope}`:
 | Area | Required for Done |
 | ---- | ----------------- |
 | Chrome | Tabs, path gap, 3-pane, Last Snapshot / catalog search, Settings, mode-aware `?` help overlay |
-| Keyboard | Arrows + TUI hotkeys for focus, list move, mode switch, right-pane tabs, sort, search, find, `?` help (where applicable) — see [`src/ui/keymap.rs`](../src/ui/keymap.rs) |
+| Keyboard | Arrows + TUI hotkeys for focus, list move, mode switch, right-pane tabs / Shift+F fullscreen, sort, search, find, `?` help (where applicable) — see [`src/ui/keymap.rs`](../src/ui/keymap.rs) |
 | Lists | Snapshot / Delta / Lenses / Duplicates with `n/N` **bottom-right**; middle sort node where TUI has it |
 | Selection / menus | Multi-select (contents), Space quick-actions / context menu, Command Mode overlay — TUI parity for browse+act |
 | Right pane | Viewer body + Templates / Metadata / Writing |
@@ -168,7 +168,7 @@ API on `GET`/`PATCH /settings/{scope}`:
 
 Mouse click remains supported; keyboard is first-class.
 
-**Explicitly after MVP (still fine as follow-ons on `dev`):** enhance-from-UI polish beyond Command/Space paths, fullscreen viewer polish, root switcher / snapshot trigger / doctor surfaces — unless a mini-PR lands them early.
+**Explicitly after MVP (still fine as follow-ons on `dev`):** enhance-from-UI polish beyond Command/Space paths, root switcher / snapshot trigger / doctor surfaces — unless a mini-PR lands them early.
 
 ---
 
@@ -195,6 +195,9 @@ Mouse click remains supported; keyboard is first-class.
 - [x] Viewer find (Shift+S strip; Enter / `n`/`N` / Esc)
 - [x] Multi-select (Ctrl+Space; Space toggle; Snapshot / Lenses)
 - [x] Space / context menu (Open / Copy / Ignore + rename/delete/lens/enhance via serve `/fs` + `/lenses`)
+- [x] Overflowing selected row labels marquee (TUI conveyor; focused pane only; `white-space: pre` pad)
+- [x] Catalog `/` + Viewer Shift+S strip clear (× button + Esc)
+- [x] Right-pane fullscreen (Shift+F; Esc / q exits)
 
 ---
 

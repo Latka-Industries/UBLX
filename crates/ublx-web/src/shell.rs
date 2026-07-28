@@ -10,7 +10,7 @@ use crate::catalog_data::CatalogData;
 use crate::catalog_refresh::CatalogRefresh;
 use crate::command_mode::{CommandModeCtx, CommandModePopup, open_root_picker};
 use crate::entries_window::EntriesWindow;
-use crate::focus::{PaneFocus, PdfPageNav, PreviewKeysBus, RightTabBus, UiNav};
+use crate::focus::{PaneFocus, PdfPageNav, PreviewKeysBus, RightTabBus, UiNav, ViewerFullscreen};
 use crate::help::{HelpModal, HelpOverlay};
 use crate::keys::{
     CommandModeKeyCtx, FindKeyCtx, MultiselectKeyCtx, SpaceMenuKeyCtx, WebAction,
@@ -23,6 +23,7 @@ use crate::search::{CatalogSearch, SEARCH_LABEL};
 use crate::sort::ContentSortCtx;
 use crate::space_menu::{SpaceMenuCtx, SpaceMenuPopup};
 use crate::toast::{ToastCtx, ToastHost};
+use crate::util::StripClear;
 use crate::viewer::scroll_right_preview;
 use crate::viewer_find::ViewerFind;
 
@@ -33,6 +34,7 @@ pub(crate) fn Shell(flags: RwSignal<CatalogFlags>) -> impl IntoView {
     let find = ViewerFind::provide();
     let sort = ContentSortCtx::provide();
     let (nav, tabs, preview) = UiNav::provide();
+    let viewer_fullscreen = ViewerFullscreen::provide();
     let help = HelpOverlay::provide();
     let multiselect = MultiselectCtx::provide();
     let catalog_refresh = CatalogRefresh::provide();
@@ -177,6 +179,7 @@ pub(crate) fn Shell(flags: RwSignal<CatalogFlags>) -> impl IntoView {
         let multiselect = multiselect;
         let space_menu = space_menu;
         let command_mode = command_mode;
+        let viewer_fullscreen = viewer_fullscreen;
         let closure = wasm_bindgen::closure::Closure::wrap(Box::new(move |ev: KeyboardEvent| {
             let menu_open = space_menu.visible.get_untracked();
             let cmd_active = command_mode.is_active();
@@ -215,9 +218,15 @@ pub(crate) fn Shell(flags: RwSignal<CatalogFlags>) -> impl IntoView {
                     || m == MainMode::Settings,
                 leader: command_mode.leader.get_untracked(),
             };
-            let Some(action) =
-                action_from_keydown(&ev, help_open, find_ctx, ms_ctx, space_ctx, cmd_ctx)
-            else {
+            let Some(action) = action_from_keydown(
+                &ev,
+                help_open,
+                find_ctx,
+                ms_ctx,
+                space_ctx,
+                cmd_ctx,
+                viewer_fullscreen.active.get_untracked(),
+            ) else {
                 return;
             };
             ev.prevent_default();
@@ -244,6 +253,7 @@ pub(crate) fn Shell(flags: RwSignal<CatalogFlags>) -> impl IntoView {
                     multiselect,
                     space_menu,
                     command_mode,
+                    viewer_fullscreen,
                 },
             );
         }) as Box<dyn FnMut(_)>);
@@ -338,6 +348,7 @@ struct KeybusCtx {
     multiselect: MultiselectCtx,
     space_menu: SpaceMenuCtx,
     command_mode: CommandModeCtx,
+    viewer_fullscreen: ViewerFullscreen,
 }
 
 fn dispatch_action(action: WebAction, ctx: KeybusCtx) {
@@ -409,6 +420,8 @@ fn dispatch_action(action: WebAction, ctx: KeybusCtx) {
         WebAction::ViewerFindNext => ctx.find.next(),
         WebAction::ViewerFindPrev => ctx.find.prev(),
         WebAction::ViewerFindClear => ctx.find.clear(),
+        WebAction::ViewerFullscreenToggle => ctx.viewer_fullscreen.toggle(),
+        WebAction::ViewerFullscreenExit => ctx.viewer_fullscreen.exit(),
         WebAction::MultiselectToggleMode => {
             ctx.space_menu.close();
             ctx.command_mode.close_all();
@@ -690,6 +703,10 @@ fn FooterNodes(flags: RwSignal<CatalogFlags>, search: CatalogSearch) -> impl Int
                                 }
                             />
                         </Show>
+                        <StripClear
+                            noun="search"
+                            on_clear=Callback::new(move |_| search.clear())
+                        />
                     </div>
                 </Show>
             </div>

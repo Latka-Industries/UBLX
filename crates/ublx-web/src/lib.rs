@@ -17,6 +17,7 @@ mod focus;
 mod help;
 mod keys;
 mod kv_tables;
+mod marquee;
 mod modes;
 mod multiselect;
 mod nav;
