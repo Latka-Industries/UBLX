@@ -15,7 +15,10 @@ pub use catalog::{
     CatalogHandle, CatalogPaths, catalog_db_present, open_catalog_for_read,
     open_placeholder_catalog, resolve_catalog_paths, snapshot_likely_in_progress,
 };
-pub use catalog_read::{CatalogNotFound, DeltaRow, EntryListFilter, EntryRow};
+pub use catalog_read::{
+    CatalogNotFound, DeltaRow, ENTRY_LIST_LIMIT_MAX, EntryListFilter, EntryListPage,
+    EntryListWindow, EntryRow,
+};
 
 use crate::cli_parser::Commands;
 

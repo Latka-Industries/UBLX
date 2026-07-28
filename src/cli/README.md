@@ -48,6 +48,7 @@ curl -s -X POST http://127.0.0.1:8787/snapshot \
 curl -s http://127.0.0.1:8787/snapshot   # poll until state != running
 curl -s http://127.0.0.1:8787/categories
 curl -s 'http://127.0.0.1:8787/entries?category=Code&contains=src'
+curl -s 'http://127.0.0.1:8787/entries?limit=200&offset=0'
 curl -s 'http://127.0.0.1:8787/entries/README.md?zahir=1'
 curl -s 'http://127.0.0.1:8787/delta?type=mod'
 curl -s http://127.0.0.1:8787/duplicates
@@ -65,6 +66,7 @@ Notes:
 - `GET /doctor` — same diagnose report as `ublx doctor --json` for the current root (no `--fix` over HTTP)
 - `POST /snapshot` — **202** + background job (TUI pipeline); `GET /snapshot` for `idle|running|done|failed`; catalog connection is reopened after rename
 - `GET /categories` — exact category strings for `?category=` (case-sensitive, e.g. `Code` not `code`)
+- `GET /entries` — list rows `{ path, category, size }` (no zahir). Filters: `category`, `min_size`, `max_size`, `contains` (path substring). **Window (THI-205):** `limit` + optional `offset` → `{ total, offset, limit, entries }` (SQL `LIMIT`/`OFFSET`, `limit` clamped to 1..=10000). Omit `limit` → legacy bare JSON array (full filtered set; fine for small catalogs / current web until THI-207).
 - `GET /delta?type=` — wire values `added` | `mod` | `removed` (`modified` accepted as alias for `mod`)
 - `GET /duplicates` — `{ mode: "hash"|"name_size", groups: [{ id, label, paths }] }` (read-only; no on-demand blake3 fill)
 - `GET /entries/{*path}?zahir=1` — entry detail; when zahir is set, also `metadata_tables` / `writing_tables` (host-parsed KV / column-stat sections; honors effective `typed_column_tables`)

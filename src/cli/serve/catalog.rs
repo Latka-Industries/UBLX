@@ -7,8 +7,9 @@ use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
 
 use crate::cli::catalog_read::{
-    EntryListFilter, EntryRow, entry_detail, is_not_found, list_categories, list_delta,
-    list_duplicates, list_entries, list_lens_entries, list_lens_names,
+    EntryListFilter, EntryListWindow, EntryRow, entry_detail, is_not_found, list_categories,
+    list_delta, list_duplicates, list_entries, list_entries_page, list_lens_entries,
+    list_lens_names,
 };
 use crate::cli::settings_api;
 use crate::handlers::viewing::sectioned_preview_from_zahir;
@@ -25,6 +26,10 @@ pub(super) struct EntriesQuery {
     min_size: Option<u64>,
     max_size: Option<u64>,
     contains: Option<String>,
+    /// When set, response is `{ total, offset, limit, entries }` instead of a bare array (THI-205).
+    limit: Option<usize>,
+    #[serde(default)]
+    offset: Option<usize>,
 }
 
 impl EntriesQuery {
@@ -77,8 +82,24 @@ pub(super) async fn get_categories(
 pub(super) async fn get_entries(
     State(state): State<AppState>,
     Query(q): Query<EntriesQuery>,
-) -> Result<impl IntoResponse, ApiError> {
-    with_db(&state, |conn| Ok(Json(list_entries(conn, &q.filter())?)))
+) -> Result<Response, ApiError> {
+    with_db(&state, |conn| {
+        let filter = q.filter();
+        if let Some(limit) = q.limit {
+            let page = list_entries_page(
+                conn,
+                &filter,
+                EntryListWindow {
+                    offset: q.offset.unwrap_or(0),
+                    limit,
+                },
+            )?;
+            Ok(Json(page).into_response())
+        } else {
+            // Legacy: bare array for existing web / remote clients (THI-207 will pass limit).
+            Ok(Json(list_entries(conn, &filter)?).into_response())
+        }
+    })
 }
 
 pub(super) async fn get_entry(

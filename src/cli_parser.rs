@@ -84,6 +84,12 @@ pub struct QueryCli {
     /// Keep rows whose path contains this substring
     #[arg(long)]
     pub contains: Option<String>,
+    /// Max rows to return (SQL window). With this set, JSON is `{ total, offset, limit, entries }`.
+    #[arg(long)]
+    pub limit: Option<usize>,
+    /// Skip this many matching rows (with `--limit`)
+    #[arg(long, default_value_t = 0)]
+    pub offset: usize,
     /// Show one snapshot row by exact relative path
     #[arg(long)]
     pub path: Option<String>,
