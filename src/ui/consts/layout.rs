@@ -1,7 +1,10 @@
 //! Shared UI layout constants (padding, constraints).
 
+#[cfg(feature = "tui")]
 use ratatui::layout::Constraint;
+#[cfg(feature = "tui")]
 use ratatui::style::Style;
+#[cfg(feature = "tui")]
 use ratatui::text::Span;
 
 /// Shared UI layout constants (padding, etc.). Constraint arrays are derived from the scalar values via the `*_constraints()` methods.
@@ -57,6 +60,7 @@ impl UiConstants {
     }
 
     /// Main area (min 1 row) + status line. Derived from [`Self::status_line_height`].
+    #[cfg(feature = "tui")]
     #[must_use]
     pub fn status_line_constraints(&self) -> [Constraint; 2] {
         [
@@ -66,6 +70,7 @@ impl UiConstants {
     }
 
     /// Tab row + gap + body. Derived from [`Self::tab_row_height`] and [`Self::tab_body_gap_height`].
+    #[cfg(feature = "tui")]
     #[must_use]
     pub fn tab_row_constraints(&self) -> [Constraint; 3] {
         [
@@ -76,6 +81,7 @@ impl UiConstants {
     }
 
     /// Tabs (flex) + brand block. Derived from [`Self::brand_block_width`].
+    #[cfg(feature = "tui")]
     #[must_use]
     pub fn brand_block_constraints(&self) -> [Constraint; 2] {
         [
@@ -84,6 +90,7 @@ impl UiConstants {
         ]
     }
 
+    #[cfg(feature = "tui")]
     #[must_use]
     pub fn get_empty_span(&self, style: Style) -> Span<'static> {
         Span::styled(self.empty_space, style)

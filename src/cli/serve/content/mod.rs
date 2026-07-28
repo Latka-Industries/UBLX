@@ -13,7 +13,7 @@ use std::path::Path;
 
 use crate::cli::catalog_read::EntryRow;
 use crate::cli::settings_api;
-use crate::handlers::viewing::directory_tree_nodes;
+use crate::handlers::directory_tree_nodes;
 use crate::integrations::{ZahirFT, delimiter_from_path_for_viewer, file_type_from_metadata_name};
 use crate::render::kv_tables::{TreeNodeView, tree_node_to_view, tree_roots_to_lines};
 use crate::render::viewers::{pdf_preview, svg_preview, syntect_text};

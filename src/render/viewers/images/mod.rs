@@ -1,8 +1,10 @@
-//! Image and PDF raster preview (`ratatui-image`): policy in [`raster_policy`], wiring in [`core`].
+//! Image and PDF raster preview: policy in [`raster_policy`]; TUI `ratatui-image` wiring in [`core`].
 
+#[cfg(feature = "tui")]
 mod core;
 mod raster_policy;
 
+#[cfg(feature = "tui")]
 pub use core::*;
 pub use raster_policy::{
     VIEWPORT_RASTER_IMAGE, VIEWPORT_RASTER_PDF, ViewportCellRasterBudget, downscale_with_max,

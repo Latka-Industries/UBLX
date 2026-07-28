@@ -6,9 +6,7 @@
 
 use std::sync::LazyLock;
 
-use ratatui::style::Color;
-
-use super::{Appearance, Palette, SelectorEntry};
+use super::{Appearance, Color, Palette, SelectorEntry};
 
 /// Named channels for [`DEFAULT_COLORS`] (not every field is used by every style path).
 pub struct DefaultColors {

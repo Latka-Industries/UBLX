@@ -7,7 +7,9 @@
 //! Layout matches markdown tables: word wrap, short columns without wrap (still row-padded), and
 //! [`crate::render::viewers::pretty_tables::VIEWER_TABLE_ELLIPSIS_CELL_CHARS`] truncation with `"..."`.
 
+#[cfg(feature = "tui")]
 use ratatui::style::{Modifier, Style};
+#[cfg(feature = "tui")]
 use ratatui::text::{Line, Span, Text};
 use std::fmt::Write as _;
 use std::io::Cursor;
@@ -15,6 +17,7 @@ use std::io::Cursor;
 use crate::integrations::{delimiter_from_path_for_viewer, detect_delimiter_byte};
 use crate::render::viewers::html_escape::html_escape_minimal;
 use crate::render::viewers::pretty_tables;
+#[cfg(feature = "tui")]
 use crate::themes;
 
 /// Parsed delimited files wider than this render as raw text in the viewer.
@@ -107,6 +110,7 @@ fn row_to_structured_line(row: &[String], widths: &[usize]) -> String {
         .join(" | ")
 }
 
+#[cfg(feature = "tui")]
 fn structured_cell_text(row: &[String], col_idx: usize, width: usize) -> String {
     let raw = row.get(col_idx).map_or("", String::as_str);
     let collapsed = pretty_tables::collapse_viewer_cell_whitespace(raw);
@@ -114,6 +118,7 @@ fn structured_cell_text(row: &[String], col_idx: usize, width: usize) -> String 
     format!("{clipped:<width$}")
 }
 
+#[cfg(feature = "tui")]
 fn row_to_structured_spans(row: &[String], widths: &[usize]) -> Vec<Span<'static>> {
     let palette = themes::current();
     let base = Style::default().fg(palette.text);
@@ -217,6 +222,7 @@ pub fn wide_structured_string(
 }
 
 /// Styled text variant of [`wide_structured_string`].
+#[cfg(feature = "tui")]
 #[must_use]
 pub fn wide_structured_text(
     rows: &[Vec<String>],
@@ -324,12 +330,14 @@ pub fn table_string(rows: &[Vec<String>], content_width: u16) -> String {
 }
 
 /// Table as styled [`Text`] for the viewer, using [`crate::themes::current`] text color for the whole table.
+#[cfg(feature = "tui")]
 #[must_use]
 pub fn table_to_text(rows: &[Vec<String>], content_width: u16) -> Text<'static> {
     table_string_to_text(&table_string(rows, content_width))
 }
 
 /// Turn a pre-rendered table string into styled [Text] (for cache path).
+#[cfg(feature = "tui")]
 #[must_use]
 pub fn table_string_to_text(table_str: &str) -> Text<'static> {
     pretty_tables::table_string_to_text(table_str)

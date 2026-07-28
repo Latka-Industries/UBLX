@@ -3,18 +3,26 @@
 //! Shared [`TemplateView`] parse used by TUI (and later serve / web). Not routed through
 //! [`crate::render::kv_tables`] — templates have a fixed schema.
 
+#[cfg(feature = "tui")]
 use ratatui::Frame;
+#[cfg(feature = "tui")]
 use ratatui::layout::Rect;
+#[cfg(feature = "tui")]
 use ratatui::style::{Modifier, Style};
+#[cfg(feature = "tui")]
 use ratatui::text::{Line, Span};
+#[cfg(feature = "tui")]
 use ratatui::widgets::{List, ListItem, ListState};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::BTreeMap;
 use std::fmt::Write as _;
+#[cfg(feature = "tui")]
 use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 
+#[cfg(feature = "tui")]
 use crate::layout::style;
+#[cfg(feature = "tui")]
 use crate::themes;
 
 /// One zahirscan template row for UI (pattern / count / sorted examples).
@@ -71,6 +79,7 @@ pub fn templates_searchable_text(views: &[TemplateView]) -> String {
 }
 
 /// Split pattern into spans; `[PLACEHOLDER]` tokens use muted/accent chrome.
+#[cfg(feature = "tui")]
 #[must_use]
 pub fn pattern_spans(pattern: &str, base: Style, placeholder: Style) -> Vec<Span<'static>> {
     let mut spans = Vec::new();
@@ -102,6 +111,7 @@ pub fn pattern_spans(pattern: &str, base: Style, placeholder: Style) -> Vec<Span
 }
 
 /// Word-wrap styled spans into lines that fit `max_width` terminal columns.
+#[cfg(feature = "tui")]
 #[must_use]
 pub fn wrap_styled_spans(spans: Vec<Span<'static>>, max_width: usize) -> Vec<Line<'static>> {
     let max_width = max_width.max(1);
@@ -160,6 +170,7 @@ pub fn wrap_styled_spans(spans: Vec<Span<'static>>, max_width: usize) -> Vec<Lin
     lines
 }
 
+#[cfg(feature = "tui")]
 fn pattern_lines(
     pattern: &str,
     count: usize,
@@ -181,6 +192,7 @@ fn pattern_lines(
     lines
 }
 
+#[cfg(feature = "tui")]
 fn hrule_line(width: usize, style: Style, mark: Option<char>) -> Line<'static> {
     let w = width.max(1);
     let Some(ch) = mark else {
@@ -196,6 +208,7 @@ fn hrule_line(width: usize, style: Style, mark: Option<char>) -> Line<'static> {
     ])
 }
 
+#[cfg(feature = "tui")]
 fn truncate_placeholder(ph: &str, cols: usize) -> String {
     if ph.width() <= cols {
         return format!("{ph:<cols$}");
@@ -214,6 +227,7 @@ fn truncate_placeholder(ph: &str, cols: usize) -> String {
 }
 
 /// Two-column example rows (header + placeholder/values); values wrap.
+#[cfg(feature = "tui")]
 fn example_body_lines(
     examples: &BTreeMap<String, Vec<String>>,
     content_width: usize,
@@ -254,6 +268,7 @@ fn example_body_lines(
 }
 
 /// Max visible example-body lines (between rules) so the selected pattern stays on screen.
+#[cfg(feature = "tui")]
 fn examples_body_cap(area_height: u16) -> usize {
     let h = area_height as usize;
     // Leave room for at least one pattern line + two rules; cap body at ~2/3 of pane.
@@ -262,6 +277,7 @@ fn examples_body_cap(area_height: u16) -> usize {
     by_fraction.min(h.saturating_sub(leave)).max(1)
 }
 
+#[cfg(feature = "tui")]
 fn apply_line_style(line: Line<'static>, style: Style) -> Line<'static> {
     Line::from(
         line.spans
@@ -271,6 +287,7 @@ fn apply_line_style(line: Line<'static>, style: Style) -> Line<'static> {
     )
 }
 
+#[cfg(feature = "tui")]
 fn with_gutter(line: Line<'static>, selected_first: bool, highlight: Style) -> Line<'static> {
     let mut spans = Vec::with_capacity(line.spans.len() + 1);
     if selected_first {
@@ -285,6 +302,7 @@ fn with_gutter(line: Line<'static>, selected_first: bool, highlight: Style) -> L
 /// Draw one Patterns list; selected row expands examples inline between two horizontal rules.
 ///
 /// Only the selected **pattern** lines use list highlight; the framed examples stay unhighlighted.
+#[cfg(feature = "tui")]
 pub fn draw_templates(
     f: &mut Frame,
     area: Rect,
@@ -420,6 +438,7 @@ mod tests {
         assert_eq!(views[0].pattern, "[POS_00]");
     }
 
+    #[cfg(feature = "tui")]
     #[test]
     fn pattern_spans_splits_placeholders() {
         let spans = pattern_spans(
@@ -433,6 +452,7 @@ mod tests {
         assert_eq!(spans[2].content.as_ref(), " b");
     }
 
+    #[cfg(feature = "tui")]
     #[test]
     fn wrap_styled_spans_breaks_long_line() {
         let spans = vec![Span::raw(

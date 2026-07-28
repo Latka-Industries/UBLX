@@ -9,12 +9,17 @@ use std::sync::{Mutex, OnceLock, PoisonError};
 use std::time::Instant;
 
 use log::Level;
+
+#[cfg(feature = "tui")]
 use ratatui::style::Style;
 
-use crate::config::TOAST_CONFIG;
+#[cfg(feature = "tui")]
 use crate::themes;
 
+use crate::config::TOAST_CONFIG;
+
 static BUMPER_FOR_LOG: OnceLock<BumperBuffer> = OnceLock::new();
+#[cfg(feature = "tui")]
 static TUI_DRAIN: OnceLock<tui_logger::Drain> = OnceLock::new();
 
 /// One log line for the bumper / history.
@@ -227,11 +232,12 @@ pub fn flush_bumper_to_stderr(bumper: &BumperBuffer) {
     let _ = out.flush();
 }
 
-/// Initialize logging: bumper buffer + `env_logger`. In dev, also feed `tui_logger` via its Drain.
+/// Initialize logging: bumper buffer + `env_logger`. In dev with `tui`, also feed `tui_logger`.
 /// Call once at startup. Pass a clone of your `BumperBuffer`; keep the original for rendering.
 /// Default filter: dev = Trace, user = Warn; overridable with `RUST_LOG`.
 pub fn init_logging(bumper: BumperBuffer, dev: bool) {
     let _ = BUMPER_FOR_LOG.set(bumper);
+    #[cfg(feature = "tui")]
     if dev {
         let _ = TUI_DRAIN.set(tui_logger::Drain::new());
     }
@@ -245,6 +251,7 @@ pub fn init_logging(bumper: BumperBuffer, dev: bool) {
             if let Some(b) = BUMPER_FOR_LOG.get() {
                 b.push(record.level(), format!("{}", record.args()));
             }
+            #[cfg(feature = "tui")]
             if let Some(d) = TUI_DRAIN.get() {
                 d.log(record);
             }
@@ -254,10 +261,12 @@ pub fn init_logging(bumper: BumperBuffer, dev: bool) {
 }
 
 /// Call each frame in dev mode so the tui-logger widget receives new events.
+#[cfg(feature = "tui")]
 pub fn move_log_events() {
     tui_logger::move_events();
 }
 
+#[cfg(feature = "tui")]
 #[must_use]
 pub fn level_style(level: Level) -> Style {
     let colors = themes::DEFAULT_COLORS;

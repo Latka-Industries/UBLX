@@ -1,7 +1,9 @@
 //! Key/value and value display formatting for metadata and contents tables.
 
+#[cfg(feature = "tui")]
 use ratatui::style::Style;
 
+#[cfg(feature = "tui")]
 use crate::themes::DEFAULT_COLORS;
 use crate::ui::UI_STRINGS;
 use crate::utils::{Epsilon, format_bytes};
@@ -35,6 +37,7 @@ pub fn is_bool(value: &serde_json::Value) -> bool {
 }
 
 /// Optional style for a value cell (e.g. TRUE = green, FALSE = red). Returns `None` for non-bool values.
+#[cfg(feature = "tui")]
 #[must_use]
 pub fn value_cell_style(formatted_value: &str) -> Option<Style> {
     match formatted_value {

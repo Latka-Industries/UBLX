@@ -5,11 +5,14 @@
 
 mod modes;
 mod overlays;
+#[cfg(feature = "tui")]
 mod panels;
 mod session;
 mod settings;
+#[cfg(feature = "tui")]
 mod ublx_state;
 mod view;
+#[cfg(feature = "tui")]
 mod viewer;
 
 /// Re-export snapshot row type for layout/view/render (`path`, category, size).
@@ -25,16 +28,19 @@ pub use overlays::{
     StartupPromptState, ThemeState, ToastState, UblxSwitchPickerState, ViewerChrome,
     ViewerFindState,
 };
+#[cfg(feature = "tui")]
 pub use panels::{ContentMarqueeState, ContentSort, PanelState, SnapshotSortKey, SortDirection};
 pub use session::{
     BackgroundSnapshot, DuplicateLoadGate, LensExportGate, SessionFlow, SessionReloadFlags,
     SessionTickFlags, ZahirExportGate,
 };
 pub use settings::SettingsPaneState;
+#[cfg(feature = "tui")]
 pub use ublx_state::UblxState;
 pub use view::{
     DeltaRow, DeltaViewData, RightPaneAsync, RightPaneAsyncReady, RightPaneContent,
     RightPaneContentDerived, SectionedPreview, SnapshotEntryMeta, ViewContents, ViewData,
     ViewerDiskContentCache,
 };
+#[cfg(feature = "tui")]
 pub use viewer::{PDF, ViewerImageState};

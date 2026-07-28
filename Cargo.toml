@@ -57,8 +57,14 @@ no-default-features = true
 
 [features]
 default = ["tui", "zahir-netcdf"]
-# Declares default product surface; compile-out of ratatui lands in THI-213 (Phase 1b).
-tui = []
+# TUI surface (ratatui / crossterm). Default on; omit for serve/query-only binaries (THI-213).
+tui = [
+  "dep:crossterm",
+  "dep:ratatui",
+  "dep:ratatui-image",
+  "dep:ratatui-notifications",
+  "dep:tui-logger",
+]
 # Local HTTP API (`ublx serve`) via panza + axum. Opt-in so default crates.io stays lean.
 serve = ["dep:axum", "dep:panza"]
 zahir-netcdf = ["zahirscan/netcdf"]
@@ -77,7 +83,7 @@ chrono = "0.4"
 clap = { version = "4.6.1", features = ["derive", "env"] }
 colored = "3.1.1"
 comfy-table = "7.2.2"
-crossterm = "0.29"
+crossterm = { version = "0.29", optional = true }
 csv = "1.4.0"
 env_logger = "0.11.9"
 fuzzy-matcher = "0.3.7"
@@ -89,12 +95,12 @@ notify = "8.2.0"
 panza = { version = "0.1.1", optional = true }
 pulldown-cmark = "0.13.3"
 rust-embed = { version = "8", optional = true, features = ["debug-embed"] }
-ratatui = "0.30"
-ratatui-image = { version = "11.0.3", default-features = false, features = [
+ratatui = { version = "0.30", optional = true }
+ratatui-image = { version = "11.0.3", optional = true, default-features = false, features = [
   "crossterm",
   "image-defaults",
 ] }
-ratatui-notifications = "0.1.0"
+ratatui-notifications = { version = "0.1.0", optional = true }
 rayon = "1.12.0"
 rusqlite = { version = "0.39.0", features = ["bundled-sqlcipher"] }
 serde = { version = "1.0", features = ["derive"] }
@@ -105,7 +111,7 @@ tokio = { version = "1.52.2", features = ["rt-multi-thread", "sync"] }
 tetration = { version = "0.1.9", default-features = false }
 toml = "1.1.2"
 ureq = { version = "3.3.0", features = ["json"] }
-tui-logger = { version = "0.18.2", features = ["crossterm"] }
+tui-logger = { version = "0.18.2", optional = true, features = ["crossterm"] }
 unicode-width = "0.2"
 zahirscan = { version = "0.3.6", default-features = false }
 zip = { version = "8.6.0", default-features = false, features = ["deflate"] }
