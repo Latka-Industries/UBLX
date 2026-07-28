@@ -3,7 +3,66 @@
 use serde::Deserialize;
 use serde_json::Value;
 
-use super::http::{encode_entry_path, get_json};
+use super::http::{encode_entry_path, get_json, path_with_query};
+
+/// Windowed `GET /entries?limit=&offset=` body (THI-205 / THI-207).
+#[derive(Clone, Debug, Deserialize, PartialEq)]
+pub(crate) struct EntryListPage {
+    pub total: usize,
+    pub offset: usize,
+    pub limit: usize,
+    pub entries: Vec<EntryRow>,
+}
+
+/// Filter + window for [`fetch_entries_page`].
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub(crate) struct EntriesListQuery {
+    pub category: Option<String>,
+    pub contains: Option<String>,
+    pub offset: usize,
+    pub limit: usize,
+}
+
+/// `GET /entries` with `limit` (always windowed — never the bare-array legacy path).
+pub(crate) async fn fetch_entries_page(q: &EntriesListQuery) -> Result<EntryListPage, String> {
+    let limit = q.limit.max(1).to_string();
+    let offset = q.offset.to_string();
+    let mut pairs: Vec<(&str, &str)> = vec![("limit", limit.as_str()), ("offset", offset.as_str())];
+    if let Some(ref c) = q.category {
+        pairs.push(("category", c.as_str()));
+    }
+    if let Some(ref c) = q.contains {
+        pairs.push(("contains", c.as_str()));
+    }
+    let path = path_with_query("/entries", &pairs);
+    get_json::<EntryListPage>(&path).await
+}
+
+/// Probe `total`; if `1..=max_total`, return the full page in one follow-up fetch.
+///
+/// `Ok(None)` means empty, oversized, or probe failure — callers skip the dense load.
+pub(crate) async fn fetch_entries_if_within(
+    max_total: usize,
+) -> Result<Option<Vec<EntryRow>>, String> {
+    let probe = fetch_entries_page(&EntriesListQuery {
+        category: None,
+        contains: None,
+        offset: 0,
+        limit: 1,
+    })
+    .await?;
+    if probe.total == 0 || probe.total > max_total {
+        return Ok(None);
+    }
+    let full = fetch_entries_page(&EntriesListQuery {
+        category: None,
+        contains: None,
+        offset: 0,
+        limit: probe.total.max(1),
+    })
+    .await?;
+    Ok(Some(full.entries))
+}
 
 #[derive(Clone, Debug, Deserialize, PartialEq)]
 pub(crate) struct EntryRow {

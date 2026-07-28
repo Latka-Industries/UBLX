@@ -179,6 +179,7 @@ Mouse click remains supported; keyboard is first-class.
 - [x] Right-pane tab chrome + Zahir section split (Templates / Metadata / Writing) — **content still thin**
 - [x] Contents `n/N` bottom-right (`PathsPane`)
 - [x] Catalog search (`/` strip + Skim fuzzy)
+- [x] Snapshot Contents windowed fetch (`GET /entries?limit=&offset=`; server `category` / `contains`; THI-207) — Skim remains for Delta/Lenses/Dupes
 - [x] Settings controls + live read-only TOML; `GET`/`PATCH /settings/{scope}`; `GET /duplicates`
 - [x] Feature `ui` + Embedded (`assets/web-ui/` via rust-embed; crates.io tarball includes assets); Dir via `UBLX_WEB_DIST` for `mise run web`
 - [x] Keyboard focus + hotkeys (digits/`~`/hjkl/arrows/`g``G`/Tab/`vtmw`/Shift+Tab/`s` sort)

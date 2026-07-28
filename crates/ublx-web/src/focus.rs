@@ -298,6 +298,42 @@ pub(crate) fn string_list_nav(
     }
 }
 
+/// Index nav over `0..total` (Snapshot windowed Contents — THI-207).
+pub(crate) fn index_list_nav(
+    total: Signal<usize>,
+    selected: Signal<Option<usize>>,
+    set_selected: WriteSignal<Option<usize>>,
+) -> ListNav {
+    let step = move |delta: i32| {
+        let n = total.get_untracked();
+        if n == 0 {
+            return;
+        }
+        let cur = selected.get_untracked();
+        let next = match (cur, delta.cmp(&0)) {
+            (None, std::cmp::Ordering::Less) => n - 1,
+            (None, _) => 0,
+            (Some(i), _) => ((i as i32 + delta).clamp(0, (n as i32) - 1)) as usize,
+        };
+        set_selected.set(Some(next));
+    };
+
+    ListNav {
+        move_by: Callback::new(move |d: i32| step(d)),
+        to_start: Callback::new(move |_| {
+            if total.get_untracked() > 0 {
+                set_selected.set(Some(0));
+            }
+        }),
+        to_end: Callback::new(move |_| {
+            let n = total.get_untracked();
+            if n > 0 {
+                set_selected.set(Some(n - 1));
+            }
+        }),
+    }
+}
+
 /// List nav over ordered `usize` ids (Duplicates left pane).
 pub(crate) fn id_list_nav(
     ids: Signal<Vec<usize>>,

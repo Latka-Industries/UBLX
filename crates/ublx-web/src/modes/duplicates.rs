@@ -5,8 +5,9 @@ use std::sync::Arc;
 
 use leptos::prelude::*;
 
-use crate::api::fetch_entry_detail_opt;
+use crate::api::{fetch_entries_if_within, fetch_entry_detail_opt};
 use crate::catalog_data::CatalogData;
+use crate::entries_window::ENTRIES_FAST_PATH_MAX;
 use crate::focus::{UiNav, id_list_nav, install_list_nav};
 use crate::nav::MainMode;
 use crate::panes::{EntryRightPane, PanelRow, PathsPane, ThreePane};
@@ -22,8 +23,14 @@ pub(crate) fn DuplicatesMode() -> impl IntoView {
     let space_menu = SpaceMenuCtx::expect();
     let shared = CatalogData::expect();
     let catalog = shared.duplicates;
-    // Size / Mod sort needs catalog sizes — same `/entries` payload Snapshot uses.
-    let entries = shared.entries;
+    // Size / Mod sort needs sizes — load on Dupes mount only (not shell-wide; THI-207).
+    let entries = LocalResource::new(move || async move {
+        fetch_entries_if_within(ENTRIES_FAST_PATH_MAX)
+            .await
+            .ok()
+            .flatten()
+            .unwrap_or_default()
+    });
     let (selected_id, set_selected_id) = signal::<Option<usize>>(None);
     let (selected_path, set_selected_path) = signal::<Option<String>>(None);
     let sort_ctx = ContentSortCtx::expect();

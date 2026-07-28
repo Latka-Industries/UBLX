@@ -21,7 +21,8 @@ pub(crate) use content::{
 };
 pub(crate) use delta::{DeltaCatalog, DeltaKind, DeltaRow, fetch_delta_catalog};
 pub(crate) use entries::{
-    EntryDetail, EntryRow, SectionView, TreeNodeView, fetch_entry_detail_opt, fetch_entry_zahir_raw,
+    EntriesListQuery, EntryDetail, EntryListPage, EntryRow, SectionView, TreeNodeView,
+    fetch_entries_if_within, fetch_entries_page, fetch_entry_detail_opt, fetch_entry_zahir_raw,
 };
 pub(crate) use format::{format_bytes, format_timestamp_ns};
 pub(crate) use fs::{

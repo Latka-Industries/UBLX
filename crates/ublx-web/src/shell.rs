@@ -9,6 +9,7 @@ use crate::api::{CatalogFlags, format_timestamp_ns};
 use crate::catalog_data::CatalogData;
 use crate::catalog_refresh::CatalogRefresh;
 use crate::command_mode::{CommandModeCtx, CommandModePopup, open_root_picker};
+use crate::entries_window::EntriesWindow;
 use crate::focus::{PaneFocus, PdfPageNav, PreviewKeysBus, RightTabBus, UiNav};
 use crate::help::{HelpModal, HelpOverlay};
 use crate::keys::{
@@ -36,6 +37,7 @@ pub(crate) fn Shell(flags: RwSignal<CatalogFlags>) -> impl IntoView {
     let multiselect = MultiselectCtx::provide();
     let catalog_refresh = CatalogRefresh::provide();
     let catalog = CatalogData::provide(catalog_refresh);
+    let _entries_window = EntriesWindow::provide(catalog_refresh, flags);
     let toasts = ToastCtx::provide();
     let space_menu = SpaceMenuCtx::provide(catalog_refresh, multiselect, toasts);
     space_menu
