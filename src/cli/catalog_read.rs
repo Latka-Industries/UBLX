@@ -1,4 +1,7 @@
 //! Shared read-only catalog queries for `ublx query` and `ublx serve`.
+//!
+//! List/window helpers live here for a later `ublx-catalog` extract (THI-206 / Phase 2).
+//! Substring `contains` is SQL `LIKE` (with escape), not the TUI fuzzy filter.
 
 use std::fmt;
 
@@ -95,6 +98,26 @@ impl EntryListWindow {
             limit: limit.clamp(1, ENTRY_LIST_LIMIT_MAX),
         }
     }
+
+    /// Clamp this window's `limit` to `1..=ENTRY_LIST_LIMIT_MAX`.
+    #[must_use]
+    pub fn clamp(self) -> Self {
+        Self::clamped(self.offset, self.limit)
+    }
+}
+
+/// Half-open `[start, end)` index range for a window into a list of `total` rows.
+///
+/// Pure helper (THI-206) for in-memory callers / tests; SQL paging uses `LIMIT`/`OFFSET`
+/// with the same clamp rules via [`EntryListWindow::clamp`].
+#[must_use]
+pub fn window_range(total: usize, window: EntryListWindow) -> (usize, usize) {
+    let window = window.clamp();
+    if window.offset >= total {
+        return (total, total);
+    }
+    let end = window.offset.saturating_add(window.limit).min(total);
+    (window.offset, end)
 }
 
 /// Windowed list payload (THI-205). Used when `limit` is set on `GET /entries`.
@@ -295,6 +318,9 @@ pub fn entry_detail(
 
 /// List snapshot entries with optional filters (no zahir). Full result set.
 ///
+/// Uses the same SQL `WHERE` / order as [`list_entries_page`] (THI-206) so
+/// substring `contains` and size filters cannot drift between full list and pages.
+///
 /// # Errors
 ///
 /// Propagates `SQLite` failures.
@@ -302,23 +328,13 @@ pub fn list_entries(
     conn: &Connection,
     filter: &EntryListFilter<'_>,
 ) -> Result<Vec<EntryRow>, anyhow::Error> {
-    let mut rows = load_entries(conn, filter.category)?;
-    if let Some(min) = filter.min_size {
-        rows.retain(|r| r.size >= min);
-    }
-    if let Some(max) = filter.max_size {
-        rows.retain(|r| r.size <= max);
-    }
-    if let Some(needle) = filter.contains {
-        rows.retain(|r| r.path.contains(needle));
-    }
-    Ok(rows)
+    fetch_snapshot_rows(conn, filter, None)
 }
 
 /// Filtered entry page with SQL `LIMIT`/`OFFSET` (THI-205). Prefer this for large catalogs.
 ///
 /// Order matches TUI list queries: `category, path` when unfiltered by category; `path` when
-/// `category` is set.
+/// `category` is set. Filter semantics match [`list_entries`].
 ///
 /// # Errors
 ///
@@ -328,35 +344,18 @@ pub fn list_entries_page(
     filter: &EntryListFilter<'_>,
     window: EntryListWindow,
 ) -> Result<EntryListPage, anyhow::Error> {
-    let window = EntryListWindow::clamped(window.offset, window.limit);
-    let (where_sql, bind) = snapshot_list_where(filter);
-    let order = if filter.category.is_some() {
-        "ORDER BY path"
-    } else {
-        "ORDER BY category, path"
-    };
+    let window = window.clamp();
+    let total = count_snapshot_rows(conn, filter)?;
+    let entries = fetch_snapshot_rows(conn, filter, Some(window))?;
 
-    let count_sql = format!("SELECT COUNT(*) FROM snapshot {where_sql}");
-    let total: i64 = {
-        let mut stmt = conn.prepare(&count_sql)?;
-        stmt.query_row(
-            rusqlite::params_from_iter(bind.iter().map(value_from_bind)),
-            |r| r.get(0),
-        )?
-    };
-    let total = usize::try_from(total.max(0)).unwrap_or(usize::MAX);
-
-    let select_sql =
-        format!("SELECT path, category, size FROM snapshot {where_sql} {order} LIMIT ? OFFSET ?");
-    let mut stmt = conn.prepare(&select_sql)?;
-    let limit_i = i64::try_from(window.limit).unwrap_or(i64::MAX);
-    let offset_i = i64::try_from(window.offset).unwrap_or(i64::MAX);
-    let mut params: Vec<rusqlite::types::Value> = bind.iter().map(value_from_bind).collect();
-    params.push(rusqlite::types::Value::Integer(limit_i));
-    params.push(rusqlite::types::Value::Integer(offset_i));
-    let entries = stmt
-        .query_map(rusqlite::params_from_iter(params), entry_from_row)?
-        .collect::<Result<Vec<_>, _>>()?;
+    debug_assert_eq!(
+        entries.len(),
+        {
+            let (start, end) = window_range(total, window);
+            end - start
+        },
+        "SQL LIMIT/OFFSET must match window_range for the same total"
+    );
 
     Ok(EntryListPage {
         total,
@@ -376,6 +375,18 @@ fn value_from_bind(b: &ListBind) -> rusqlite::types::Value {
     match b {
         ListBind::Text(s) => rusqlite::types::Value::Text(s.clone()),
         ListBind::Integer(n) => rusqlite::types::Value::Integer(*n),
+    }
+}
+
+fn bind_values(bind: &[ListBind]) -> Vec<rusqlite::types::Value> {
+    bind.iter().map(value_from_bind).collect()
+}
+
+fn snapshot_list_order(filter: &EntryListFilter<'_>) -> &'static str {
+    if filter.category.is_some() {
+        "ORDER BY path"
+    } else {
+        "ORDER BY category, path"
     }
 }
 
@@ -405,6 +416,51 @@ fn snapshot_list_where(filter: &EntryListFilter<'_>) -> (String, Vec<ListBind>) 
     }
 }
 
+fn count_snapshot_rows(
+    conn: &Connection,
+    filter: &EntryListFilter<'_>,
+) -> Result<usize, anyhow::Error> {
+    let (where_sql, bind) = snapshot_list_where(filter);
+    let sql = format!("SELECT COUNT(*) FROM snapshot {where_sql}");
+    let mut stmt = conn.prepare(&sql)?;
+    let n: i64 = stmt.query_row(rusqlite::params_from_iter(bind_values(&bind)), |r| r.get(0))?;
+    Ok(usize::try_from(n.max(0)).unwrap_or(usize::MAX))
+}
+
+fn fetch_snapshot_rows(
+    conn: &Connection,
+    filter: &EntryListFilter<'_>,
+    window: Option<EntryListWindow>,
+) -> Result<Vec<EntryRow>, anyhow::Error> {
+    let (where_sql, bind) = snapshot_list_where(filter);
+    let order = snapshot_list_order(filter);
+    let (sql, params) = match window {
+        None => (
+            format!("SELECT path, category, size FROM snapshot {where_sql} {order}"),
+            bind_values(&bind),
+        ),
+        Some(w) => {
+            let mut params = bind_values(&bind);
+            params.push(rusqlite::types::Value::Integer(
+                i64::try_from(w.limit).unwrap_or(i64::MAX),
+            ));
+            params.push(rusqlite::types::Value::Integer(
+                i64::try_from(w.offset).unwrap_or(i64::MAX),
+            ));
+            (
+                format!(
+                    "SELECT path, category, size FROM snapshot {where_sql} {order} LIMIT ? OFFSET ?"
+                ),
+                params,
+            )
+        }
+    };
+    let mut stmt = conn.prepare(&sql)?;
+    Ok(stmt
+        .query_map(rusqlite::params_from_iter(params), entry_from_row)?
+        .collect::<Result<Vec<_>, _>>()?)
+}
+
 /// `LIKE` pattern for substring match; escapes `\`, `%`, `_`.
 fn like_contains_pattern(needle: &str) -> String {
     let mut out = String::from("%");
@@ -419,20 +475,6 @@ fn like_contains_pattern(needle: &str) -> String {
     }
     out.push('%');
     out
-}
-
-fn load_entries(conn: &Connection, category: Option<&str>) -> Result<Vec<EntryRow>, anyhow::Error> {
-    if let Some(cat) = category {
-        let mut stmt = conn.prepare(UblxDbStatements::SELECT_SNAPSHOT_ROWS_FOR_TUI_BY_CATEGORY)?;
-        Ok(stmt
-            .query_map(rusqlite::params![cat], entry_from_row)?
-            .collect::<Result<Vec<_>, _>>()?)
-    } else {
-        let mut stmt = conn.prepare(UblxDbStatements::SELECT_SNAPSHOT_ROWS_FOR_TUI_ALL)?;
-        Ok(stmt
-            .query_map([], entry_from_row)?
-            .collect::<Result<Vec<_>, _>>()?)
-    }
 }
 
 fn entry_from_row(row: &Row<'_>) -> rusqlite::Result<EntryRow> {
@@ -579,5 +621,114 @@ mod tests {
         .unwrap();
         assert_eq!(page.limit, 1);
         assert_eq!(page.entries.len(), 1);
+    }
+
+    #[test]
+    fn window_range_empty_and_past_end() {
+        assert_eq!(
+            window_range(
+                0,
+                EntryListWindow {
+                    offset: 0,
+                    limit: 10
+                }
+            ),
+            (0, 0)
+        );
+        assert_eq!(
+            window_range(
+                5,
+                EntryListWindow {
+                    offset: 5,
+                    limit: 10
+                }
+            ),
+            (5, 5)
+        );
+        assert_eq!(
+            window_range(
+                5,
+                EntryListWindow {
+                    offset: 100,
+                    limit: 10
+                }
+            ),
+            (5, 5)
+        );
+    }
+
+    #[test]
+    fn window_range_clamps_limit_and_end() {
+        assert_eq!(
+            window_range(
+                5,
+                EntryListWindow {
+                    offset: 0,
+                    limit: 0
+                }
+            ),
+            (0, 1)
+        );
+        assert_eq!(
+            window_range(
+                5,
+                EntryListWindow {
+                    offset: 3,
+                    limit: 10
+                }
+            ),
+            (3, 5)
+        );
+    }
+
+    #[test]
+    fn list_entries_size_filters() {
+        let conn = mem_snapshot();
+        let rows =
+            list_entries(&conn, &EntryListFilter::new(None, Some(20), Some(30), None)).unwrap();
+        let paths: Vec<_> = rows.iter().map(|r| r.path.as_str()).collect();
+        assert_eq!(paths, ["b.rs", "dir/x_%y.rs"]);
+    }
+
+    #[test]
+    fn list_entries_matches_page_with_large_limit() {
+        let conn = mem_snapshot();
+        let filter = EntryListFilter::new(Some("Code"), None, None, Some("%"));
+        let full = list_entries(&conn, &filter).unwrap();
+        let page = list_entries_page(
+            &conn,
+            &filter,
+            EntryListWindow {
+                offset: 0,
+                limit: ENTRY_LIST_LIMIT_MAX,
+            },
+        )
+        .unwrap();
+        assert_eq!(page.total, full.len());
+        assert_eq!(page.entries.len(), full.len());
+        for (a, b) in full.iter().zip(page.entries.iter()) {
+            assert_eq!(a.path, b.path);
+            assert_eq!(a.size, b.size);
+            assert_eq!(a.category, b.category);
+        }
+    }
+
+    #[test]
+    fn list_entries_like_escape_matches_page() {
+        let conn = mem_snapshot();
+        let filter = EntryListFilter::new(None, None, None, Some("x_%y"));
+        let full = list_entries(&conn, &filter).unwrap();
+        let page = list_entries_page(
+            &conn,
+            &filter,
+            EntryListWindow {
+                offset: 0,
+                limit: 10,
+            },
+        )
+        .unwrap();
+        assert_eq!(full.len(), 1);
+        assert_eq!(page.total, 1);
+        assert_eq!(full[0].path, page.entries[0].path);
     }
 }
