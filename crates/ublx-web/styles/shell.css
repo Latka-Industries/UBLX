@@ -200,6 +200,27 @@
   white-space: nowrap;
 }
 
+/* Shared × clear for catalog `/` and Viewer Shift+S strips. */
+.strip-clear {
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 0 0.4rem;
+  border: none;
+  border-radius: 0.15rem;
+  background: transparent;
+  color: hsl(var(--muted-foreground));
+  font: inherit;
+  font-size: 1.35rem;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.strip-clear:hover {
+  color: hsl(var(--foreground));
+  background: hsl(var(--background) / 0.55);
+}
+
 /* —— powerline-ish tab nodes —— */
 .tab-node {
   display: inline-flex;

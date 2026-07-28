@@ -73,7 +73,10 @@ const FOOTNOTE: &str = "Only bindings that work in the web UI are listed. Ctrl+a
 
 const GENERAL_BROWSER: &[(&str, &str)] = &[
     ("~", "Alternate between Main tabs"),
-    ("/", "Fuzzy catalog filter; Enter (apply) · Esc (clear)"),
+    (
+        "/",
+        "Fuzzy catalog filter; Enter (apply) · Esc or × (clear)",
+    ),
     (
         "Tab",
         "Switch left or middle pane focus (categories ↔ contents)",
@@ -96,6 +99,7 @@ const RIGHT_PANE: &[(&str, &str)] = &[
         "Viewer / Templates / Metadata / Writing (when available)",
     ),
     ("Shift+Tab", "Cycle right-pane tabs"),
+    ("Shift+F", "Toggle right-pane fullscreen (Esc or q exits)"),
     (
         "Shift+J/↓ · Shift+K/↑",
         "Scroll right pane (or PDF: next / previous page)",
@@ -106,7 +110,7 @@ const RIGHT_PANE: &[(&str, &str)] = &[
     ),
     (
         "Shift+S",
-        "Viewer find; Enter apply · Shift+S re-edit · n/N next/prev · Esc clear",
+        "Viewer find; Enter apply · Shift+S re-edit · n/N next/prev · Esc or × clear",
     ),
 ];
 

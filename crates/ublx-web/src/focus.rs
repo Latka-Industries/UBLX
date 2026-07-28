@@ -30,6 +30,34 @@ pub(crate) struct ListNav {
     pub to_end: Callback<()>,
 }
 
+/// Right-pane fullscreen (TUI `viewer_fullscreen` / Shift+F).
+#[derive(Clone, Copy)]
+pub(crate) struct ViewerFullscreen {
+    pub active: RwSignal<bool>,
+}
+
+impl ViewerFullscreen {
+    pub(crate) fn provide() -> Self {
+        let ctx = Self {
+            active: RwSignal::new(false),
+        };
+        provide_context(ctx);
+        ctx
+    }
+
+    pub(crate) fn expect() -> Self {
+        expect_context::<Self>()
+    }
+
+    pub(crate) fn toggle(self) {
+        self.active.update(|v| *v = !*v);
+    }
+
+    pub(crate) fn exit(self) {
+        self.active.set(false);
+    }
+}
+
 /// Pane focus + left/middle list-nav callback slots.
 #[derive(Clone, Copy)]
 pub(crate) struct UiNav {

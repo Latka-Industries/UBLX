@@ -5,7 +5,7 @@ mod status;
 
 use leptos::prelude::*;
 
-use crate::focus::{PaneFocus, UiNav};
+use crate::focus::{PaneFocus, UiNav, ViewerFullscreen};
 
 use self::panel::PanelBox;
 
@@ -45,9 +45,16 @@ pub(crate) fn ThreePane(
     let nav = UiNav::expect();
     let focus = nav.pane;
     let set_focus = nav.set_pane;
+    let fullscreen = ViewerFullscreen::expect();
 
     view! {
-        <div class="three-pane">
+        <div class=move || {
+            if fullscreen.active.get() {
+                "three-pane three-pane--viewer-fullscreen"
+            } else {
+                "three-pane"
+            }
+        }>
             <PanelBox
                 title=left_title
                 focused=Signal::derive(move || focus.get() == PaneFocus::Left)
