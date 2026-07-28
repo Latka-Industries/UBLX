@@ -10,9 +10,9 @@ Headless catalog subcommands — no ratatui / TUI deps.
 | **remote**       | HTTP client for `--url` / `UBLX_URL` (query + doctor → serve)                    |
 | **query**        | `ublx query` — list / filter / detail / delta / lenses (THI-153)                 |
 | **doctor**       | `ublx doctor` — PASS/WARN/FAIL report, `--fix`, snapshot lock (THI-154)          |
-| **serve**        | `ublx serve` — local HTTP API via panza (THI-156)                                |
+| **serve**        | `ublx serve` — local HTTP API via panza (THI-156); Cargo feature `serve` (opt-in; `ui` implies it) |
 
-Clap definitions live in `src/cli_parser.rs` (`Commands`, `QueryCli`, `DoctorCli`, `ServeCli`). `main` dispatches via `cli::run` when a subcommand is present; otherwise the existing TUI / `-s`/`-f`/`-x` path runs.
+Clap definitions live in `src/cli_parser.rs` (`Commands`, `QueryCli`, `DoctorCli`, `ServeCli`). `main` dispatches via `cli::run` when a subcommand is present; otherwise the existing TUI / `-s`/`-f`/`-x` path runs. Build with `--features serve` (or `ui`) to include the serve subcommand.
 
 ## Remote client (v0.1.14)
 
@@ -27,9 +27,13 @@ ublx doctor --json
 # --fix / --force are local-only with doctor
 ```
 
-## `ublx serve` (v0.1.13+)
+## `ublx serve` (v0.1.13+; feature `serve` / `ui`)
+
+Requires a build with `--features serve` or `--features ui` (Homebrew uses `ui`).
 
 ```bash
+cargo run -p ublx --features serve -- serve . --port 8787
+# or: cargo install ublx --features serve
 ublx serve . --port 8787
 # Fresh directory (no `.ublx` yet): serve binds immediately and snapshots in the background
 # (same idea as TUI first-run). Opt out with `--no-auto-snapshot` (fail-fast for agents).
@@ -76,7 +80,7 @@ Notes:
 
 Hard nefax failures in the orchestrator can still process-exit (same as TUI on-demand snapshot). Prefer panza’s `GET /health` for liveness only.
 
-Bind/health/static shell comes from [panza](https://crates.io/crates/panza) (`--host` / `--port` / `--open`). Default builds use `StaticMount::None`. With `--features ui`, assets are **`StaticMount::Embedded`** (rust-embed of `assets/web-ui/`); set `UBLX_WEB_DIST` for a Dir mount during the `mise run web` loop.
+Bind/health/static shell comes from [panza](https://crates.io/crates/panza) (`--host` / `--port` / `--open`). Feature `serve` enables the subcommand (`StaticMount::None` by default). With `--features ui` (implies `serve`), assets are **`StaticMount::Embedded`** (rust-embed of `assets/web-ui/`); set `UBLX_WEB_DIST` for a Dir mount during the `mise run web` loop.
 
 ## Embedded web UI (v0.2.0 / THI-157)
 

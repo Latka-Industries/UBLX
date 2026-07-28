@@ -1,6 +1,7 @@
 //! Headless CLI subcommands (`query`, `doctor`, `serve`) and shared catalog resolve/open.
 //!
 //! Keep this module free of ratatui / TUI dependencies so catalog commands stay lean.
+//! `serve` is behind Cargo feature `serve` (opt-in; `ui` implies it).
 
 mod catalog;
 mod catalog_read;
@@ -8,7 +9,9 @@ mod doctor;
 mod output;
 mod query;
 mod remote;
+#[cfg(feature = "serve")]
 mod serve;
+#[cfg(feature = "serve")]
 mod settings_api;
 
 pub use catalog::{
@@ -31,6 +34,7 @@ pub fn run(command: &Commands) -> Result<(), anyhow::Error> {
     match command {
         Commands::Query(args) => query::run(args),
         Commands::Doctor(args) => doctor::run(args),
+        #[cfg(feature = "serve")]
         Commands::Serve(args) => serve::run(args),
     }
 }

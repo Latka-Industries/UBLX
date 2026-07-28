@@ -3,11 +3,14 @@ rust = { version = "1.95", targets = "wasm32-unknown-unknown" }
 
 # THI-171: default check is fmt+clippy only (13-crate `cargo test` melts local machines).
 # Full suite: `mise run test` (CI still runs `cargo test`).
+# THI-214: clippy each host feature matrix (default / serve / ui).
 [tasks.check]
-description = "fmt + clippy (no cargo test — use `mise run test`)"
+description = "fmt + clippy for default, serve, and ui features"
 run = [
   "cargo fmt --all",
   "cargo clippy -- -D warnings",
+  "cargo clippy --features serve -- -D warnings",
+  "cargo clippy --features ui -- -D warnings",
 ]
 
 [tasks.test]
