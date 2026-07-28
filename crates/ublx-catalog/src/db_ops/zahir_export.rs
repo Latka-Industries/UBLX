@@ -7,7 +7,7 @@ use std::path::Path;
 use anyhow::Context;
 use serde_json::Value;
 
-use crate::config::UBLX_NAMES;
+use crate::paths::UBLX_NAMES;
 
 use super::load_snapshot_zahir_json_map;
 

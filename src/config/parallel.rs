@@ -29,7 +29,8 @@ pub struct Parallel {
     pub contents_natural_widths: usize,
     /// Markdown viewer: render blocks to lines in parallel. (`render::viewers::markdown::MarkdownDoc::to_text`)
     pub markdown_blocks: usize,
-    /// Snapshot insert: parallelize preparation (`path_str`, category, `zahir_json`, `mtime_ns`, size, hash); DB write is ordered batched multi-row `INSERT`s. (`engine::db_ops::utils::insert_results_into_snapshot`)
+    /// Snapshot insert: parallelize preparation (`path_str`, category, `zahir_json`, `mtime_ns`, size, hash); DB write is ordered batched multi-row `INSERT`s.
+    /// Owned by `ublx_catalog::db_ops::SNAPSHOT_INSERT_PREP_PARALLEL` (used by `insert_results_into_snapshot`); mirrored here for the tuning overview.
     pub snapshot_insert_prep: usize,
     /// Paths that need zahir: filter nefax by size > 0 and mtime/changed. (`engine::orchestrator::paths_needing_zahir`)
     pub paths_needing_zahir: usize,
@@ -50,6 +51,6 @@ pub const PARALLEL: Parallel = Parallel {
     json_sections_blobs: 20,
     contents_natural_widths: 1000,
     markdown_blocks: 100,
-    snapshot_insert_prep: 5000,
+    snapshot_insert_prep: ublx_catalog::db_ops::SNAPSHOT_INSERT_PREP_PARALLEL,
     paths_needing_zahir: 20_000,
 };

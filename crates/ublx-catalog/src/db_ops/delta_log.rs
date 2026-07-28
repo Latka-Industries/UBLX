@@ -6,7 +6,7 @@ use std::time::UNIX_EPOCH;
 
 use rusqlite::Connection;
 
-use crate::utils::{get_created_ns, snapshot_rel_path_buf};
+use crate::util::{get_created_ns, snapshot_rel_path_buf};
 
 use super::consts::UblxDbStatements;
 

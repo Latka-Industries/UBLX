@@ -3,8 +3,6 @@
 //! Keep this module free of ratatui / TUI dependencies so catalog commands stay lean.
 //! `serve` is behind Cargo feature `serve` (opt-in; `ui` implies it).
 
-mod catalog;
-mod catalog_read;
 mod doctor;
 mod output;
 mod query;
@@ -14,11 +12,16 @@ mod serve;
 #[cfg(feature = "serve")]
 mod settings_api;
 
-pub use catalog::{
+/// Catalog resolve/open lives in `ublx-catalog` (THI-155 Phase 2); kept here as `cli::catalog`.
+pub use ublx_catalog::open as catalog;
+/// Shared read-only queries live in `ublx-catalog`; kept here as `cli::catalog_read`.
+pub use ublx_catalog::read as catalog_read;
+
+pub use ublx_catalog::open::{
     CatalogHandle, CatalogPaths, catalog_db_present, open_catalog_for_read,
     open_placeholder_catalog, resolve_catalog_paths, snapshot_likely_in_progress,
 };
-pub use catalog_read::{
+pub use ublx_catalog::read::{
     CatalogNotFound, DeltaRow, ENTRY_LIST_LIMIT_MAX, EntryListFilter, EntryListPage,
     EntryListWindow, EntryRow,
 };

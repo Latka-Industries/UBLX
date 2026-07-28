@@ -1,6 +1,5 @@
 //! Shared read-only catalog queries for `ublx query` and `ublx serve`.
 //!
-//! List/window helpers live here for a later `ublx-catalog` extract (THI-206 / Phase 2).
 //! Substring `contains` is SQL `LIKE` (with escape), not the TUI fuzzy filter.
 
 use std::fmt;
@@ -8,9 +7,7 @@ use std::fmt;
 use rusqlite::{Connection, Row};
 use serde::{Deserialize, Serialize};
 
-use crate::engine::db_ops::UblxDbStatements;
-#[cfg(feature = "serve")]
-use crate::engine::db_ops::{DuplicateGroupingMode, load_duplicate_groups};
+use crate::db_ops::{DuplicateGroupingMode, UblxDbStatements, load_duplicate_groups};
 
 /// One snapshot (or lens) row for JSON / tables.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -34,7 +31,6 @@ pub struct DeltaRow {
 }
 
 /// One duplicate group for JSON (`GET /duplicates`).
-#[cfg(feature = "serve")]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DuplicateGroupRow {
     /// Stable index within this response (for clients that select by id).
@@ -45,7 +41,6 @@ pub struct DuplicateGroupRow {
 }
 
 /// Duplicate listing payload.
-#[cfg(feature = "serve")]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DuplicatesResponse {
     /// `hash` or `name_size` (matches TUI tab suffix H / N/S).
@@ -173,7 +168,6 @@ impl fmt::Display for CatalogNotFound {
 impl std::error::Error for CatalogNotFound {}
 
 /// True when `err` (or a cause) is [`CatalogNotFound`].
-#[cfg(feature = "serve")]
 #[must_use]
 pub fn is_not_found(err: &anyhow::Error) -> bool {
     err.downcast_ref::<CatalogNotFound>().is_some()
@@ -208,7 +202,6 @@ pub fn list_lens_names(conn: &Connection) -> Result<Vec<String>, anyhow::Error> 
 /// # Errors
 ///
 /// Propagates `SQLite` / I/O failures from [`load_duplicate_groups`].
-#[cfg(feature = "serve")]
 pub fn list_duplicates(
     db_path: &std::path::Path,
     dir_to_ublx: &std::path::Path,

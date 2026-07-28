@@ -7973,10 +7973,26 @@ dependencies = [
  "tokio",
  "toml",
  "tui-logger",
+ "ublx-catalog",
  "unicode-width",
  "ureq",
  "zahirscan",
  "zip",
+]
+
+[[package]]
+name = "ublx-catalog"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "blake3",
+ "log",
+ "nefaxer",
+ "rayon",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "zahirscan",
 ]
 
 [[package]]

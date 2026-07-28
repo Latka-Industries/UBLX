@@ -26,24 +26,9 @@ pub fn path_to_slash_string(path: &Path) -> String {
     path.to_string_lossy().replace('\\', "/")
 }
 
-/// Normalize a snapshot `path` column so it matches nefaxer’s relative path strings (`rel_str` / map keys).
-///
-/// Trims, strips a leading `./` or `.\`, then replaces `\` with `/`.
-#[must_use]
-pub fn normalize_snapshot_rel_path_str(path: &str) -> String {
-    let mut s = path.trim();
-    s = s.strip_prefix("./").unwrap_or(s);
-    if let Some(rest) = s.strip_prefix(".\\") {
-        s = rest;
-    }
-    s.replace('\\', "/")
-}
-
-/// [`PathBuf`] key for nefax-style maps, from a snapshot `path` column (see [`normalize_snapshot_rel_path_str`]).
-#[must_use]
-pub fn snapshot_rel_path_buf(path_str: &str) -> PathBuf {
-    PathBuf::from(normalize_snapshot_rel_path_str(path_str))
-}
+/// Snapshot `path` column normalization lives in `ublx-catalog` (it keys the `snapshot` table);
+/// re-exported for `utils::` call sites.
+pub use ublx_catalog::util::{normalize_snapshot_rel_path_str, snapshot_rel_path_buf};
 
 /// Collapse long slash-separated paths for compact UI titles.
 ///

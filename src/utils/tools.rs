@@ -246,29 +246,11 @@ pub fn file_content_for_viewer(path: &Path, zahir_type: Option<ZahirFT>) -> Opti
     Some(String::from_utf8_lossy(&buf[..n]).into_owned())
 }
 
-/// Expand a leading `~/` using `HOME` so `cargo run -- ~/src/proj` works (the shell often does not expand `~` in argv).
-#[must_use]
-pub fn expand_home_dir_arg(path: &Path) -> PathBuf {
-    let Some(s) = path.to_str() else {
-        return path.to_path_buf();
-    };
-    let Some(rest) = s.strip_prefix("~/") else {
-        return path.to_path_buf();
-    };
-    #[cfg(not(windows))]
-    {
-        if let Ok(home) = std::env::var("HOME") {
-            return PathBuf::from(home).join(rest);
-        }
-    }
-    #[cfg(windows)]
-    {
-        if let Ok(user) = std::env::var("USERPROFILE") {
-            return PathBuf::from(user).join(rest);
-        }
-    }
-    path.to_path_buf()
-}
+/// Directory validation, `~/` expansion, and `delta_log` timestamps live in `ublx-catalog`
+/// (`catalog::open` and `db_ops` need them without the TUI); re-exported for `utils::` call sites.
+pub use ublx_catalog::util::{
+    canonicalize_dir_to_ublx, expand_home_dir_arg, get_created_ns, try_validate_dir,
+};
 
 /// Validate that a path is a directory and return the canonicalized path.
 /// Symlinks are resolved (e.g. `~/Dropbox` → `~/Library/CloudStorage/...` on macOS).
@@ -287,30 +269,6 @@ pub fn validate_dir(path: &std::path::Path) -> PathBuf {
         error!("cannot canonicalize '{}': {}", path.display(), e);
         exit_error();
     })
-}
-
-/// Like [`validate_dir`] but returns `Err` instead of exiting (e.g. first-run path input).
-///
-/// # Errors
-///
-/// Returns `Err` with a message if the path does not exist, is not a directory, or cannot be canonicalized.
-pub fn try_validate_dir(path: &Path) -> Result<PathBuf, String> {
-    let path = expand_home_dir_arg(path);
-    if !path.exists() {
-        return Err(format!("no such file or directory: {}", path.display()));
-    }
-    if !path.is_dir() {
-        return Err(format!("not a directory: {}", path.display()));
-    }
-    path.canonicalize()
-        .map_err(|e| format!("cannot canonicalize '{}': {e}", path.display()))
-}
-
-#[must_use]
-pub fn canonicalize_dir_to_ublx(dir_to_ublx: &Path) -> PathBuf {
-    dir_to_ublx
-        .canonicalize()
-        .unwrap_or_else(|_| dir_to_ublx.to_path_buf())
 }
 
 /// Color the level of the log message.
@@ -387,14 +345,4 @@ pub fn unique_stamp() -> u64 {
         .duration_since(UNIX_EPOCH)
         .map_or(0, |d| u64::try_from(d.as_nanos()).unwrap_or(u64::MAX))
         ^ (u64::from(std::process::id()) << 32)
-}
-
-/// Current Unix timestamp in nanoseconds.
-#[must_use]
-pub fn get_created_ns() -> i64 {
-    let nanos = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_nanos();
-    i64::try_from(nanos).unwrap_or(i64::MAX)
 }

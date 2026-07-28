@@ -30,7 +30,7 @@ Track work in GitHub Issues — **parent** issues by category, **sub-issues** fo
 | `ublx serve` | Done (THI-156 / v0.1.13); **opt-in feature `serve`** (THI-214 / Phase 1a) | Local HTTP API via panza; `ui` implies `serve` |
 | Remote `--url` / `UBLX_URL` | Done (THI-167 / v0.1.14) | `query` / `doctor` against a running serve |
 | Web UI for serve | Done (THI-157 / v0.2.x) | Embedded SPA via `--features ui` |
-| Crate split (catalog vs TUI) | In progress (THI-155 → v0.3.0) | Phase 1a: serve gate; Phase 1b: TUI compile-out; Phase 2: `ublx-catalog` if needed |
+| Crate split (catalog vs TUI) | Done (THI-155 Phase 1–2 → v0.3.0) | Phase 1a/1b features; Phase 2: workspace `ublx-catalog` (paths + db_ops + open/read); one published `ublx` binary |
 
 Parent: [THI-151](https://linear.app/thicclatka/issue/THI-151).
 
@@ -94,7 +94,7 @@ Parent: [THI-151](https://linear.app/thicclatka/issue/THI-151).
 | Richer lens Markdown export | Export today: `# title` + links; extend with category, size, Zahir snippets, writing stats, notes. |
 | Lens workflows              | Reorder paths, sort/filter within lens, duplicate lens, import from markdown list.                 |
 
-Module CRUD and export (`Ctrl+A` `l`) already exist; see `src/modules/lenses.rs` and `src/engine/db_ops/lens_export.rs`.
+Module CRUD and export (`Ctrl+A` `l`) already exist; see `src/modules/lenses.rs` and `crates/ublx-catalog/src/db_ops/lens_export.rs`.
 
 ---
 

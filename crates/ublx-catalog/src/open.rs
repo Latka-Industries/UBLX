@@ -5,11 +5,11 @@ use std::path::{Path, PathBuf};
 use anyhow::{Context, bail};
 use rusqlite::Connection;
 
-use crate::config::UblxPaths;
-use crate::engine::db_ops::{
+use crate::db_ops::{
     SnapshotReaderPreference, UblxDbSchema, open_for_snapshot_tui_read, snapshot_reader_path_with,
 };
-use crate::utils;
+use crate::paths::UblxPaths;
+use crate::util;
 
 /// Paths for a catalog under an indexed directory (before opening).
 #[derive(Debug, Clone)]
@@ -34,7 +34,7 @@ pub struct CatalogHandle {
 ///
 /// Returns `Err` when the path is missing, not a directory, or cannot be canonicalized.
 pub fn resolve_catalog_dir(dir: &Path) -> Result<PathBuf, String> {
-    utils::try_validate_dir(dir)
+    util::try_validate_dir(dir)
 }
 
 /// Resolve expected catalog paths for `dir` without creating the DB.

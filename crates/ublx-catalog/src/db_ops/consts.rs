@@ -1,8 +1,14 @@
 use std::fs;
 use std::path::Path;
 
-use crate::config::UblxPaths;
-use crate::integrations::{ZahirFT, file_type_from_metadata_name};
+use crate::paths::UblxPaths;
+use crate::zahir::{ZahirFT, file_type_from_metadata_name};
+
+/// Snapshot insert: prepare rows in parallel when the nefax result has at least this many paths.
+///
+/// Mirrors `ublx`'s `config::PARALLEL.snapshot_insert_prep` — kept here so the catalog crate does not
+/// depend on the binary's tuning table. Change both together.
+pub const SNAPSHOT_INSERT_PREP_PARALLEL: usize = 5000;
 
 /// Schema for the ublx DB
 pub struct UblxDbSchema;

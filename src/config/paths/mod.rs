@@ -1,19 +1,20 @@
 //! On-disk paths for indexed roots: names, user dirs, recents, and [`UblxPaths`].
+//!
+//! Core resolve (`names` / `dirs` / `UblxPaths`) lives in `ublx-catalog`; this module keeps
+//! welcome/recents scoring in the binary crate and re-exports the catalog surface.
 
-mod dirs;
-mod names;
 mod recents;
-mod ublx_paths;
 
-pub use dirs::{global_config_toml, last_applied_config_path, rel_path_is_exact_local_config_toml};
-pub use names::{UBLX_NAMES, UblxNames, hash_suffix_from_db_stem, is_hex_hash16, path_to_hex};
 pub use recents::{
     all_indexed_roots_alphabetical, has_any_cached_ublx_db, has_recents_entry_for_dir,
     prior_indexed_roots, prior_indexed_roots_recent, record_prior_root_selected,
     record_ublx_session_open, remember_indexed_root_path, should_show_initial_prompt,
 };
-pub use ublx_paths::{
-    UblxPaths, get_log_path, normalize_rel_path_for_policy, path_is_under_or_equal,
+pub use ublx_catalog::paths::{
+    UBLX_NAMES, UblxNames, UblxPaths, cache_dir, config_dir, db_dir, get_log_path,
+    global_config_toml, hash_suffix_from_db_stem, is_hex_hash16, last_applied_config_path,
+    normalize_rel_path_for_policy, path_is_under_or_equal, path_to_hex,
+    rel_path_is_exact_local_config_toml,
 };
 
 #[cfg(test)]
@@ -38,6 +39,7 @@ mod tests {
             UBLX_NAMES.index_db_file_ext,
             format!(".{}", UBLX_NAMES.pkg_name)
         );
+        assert_eq!(UBLX_NAMES.pkg_name, "ublx");
     }
 
     #[test]

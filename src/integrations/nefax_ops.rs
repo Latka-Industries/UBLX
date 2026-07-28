@@ -4,14 +4,13 @@ use std::path::Path;
 use log::{debug, error};
 
 use crate::config::{UblxOpts, UblxSettings, parse_drive_type};
-use crate::engine::db_ops;
 
 pub type NefaxOpts = nefaxer::NefaxOpts;
 pub type NefaxEntry = nefaxer::Entry;
-pub type NefaxResult = nefaxer::Nefax;
-pub type NefaxDiff = nefaxer::Diff;
-pub type NefaxPathMeta = nefaxer::PathMeta;
 pub type NefaxDriveType = nefaxer::disk_detect::DriveType;
+
+/// Snapshot-facing aliases are owned by `ublx-catalog` (it reads/writes the `snapshot` table).
+pub use ublx_catalog::{NefaxDiff, NefaxPathMeta, NefaxResult};
 
 fn nefax_opts_with_tuning(
     exclude: &[String],
@@ -72,7 +71,7 @@ where
 /// Load prior Nefax at startup. Exits the process on DB error; returns `None` when no prior snapshot exists.
 #[must_use]
 pub fn load_prior_nefax_or_exit(dir_to_ublx: &Path, db_path: &Path) -> Option<NefaxResult> {
-    match db_ops::load_nefax_from_db(dir_to_ublx, db_path) {
+    match ublx_catalog::db_ops::load_nefax_from_db(dir_to_ublx, db_path) {
         Ok(Some(nefax)) => {
             debug!("loaded {} paths from snapshot", nefax.len());
             Some(nefax)

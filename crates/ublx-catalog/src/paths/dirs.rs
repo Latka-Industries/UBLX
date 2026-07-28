@@ -9,7 +9,7 @@ use super::names::{UBLX_NAMES, path_to_hex};
 /// - **Unix (macOS, Linux):** `~/.config/ublx`
 /// - **Windows:** `%APPDATA%\ublx`
 ///   Returns `None` if the underlying env (e.g. `HOME`, `APPDATA`) is not set.
-pub(super) fn config_dir() -> Option<PathBuf> {
+pub fn config_dir() -> Option<PathBuf> {
     #[cfg(windows)]
     {
         env::var("APPDATA")
@@ -28,7 +28,7 @@ pub(super) fn config_dir() -> Option<PathBuf> {
 /// - **Unix (macOS, Linux):** `~/.local/share/ublx`
 /// - **Windows:** `%LOCALAPPDATA%\ublx`
 ///   Returns `None` if the underlying env (e.g. `HOME`, `LOCALAPPDATA`) is not set.
-pub(super) fn cache_dir() -> Option<PathBuf> {
+pub fn cache_dir() -> Option<PathBuf> {
     #[cfg(windows)]
     {
         env::var("LOCALAPPDATA")
@@ -48,7 +48,7 @@ pub(super) fn cache_dir() -> Option<PathBuf> {
 
 /// Per-project `SQLite` files live under `cache_dir()/ubli/` (e.g. `~/.local/share/ublx/ubli`).
 #[must_use]
-pub(super) fn db_dir() -> Option<PathBuf> {
+pub fn db_dir() -> Option<PathBuf> {
     cache_dir().map(|c| c.join(UBLX_NAMES.pkg_name_plural))
 }
 

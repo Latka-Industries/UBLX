@@ -3,7 +3,7 @@
 
 use std::path::{Path, PathBuf};
 
-use crate::config::UBLX_NAMES;
+use crate::paths::UBLX_NAMES;
 
 fn tmp_from_db_path(db_path: &Path) -> Option<PathBuf> {
     let parent = db_path.parent()?;

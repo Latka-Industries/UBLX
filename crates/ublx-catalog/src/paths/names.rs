@@ -5,9 +5,10 @@ use std::path::Path;
 
 /// Stable names for on-disk artifacts under an indexed root (`ubli/` cache, project `ublx.toml`, export dirs).
 ///
-/// Values follow the Cargo package name where noted (`ublx` → e.g. `ublx.toml`, `.ublx`, `ublx-export/`).
+/// Values follow the published binary name `ublx` (not this crate's `CARGO_PKG_NAME`, which is
+/// `ublx-catalog` — hardcoding avoids breaking DB/cache paths after the extract).
 pub struct UblxNames {
-    /// Crate / CLI name (`CARGO_PKG_NAME`).
+    /// Published CLI / binary name (`ublx`).
     pub pkg_name: &'static str,
     /// User cache directory name for per-root DB files (e.g. `ubli`).
     pub pkg_name_plural: &'static str,
@@ -35,14 +36,14 @@ impl UblxNames {
     #[must_use]
     pub const fn new() -> Self {
         Self {
-            pkg_name: env!("CARGO_PKG_NAME"),
+            pkg_name: "ublx",
             pkg_name_plural: "ubli",
-            index_db_file_ext: concat!(".", env!("CARGO_PKG_NAME")),
-            local_config_visible_toml: concat!(env!("CARGO_PKG_NAME"), ".toml"),
-            local_config_hidden_toml: concat!(".", env!("CARGO_PKG_NAME"), ".toml"),
+            index_db_file_ext: ".ublx",
+            local_config_visible_toml: "ublx.toml",
+            local_config_hidden_toml: ".ublx.toml",
             nefax_db: ".nefaxer",
-            zahir_export_dir_name: concat!(env!("CARGO_PKG_NAME"), "-export"),
-            lens_export_dir_name: concat!(env!("CARGO_PKG_NAME"), "-lenses"),
+            zahir_export_dir_name: "ublx-export",
+            lens_export_dir_name: "ublx-lenses",
         }
     }
 }
@@ -73,7 +74,7 @@ pub fn path_to_hex(path: &Path) -> String {
     format!("{:016x}", hasher.finish())
 }
 
-pub(super) fn sanitize_name_for_fs(name: &str) -> String {
+pub(crate) fn sanitize_name_for_fs(name: &str) -> String {
     let mut out = String::with_capacity(name.len());
     for ch in name.chars() {
         if ch.is_ascii_alphanumeric() || ch == '-' || ch == '_' {

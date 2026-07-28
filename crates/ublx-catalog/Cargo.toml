@@ -1,0 +1,20 @@
+[package]
+name = "ublx-catalog"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.95"
+publish = false
+description = "Catalog path resolve, SQLite db_ops, and headless open/read for UBLX (THI-155 Phase 2)."
+license = "MIT or Apache-2.0"
+repository = "https://github.com/Latka-Industries/UBLX"
+
+[dependencies]
+anyhow = "1.0.104"
+blake3 = "1.8.5"
+log = "0.4.31"
+nefaxer = "0.1.12"
+rayon = "1.12.0"
+rusqlite = { version = "0.39.0", features = ["bundled-sqlcipher"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = { version = "1.0", features = ["preserve_order"] }
+zahirscan = { version = "0.3.6", default-features = false }

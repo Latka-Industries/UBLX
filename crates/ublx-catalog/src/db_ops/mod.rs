@@ -4,7 +4,8 @@
 //! helpers (live snapshot wiring, path resolution, duplicate extraction, zahir export).
 //!
 //! The crate-facing API is the **re-exports** from this module (for example [`UblxDbCategory`],
-//! [`UblxDbSchema`], [`SnapshotTuiRow`], and zahir/snapshot load helpers).
+//! [`UblxDbSchema`], [`SnapshotTuiRow`], and zahir/snapshot load helpers). `ublx` re-exports the whole
+//! module as `engine::db_ops`.
 
 mod consts;
 mod core;
