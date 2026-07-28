@@ -3,10 +3,15 @@ name = "ublx-catalog"
 version = "0.1.0"
 edition = "2024"
 rust-version = "1.95"
-publish = false
-description = "Catalog path resolve, SQLite db_ops, and headless open/read for UBLX (THI-155 Phase 2)."
+authors = ["AHurowitz <latkaindustries@gmail.com>"]
+description = "Catalog path resolve, SQLite db_ops, and headless open/read for UBLX."
 license = "MIT or Apache-2.0"
 repository = "https://github.com/Latka-Industries/UBLX"
+homepage = "https://ublx.dev/"
+documentation = "https://docs.rs/ublx-catalog"
+readme = "README.md"
+keywords = ["catalog", "sqlite", "indexing", "ublx"]
+categories = ["database", "development-tools", "filesystem"]
 
 [dependencies]
 anyhow = "1.0.104"

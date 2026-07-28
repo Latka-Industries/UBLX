@@ -78,7 +78,7 @@ ui = ["serve", "dep:rust-embed"]
 [dependencies]
 anyhow = "1.0.104"
 axum = { version = "0.8", optional = true }
-ublx-catalog = { path = "crates/ublx-catalog" }
+ublx-catalog = { path = "crates/ublx-catalog", version = "0.1.0" }
 blake3 = "1.8.5"
 chrono = "0.4"
 clap = { version = "4.6.1", features = ["derive", "env"] }
