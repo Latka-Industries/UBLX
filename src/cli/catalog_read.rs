@@ -98,15 +98,21 @@ impl EntryListWindow {
             limit: limit.clamp(1, ENTRY_LIST_LIMIT_MAX),
         }
     }
+
+    /// Clamp this window's `limit` to `1..=ENTRY_LIST_LIMIT_MAX`.
+    #[must_use]
+    pub fn clamp(self) -> Self {
+        Self::clamped(self.offset, self.limit)
+    }
 }
 
 /// Half-open `[start, end)` index range for a window into a list of `total` rows.
 ///
 /// Pure helper (THI-206) for in-memory callers / tests; SQL paging uses `LIMIT`/`OFFSET`
-/// with the same clamp rules via [`EntryListWindow::clamped`].
+/// with the same clamp rules via [`EntryListWindow::clamp`].
 #[must_use]
 pub fn window_range(total: usize, window: EntryListWindow) -> (usize, usize) {
-    let window = EntryListWindow::clamped(window.offset, window.limit);
+    let window = window.clamp();
     if window.offset >= total {
         return (total, total);
     }
@@ -322,14 +328,7 @@ pub fn list_entries(
     conn: &Connection,
     filter: &EntryListFilter<'_>,
 ) -> Result<Vec<EntryRow>, anyhow::Error> {
-    let (where_sql, bind) = snapshot_list_where(filter);
-    let order = snapshot_list_order(filter);
-    let select_sql = format!("SELECT path, category, size FROM snapshot {where_sql} {order}");
-    let mut stmt = conn.prepare(&select_sql)?;
-    let params: Vec<rusqlite::types::Value> = bind.iter().map(value_from_bind).collect();
-    Ok(stmt
-        .query_map(rusqlite::params_from_iter(params), entry_from_row)?
-        .collect::<Result<Vec<_>, _>>()?)
+    fetch_snapshot_rows(conn, filter, None)
 }
 
 /// Filtered entry page with SQL `LIMIT`/`OFFSET` (THI-205). Prefer this for large catalogs.
@@ -345,31 +344,9 @@ pub fn list_entries_page(
     filter: &EntryListFilter<'_>,
     window: EntryListWindow,
 ) -> Result<EntryListPage, anyhow::Error> {
-    let window = EntryListWindow::clamped(window.offset, window.limit);
-    let (where_sql, bind) = snapshot_list_where(filter);
-    let order = snapshot_list_order(filter);
-
-    let count_sql = format!("SELECT COUNT(*) FROM snapshot {where_sql}");
-    let total: i64 = {
-        let mut stmt = conn.prepare(&count_sql)?;
-        stmt.query_row(
-            rusqlite::params_from_iter(bind.iter().map(value_from_bind)),
-            |r| r.get(0),
-        )?
-    };
-    let total = usize::try_from(total.max(0)).unwrap_or(usize::MAX);
-
-    let select_sql =
-        format!("SELECT path, category, size FROM snapshot {where_sql} {order} LIMIT ? OFFSET ?");
-    let mut stmt = conn.prepare(&select_sql)?;
-    let limit_i = i64::try_from(window.limit).unwrap_or(i64::MAX);
-    let offset_i = i64::try_from(window.offset).unwrap_or(i64::MAX);
-    let mut params: Vec<rusqlite::types::Value> = bind.iter().map(value_from_bind).collect();
-    params.push(rusqlite::types::Value::Integer(limit_i));
-    params.push(rusqlite::types::Value::Integer(offset_i));
-    let entries = stmt
-        .query_map(rusqlite::params_from_iter(params), entry_from_row)?
-        .collect::<Result<Vec<_>, _>>()?;
+    let window = window.clamp();
+    let total = count_snapshot_rows(conn, filter)?;
+    let entries = fetch_snapshot_rows(conn, filter, Some(window))?;
 
     debug_assert_eq!(
         entries.len(),
@@ -399,6 +376,10 @@ fn value_from_bind(b: &ListBind) -> rusqlite::types::Value {
         ListBind::Text(s) => rusqlite::types::Value::Text(s.clone()),
         ListBind::Integer(n) => rusqlite::types::Value::Integer(*n),
     }
+}
+
+fn bind_values(bind: &[ListBind]) -> Vec<rusqlite::types::Value> {
+    bind.iter().map(value_from_bind).collect()
 }
 
 fn snapshot_list_order(filter: &EntryListFilter<'_>) -> &'static str {
@@ -433,6 +414,51 @@ fn snapshot_list_where(filter: &EntryListFilter<'_>) -> (String, Vec<ListBind>) 
     } else {
         (format!("WHERE {}", clauses.join(" AND ")), bind)
     }
+}
+
+fn count_snapshot_rows(
+    conn: &Connection,
+    filter: &EntryListFilter<'_>,
+) -> Result<usize, anyhow::Error> {
+    let (where_sql, bind) = snapshot_list_where(filter);
+    let sql = format!("SELECT COUNT(*) FROM snapshot {where_sql}");
+    let mut stmt = conn.prepare(&sql)?;
+    let n: i64 = stmt.query_row(rusqlite::params_from_iter(bind_values(&bind)), |r| r.get(0))?;
+    Ok(usize::try_from(n.max(0)).unwrap_or(usize::MAX))
+}
+
+fn fetch_snapshot_rows(
+    conn: &Connection,
+    filter: &EntryListFilter<'_>,
+    window: Option<EntryListWindow>,
+) -> Result<Vec<EntryRow>, anyhow::Error> {
+    let (where_sql, bind) = snapshot_list_where(filter);
+    let order = snapshot_list_order(filter);
+    let (sql, params) = match window {
+        None => (
+            format!("SELECT path, category, size FROM snapshot {where_sql} {order}"),
+            bind_values(&bind),
+        ),
+        Some(w) => {
+            let mut params = bind_values(&bind);
+            params.push(rusqlite::types::Value::Integer(
+                i64::try_from(w.limit).unwrap_or(i64::MAX),
+            ));
+            params.push(rusqlite::types::Value::Integer(
+                i64::try_from(w.offset).unwrap_or(i64::MAX),
+            ));
+            (
+                format!(
+                    "SELECT path, category, size FROM snapshot {where_sql} {order} LIMIT ? OFFSET ?"
+                ),
+                params,
+            )
+        }
+    };
+    let mut stmt = conn.prepare(&sql)?;
+    Ok(stmt
+        .query_map(rusqlite::params_from_iter(params), entry_from_row)?
+        .collect::<Result<Vec<_>, _>>()?)
 }
 
 /// `LIKE` pattern for substring match; escapes `\`, `%`, `_`.
