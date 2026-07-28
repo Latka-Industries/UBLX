@@ -8,9 +8,9 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use anyhow::Result;
 use log::debug;
 
-use super::dirs::{cache_dir, db_dir};
-use super::names::{UBLX_NAMES, hash_suffix_from_db_stem, is_hex_hash16, path_to_hex};
-use super::ublx_paths::UblxPaths;
+use ublx_catalog::paths::{
+    UBLX_NAMES, UblxPaths, cache_dir, db_dir, hash_suffix_from_db_stem, is_hex_hash16, path_to_hex,
+};
 
 /// Per-indexed-dir metadata for welcome-screen recents: `cache_dir()/recents/<path_hash>.txt`.
 const RECENTS_SUBDIR: &str = "recents";

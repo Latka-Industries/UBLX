@@ -2,9 +2,7 @@
 
 use std::path::PathBuf;
 
-use crate::engine::db_ops::{
-    DuplicateGroupingMode, UblxDbSchema, UblxDbStatements, load_duplicate_groups,
-};
+use crate::db_ops::{DuplicateGroupingMode, UblxDbSchema, UblxDbStatements, load_duplicate_groups};
 use rusqlite::Connection;
 
 fn test_db_path(name: &str) -> PathBuf {

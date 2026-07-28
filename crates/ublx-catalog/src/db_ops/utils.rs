@@ -8,14 +8,16 @@ use rayon::prelude::*;
 use rusqlite::types::Value;
 use rusqlite::{Connection, Statement, Transaction, params_from_iter};
 
-use crate::config::{PARALLEL, UblxOpts, UblxPaths};
-use crate::integrations::{
-    NefaxDiff, NefaxPathMeta, NefaxResult, ZahirOutput, zahir_metadata_name_from_indexed_file,
-    zahir_output_to_json_for_path,
+use crate::nefax::{NefaxDiff, NefaxPathMeta, NefaxResult};
+use crate::paths::UblxPaths;
+use crate::util::snapshot_rel_path_buf;
+use crate::zahir::{
+    ZahirOutput, zahir_metadata_name_from_indexed_file, zahir_output_to_json_for_path,
 };
-use crate::utils::snapshot_rel_path_buf;
 
-use super::consts::{DeltaType, UblxDbCategory, UblxDbSchema, UblxDbStatements};
+use super::consts::{
+    DeltaType, SNAPSHOT_INSERT_PREP_PARALLEL, UblxDbCategory, UblxDbSchema, UblxDbStatements,
+};
 
 /// How often to emit [`debug_snapshot_write_progress`] (also logs the first step, and the last when `total` is known).
 pub const SNAPSHOT_DB_WRITE_PROGRESS_LOG_EVERY: u64 = 10_000;
@@ -40,11 +42,15 @@ pub fn debug_snapshot_write_progress(phase: &str, n: u64, total: Option<u64>) {
     }
 }
 
-/// Prior snapshot maps and options passed through snapshot rebuild
+/// Prior snapshot maps and the enhance-policy predicate passed through snapshot rebuild.
+///
+/// `batch_zahir_for_path` is the caller's index-time Zahir policy (in `ublx`:
+/// `UblxOpts::batch_zahir_for_path`) so the catalog crate stays free of app options. It must be
+/// [`Sync`]: row preparation runs under rayon for large snapshots.
 pub struct SnapshotPriorContext<'a> {
     pub prior_zahir_json: &'a HashMap<String, String>,
     pub prior_category: &'a HashMap<String, String>,
-    pub ublx_opts: &'a UblxOpts,
+    pub batch_zahir_for_path: &'a (dyn Fn(&str) -> bool + Sync),
 }
 
 /// Get the full path and the path string for a given path.
@@ -97,11 +103,11 @@ pub fn prepare_results_for_snapshot_insertion(
     zahir_output_by_path: &HashMap<String, &ZahirOutput>,
     prior_zahir_json: &std::collections::HashMap<String, String>,
     prior_category: &HashMap<String, String>,
-    ublx_opts: &UblxOpts,
+    batch_zahir_for_path: &(dyn Fn(&str) -> bool + Sync),
 ) -> (String, String, String) {
     let (full_path, path_str) = get_full_path_and_path_str(dir_to_ublx, path_ref);
     let category = category_for_snapshot_row(&full_path, &path_str, ublx_paths, prior_category);
-    let skip_batch = !ublx_opts.batch_zahir_for_path(&path_str);
+    let skip_batch = !batch_zahir_for_path(&path_str);
     if skip_batch {
         let zahir_json = prior_zahir_json.get(&path_str).cloned().unwrap_or_default();
         return (path_str, category, zahir_json);
@@ -184,7 +190,7 @@ pub fn insert_results_into_snapshot(
     zahir_output_by_path: &HashMap<String, &ZahirOutput>,
     prior: &SnapshotPriorContext<'_>,
 ) -> Result<(), anyhow::Error> {
-    let prepared: Vec<SnapshotInsertRow> = if nefax.len() >= PARALLEL.snapshot_insert_prep {
+    let prepared: Vec<SnapshotInsertRow> = if nefax.len() >= SNAPSHOT_INSERT_PREP_PARALLEL {
         let entries: Vec<_> = nefax.iter().collect();
         entries
             .par_iter()
@@ -196,7 +202,7 @@ pub fn insert_results_into_snapshot(
                     zahir_output_by_path,
                     prior.prior_zahir_json,
                     prior.prior_category,
-                    prior.ublx_opts,
+                    prior.batch_zahir_for_path,
                 );
                 let hash = meta.hash.as_ref().map(|h| h.as_slice().to_vec());
                 (
@@ -220,7 +226,7 @@ pub fn insert_results_into_snapshot(
                     zahir_output_by_path,
                     prior.prior_zahir_json,
                     prior.prior_category,
-                    prior.ublx_opts,
+                    prior.batch_zahir_for_path,
                 );
                 let hash = meta.hash.as_ref().map(|h| h.as_slice().to_vec());
                 (

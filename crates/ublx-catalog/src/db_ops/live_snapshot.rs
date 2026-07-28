@@ -6,10 +6,11 @@ use std::time::UNIX_EPOCH;
 
 use rusqlite::{Connection, Error as SqliteError};
 
-use crate::config::UblxPaths;
-use crate::engine::db_ops::consts::{UblxDbCategory, UblxDbStatements};
-use crate::integrations::zahir_metadata_name_from_indexed_file;
-use crate::utils::snapshot_rel_path_buf;
+use crate::paths::UblxPaths;
+use crate::util::snapshot_rel_path_buf;
+use crate::zahir::zahir_metadata_name_from_indexed_file;
+
+use super::consts::{UblxDbCategory, UblxDbStatements};
 
 fn mtime_ns_from_meta(meta: &fs::Metadata) -> i64 {
     meta.modified()

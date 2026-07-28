@@ -4,8 +4,8 @@ Headless catalog subcommands — no ratatui / TUI deps.
 
 | Module           | Role                                                                             |
 | ---------------- | -------------------------------------------------------------------------------- |
-| **catalog**      | Resolve DIR → `.ublx` path; open read connection; snapshot-in-progress heuristic |
-| **catalog_read** | Shared list/detail/delta/lens queries (query + serve)                            |
+| **catalog**      | Resolve DIR → `.ublx` path; open read connection; snapshot-in-progress heuristic. Lives in `ublx-catalog` (`open`), re-exported here |
+| **catalog_read** | Shared list/detail/delta/lens queries (query + serve). Lives in `ublx-catalog` (`read`), re-exported here |
 | **output**       | Shared JSON / string-list emit                                                   |
 | **remote**       | HTTP client for `--url` / `UBLX_URL` (query + doctor → serve)                    |
 | **query**        | `ublx query` — list / filter / detail / delta / lenses (THI-153)                 |

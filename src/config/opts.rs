@@ -28,14 +28,10 @@ pub struct UblxOptsForDirExtras<'a> {
 }
 
 /// Cached disk/tuning settings stored in the ublx DB so we can skip disk check when .ublx exists.
-#[derive(Clone, Debug)]
-pub struct UblxSettings {
-    pub num_threads: usize,
-    pub drive_type: String,
-    pub parallel_walk: bool,
-    /// When global config exists: "local" = use local (dir) config; "global" = use global. Stored in .ublx.
-    pub config_source: Option<String>,
-}
+///
+/// Defined in `ublx-catalog` (the crate that reads/writes the `settings` table); re-exported here so
+/// `config::UblxSettings` call sites keep working.
+pub use ublx_catalog::UblxSettings;
 
 /// Parse drive type string from DB/cache ("SSD", "HDD", "Network", "Unknown").
 #[must_use]

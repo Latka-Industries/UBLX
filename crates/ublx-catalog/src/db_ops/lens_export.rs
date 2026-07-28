@@ -6,8 +6,8 @@ use std::path::{Path, PathBuf};
 
 use anyhow::Context;
 
-use crate::config::UBLX_NAMES;
-use crate::integrations::{ZahirFT, file_type_from_metadata_name};
+use crate::paths::UBLX_NAMES;
+use crate::zahir::{ZahirFT, file_type_from_metadata_name};
 
 use super::SnapshotTuiRow;
 use super::lens_storage::{load_lens_names, load_lens_paths};

@@ -21,16 +21,22 @@ fn pre_run_setup(dir_to_ublx: &Path) -> PreRunSetup {
     (dir_to_ublx_abs, prior_zahir_json, prior_category)
 }
 
+/// Enhance-policy predicate handed to `db_ops` so the catalog crate never sees [`UblxOpts`].
+#[inline]
+fn batch_zahir_predicate(ublx_opts: &UblxOpts) -> impl Fn(&str) -> bool + Sync {
+    move |rel_path: &str| ublx_opts.batch_zahir_for_path(rel_path)
+}
+
 #[inline]
 fn snapshot_prior_ctx<'a>(
     prior_zahir_json: &'a HashMap<String, String>,
     prior_category: &'a HashMap<String, String>,
-    ublx_opts: &'a UblxOpts,
+    batch_zahir_for_path: &'a (dyn Fn(&str) -> bool + Sync),
 ) -> db_ops::SnapshotPriorContext<'a> {
     db_ops::SnapshotPriorContext {
         prior_zahir_json,
         prior_category,
-        ublx_opts,
+        batch_zahir_for_path,
     }
 }
 
@@ -225,7 +231,8 @@ pub fn run_sequential(
         }
     };
     utils::write_zahir_failures_to_log_error(dir_to_ublx, &zahir_result);
-    let prior_ctx = snapshot_prior_ctx(&prior_zahir_json, &prior_category, ublx_opts);
+    let batch_zahir = batch_zahir_predicate(ublx_opts);
+    let prior_ctx = snapshot_prior_ctx(&prior_zahir_json, &prior_category, &batch_zahir);
     if let Err(e) = db_ops::write_snapshot_to_db(
         dir_to_ublx,
         &nefax,
@@ -295,7 +302,8 @@ pub fn run_stream(
 
     drop(path_tx);
     debug!("indexed {} paths (streaming)", nefax.len());
-    let prior_ctx = snapshot_prior_ctx(&prior_zahir_json, &prior_category, ublx_opts);
+    let batch_zahir = batch_zahir_predicate(ublx_opts);
+    let prior_ctx = snapshot_prior_ctx(&prior_zahir_json, &prior_category, &batch_zahir);
     if let Err(e) = db_ops::write_snapshot_to_db_streaming(
         dir_to_ublx,
         &nefax,
