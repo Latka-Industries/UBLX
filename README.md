@@ -8,7 +8,7 @@
 
 _[Ublx ... Safe when taken as directed.][ubik]_
 
-**TUI that turns a directory into a flat, navigable catalog** — index once, enrich on demand, browse in the terminal. Indexing uses [Nefaxer][nefaxer]; deep metadata uses [ZahirScan][zahirscan] when you enhance.
+**TUI that turns a directory into a flat, navigable catalog** — index once, enrich on demand, browse in the terminal. Indexing uses [Nefaxer][nefaxer]; deep metadata uses [ZahirScan][zahirscan] when you enhance. Headless `query` / `doctor` ship by default; optional `serve` exposes an HTTP API, and `ui` embeds a browser SPA.
 
 **In active development — expect breaking changes.**
 
@@ -29,9 +29,10 @@ Homebrew builds with the embedded serve UI (`--features ui`).
 cargo install ublx                     # TUI + query/doctor (default)
 cargo install ublx --features serve    # + `ublx serve` HTTP API
 cargo install ublx --features ui       # + serve + embedded Leptos SPA
+cargo install ublx --no-default-features --features serve   # serve/query without TUI
 ```
 
-Homebrew and `--features ui` both ship serve + the browser UI. Default crates.io install is TUI-only (`serve` / `ui` are opt-in; THI-155).
+Default crates.io install is TUI + catalog CLI. `serve` / `ui` are opt-in; `ui` implies `serve`. Catalog path resolve, SQLite ops, and headless open/read live in the internal `ublx-catalog` workspace crate — one published `ublx` binary.
 
 ## Quick start
 
@@ -47,8 +48,17 @@ Catalog CLI (after an index exists):
 ublx query . --categories
 ublx query . --category Code --json
 ublx query . --path src/main.rs --zahir
+ublx query . --contains src --limit 20
 ublx doctor .
 ublx doctor --fix .    # remove leftover tmp/wal/shm (blocked while a snapshot is writing)
+```
+
+With a running serve (`--features serve` or `ui`), point query/doctor at it:
+
+```bash
+export UBLX_URL=http://127.0.0.1:8787
+ublx query --contains src --json
+ublx doctor --json
 ```
 
 See `ublx --help`, `ublx query --help`, `ublx doctor --help`. With `--features serve` (or `ui`): `ublx serve --help`.
@@ -57,15 +67,15 @@ See `ublx --help`, `ublx query --help`, `ublx doctor --help`. With `--features s
 
 Full guides, config tables, TUI keys, and workflows live on the docs site (README here stays minimal).
 
-|                               |                                               |
-| ----------------------------- | --------------------------------------------- |
-| **[Install][ublx-gs]**        | Homebrew, Cargo, prerequisites, first run     |
+|                               |                                                   |
+| ----------------------------- | ------------------------------------------------- |
+| **[Install][ublx-gs]**        | Homebrew, Cargo, prerequisites, first run         |
 | [CLI][ublx-cli]               | `ublx --help`, headless flags, `query` / `doctor` |
-| [Configuration][ublx-config]  | `ublx.toml`, enhance policies, themes         |
-| [TUI & modes][ublx-tui]       | Snapshot, Delta, Lenses, panes, keybindings   |
-| [Guides][ublx-guides]         | Path-only vs enhance, headless export, lenses |
-| [FAQ][ublx-faq]               | Common questions                              |
-| **[API (docs.rs)][ublx-api]** | Rust crate reference                          |
+| [Configuration][ublx-config]  | `ublx.toml`, enhance policies, themes             |
+| [TUI & modes][ublx-tui]       | Snapshot, Delta, Lenses, panes, keybindings       |
+| [Guides][ublx-guides]         | Path-only vs enhance, headless export, lenses     |
+| [FAQ][ublx-faq]               | Common questions                                  |
+| **[API (docs.rs)][ublx-api]** | Rust crate reference                              |
 
 Not a file manager — for that, see [yazi][yazi]. UBLX targets **project trees**: fast catalogs, previews, diffs, and export.
 
