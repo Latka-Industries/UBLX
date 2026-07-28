@@ -26,11 +26,12 @@ Homebrew builds with the embedded serve UI (`--features ui`).
 ### Cargo
 
 ```bash
-cargo install ublx                  # API-only serve
-cargo install ublx --features ui    # + embedded Leptos SPA (assets in the crate)
+cargo install ublx                     # TUI + query/doctor (default)
+cargo install ublx --features serve    # + `ublx serve` HTTP API
+cargo install ublx --features ui       # + serve + embedded Leptos SPA
 ```
 
-Homebrew and `--features ui` both ship the browser UI. Default crates.io install stays API-only.
+Homebrew and `--features ui` both ship serve + the browser UI. Default crates.io install is TUI-only (`serve` / `ui` are opt-in; THI-155).
 
 ## Quick start
 
@@ -50,7 +51,7 @@ ublx doctor .
 ublx doctor --fix .    # remove leftover tmp/wal/shm (blocked while a snapshot is writing)
 ```
 
-See `ublx --help`, `ublx query --help`, `ublx doctor --help`.
+See `ublx --help`, `ublx query --help`, `ublx doctor --help`. With `--features serve` (or `ui`): `ublx serve --help`.
 
 ## Documentation
 

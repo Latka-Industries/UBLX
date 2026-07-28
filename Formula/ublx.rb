@@ -30,7 +30,7 @@ class Ublx < Formula
     ENV.prepend_path "PKG_CONFIG_PATH", "#{hdf5}/lib/pkgconfig"
     ENV.prepend_path "PKG_CONFIG_PATH", "#{netcdf}/lib/pkgconfig"
 
-    # Embedded serve UI (`--features ui`): wasm32 + Tailwind → dist/, then embed.
+    # Embedded serve UI (`--features ui` ⇒ serve + SPA): wasm32 + Tailwind → dist/, then embed.
     # rustup is keg-only; same pattern as homebrew-core `wasm-bindgen` tests.
     ENV.prepend_path "PATH", Formula["rustup"].opt_bin
     system "rustup", "set", "profile", "minimal"

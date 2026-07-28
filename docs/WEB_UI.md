@@ -16,7 +16,7 @@ Work lands as **mini-PRs onto long-lived `dev`**, then a fat PR `dev` → `main`
 
 Optional **embedded catalog browser** for `ublx serve`: the TUI experience in a browser — same chrome, focus model, hotkeys, viewers, and theme personality — not a thin dashboard over JSON.
 
-Default crates.io install is **API-only** (`StaticMount::None`). Opt in with `cargo install ublx --features ui` (SPA assets ship in the crate tarball as `assets/web-ui/`). **Homebrew** also builds with `--features ui` (Embedded) by default.
+Default crates.io install is **TUI-only** (no `ublx serve`). Opt in with `cargo install ublx --features serve` (API) or `--features ui` (API + SPA assets in the crate tarball as `assets/web-ui/`). **Homebrew** builds with `--features ui` (Embedded) by default.
 
 ---
 
@@ -49,18 +49,21 @@ Dev loop may use `StaticMount::Dir("…/dist")` / `UBLX_WEB_DIST` so assets rebu
 
 ```toml
 [features]
-default = ["zahir-netcdf"]           # unchanged — no UI
-ui = ["dep:rust-embed"]              # embeds assets/web-ui/ into the host binary
+default = ["tui", "zahir-netcdf"]     # TUI + query/doctor; no serve
+tui = []                             # declarative; compile-out later (THI-213)
+serve = ["dep:axum", "dep:panza"]    # `ublx serve` HTTP API
+ui = ["serve", "dep:rust-embed"]     # implies serve + embeds assets/web-ui/
 ```
 
 Rules:
 
-- Default binary includes `ublx serve` **API**; **no** Leptos / WASM deps.
-- `--features ui` enables embedded assets and switches serve to `StaticMount::Embedded` ([`web_embed.rs`](../src/cli/serve/web_embed.rs)).
+- Default binary is **TUI + query/doctor**; **no** axum/panza; **no** Leptos.
+- `--features serve` enables `ublx serve` (panza + axum).
+- `--features ui` implies `serve` and enables embedded assets (`StaticMount::Embedded` — [`web_embed.rs`](../src/cli/serve/web_embed.rs)).
 - `UBLX_WEB_DIST` overrides to `StaticMount::Dir` for the `mise run web` rebuild loop (no host recompile).
-- Do **not** hide API-only serve behind `ui`.
+- Do **not** hide API-only serve behind `ui` alone — use `--features serve` without `ui`.
 - Workspace crate **`crates/ublx-web/`** is WASM CSR only (`publish = false`). It is **not** a crates.io dependency of `ublx`. Host embedding lives in `ublx` via rust-embed of **`assets/web-ui/`** (synced from `crates/ublx-web/dist/` by `build.sh`).
-- `cargo install ublx` → API-only. `cargo install ublx --features ui` → SPA (assets are in the published tarball). Homebrew / source `build.sh` also produce Embedded builds.
+- `cargo install ublx` → TUI + query/doctor. `cargo install ublx --features serve` → + API. `cargo install ublx --features ui` → + SPA. Homebrew / source `build.sh` also produce Embedded builds.
 
 ### Build story
 

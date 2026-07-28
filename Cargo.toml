@@ -56,17 +56,22 @@ path = "tests/suite/mod.rs"
 no-default-features = true
 
 [features]
-default = ["zahir-netcdf"]
+default = ["tui", "zahir-netcdf"]
+# Declares default product surface; compile-out of ratatui lands in THI-213 (Phase 1b).
+tui = []
+# Local HTTP API (`ublx serve`) via panza + axum. Opt-in so default crates.io stays lean.
+serve = ["dep:axum", "dep:panza"]
 zahir-netcdf = ["zahirscan/netcdf"]
 # Embedded Leptos UI for `ublx serve`. Host rust-embeds `assets/web-ui/`
 # (synced from `crates/ublx-web/dist/` by build.sh). crates.io tarball includes
 # those assets so `cargo install ublx --features ui` works. Set `UBLX_WEB_DIST`
 # for Dir mount (mise `web` loop). `ublx-web` stays publish = false / WASM-only.
-ui = ["dep:rust-embed"]
+# Implies `serve` (SPA is useless without the API).
+ui = ["serve", "dep:rust-embed"]
 
 [dependencies]
 anyhow = "1.0.104"
-axum = "0.8"
+axum = { version = "0.8", optional = true }
 blake3 = "1.8.5"
 chrono = "0.4"
 clap = { version = "4.6.1", features = ["derive", "env"] }
@@ -81,7 +86,7 @@ lofty = "0.24.0"
 log = "0.4.31"
 nefaxer = "0.1.12"
 notify = "8.2.0"
-panza = "0.1.1"
+panza = { version = "0.1.1", optional = true }
 pulldown-cmark = "0.13.3"
 rust-embed = { version = "8", optional = true, features = ["debug-embed"] }
 ratatui = "0.30"

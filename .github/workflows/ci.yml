@@ -90,6 +90,13 @@ jobs:
       - name: Run tests
         run: cargo test --verbose
 
+      # THI-214: default build omits serve; keep the opt-in path green (Ubuntu only — matrix cost).
+      - name: Clippy + test (features serve)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          cargo clippy --features serve -- -D warnings
+          cargo test --features serve --verbose
+
   msrv:
     name: MSRV Check
     runs-on: ubuntu-latest
@@ -119,3 +126,6 @@ jobs:
 
       - name: Check MSRV
         run: cargo check --all-targets
+
+      - name: Check MSRV (features serve)
+        run: cargo check --all-targets --features serve

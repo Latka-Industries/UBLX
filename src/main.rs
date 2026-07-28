@@ -181,6 +181,7 @@ fn main() {
 
     if let Some(ref command) = args.command {
         let log_level = match command {
+            #[cfg(feature = "serve")]
             cli_parser::Commands::Serve(_) => log::LevelFilter::Info,
             _ => log::LevelFilter::Warn,
         };

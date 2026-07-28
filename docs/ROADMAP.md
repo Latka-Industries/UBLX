@@ -27,10 +27,10 @@ Track work in GitHub Issues — **parent** issues by category, **sub-issues** fo
 | Clap subcommands + shared catalog open | Done (THI-152) | `query` / `doctor`; `-s`/`-f`/`-x` unchanged |
 | `ublx query` | Done (THI-153) | List/filter/detail/delta/lenses; `--json`; nested zahir |
 | `ublx doctor` | Done (THI-154) | PASS/WARN/FAIL; `--fix`; blocked while snapshot writing unless `--force` |
-| `ublx serve` | Done (THI-156 / v0.1.13) | Local HTTP API via panza (`StaticMount::None`) |
+| `ublx serve` | Done (THI-156 / v0.1.13); **opt-in feature `serve`** (THI-214 / Phase 1a) | Local HTTP API via panza; `ui` implies `serve` |
 | Remote `--url` / `UBLX_URL` | Done (THI-167 / v0.1.14) | `query` / `doctor` against a running serve |
-| Web UI for serve | In progress (THI-157 / v0.2.0) | Shell on `dev`; MVP = TUI-grade browse+act (hotkeys, help, multi-select, Space menu, Command Mode, viewers) — mini-PR plan in [WEB_UI.md](WEB_UI.md), layout in [TUI_STRUCTURE.md](TUI_STRUCTURE.md) |
-| Crate split (catalog vs TUI) | Backlog (THI-155) | Faster compiles for CLI iteration |
+| Web UI for serve | Done (THI-157 / v0.2.x) | Embedded SPA via `--features ui` |
+| Crate split (catalog vs TUI) | In progress (THI-155 → v0.3.0) | Phase 1a: serve gate; Phase 1b: TUI compile-out; Phase 2: `ublx-catalog` if needed |
 
 Parent: [THI-151](https://linear.app/thicclatka/issue/THI-151).
 
