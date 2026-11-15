@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Pin `zahirscan` to **0.4** (`default-features = false`) so crates.io resolves without yanked `tetration` 0.1.x ([THI-697](https://linear.app/thicclatka/issue/THI-697))
 - Bump direct `tetration` to **0.8.3** (`default-features = false`) for `.tet` viewer; use `tetration::query::cli` info helpers
+- Publish `ublx-catalog` **0.1.1** (zahirscan 0.4) before `ublx` so crates.io path+version resolve works
 - CI: NetCDF (default `zahir-netcdf`) on Ubuntu only; macOS/Windows exercise TUI without NetCDF (Homebrew HDF5 2.x vs `hdf5-metno-sys`)
 - Release workflow publishes non-draft GitHub releases on tag
 
