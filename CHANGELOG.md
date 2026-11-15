@@ -5,6 +5,25 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.2] - 2026-11-15
+
+### Changed
+
+- Pin `zahirscan` to **0.4** (`default-features = false`) so crates.io resolves without yanked `tetration` 0.1.x ([THI-697](https://linear.app/thicclatka/issue/THI-697))
+- Bump direct `tetration` to **0.8.3** (`default-features = false`) for `.tet` viewer; use `tetration::query::cli` info helpers
+- CI: NetCDF (default `zahir-netcdf`) on Ubuntu only; macOS/Windows exercise TUI without NetCDF (Homebrew HDF5 2.x vs `hdf5-metno-sys`)
+- Release workflow publishes non-draft GitHub releases on tag
+
+## [0.3.1] - 2026-07-29
+
+### Added
+
+- Settings: expose `follow_links` (THI-389)
+
+### Fixed
+
+- Web: preserve Snapshot category after snapshot (THI-388)
+
 ## [0.3.0] - 2026-07-29
 
 ### Added

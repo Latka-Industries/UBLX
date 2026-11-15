@@ -22,4 +22,4 @@ rayon = "1.12.0"
 rusqlite = { version = "0.39.0", features = ["bundled-sqlcipher"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1.0", features = ["preserve_order"] }
-zahirscan = { version = "0.3.6", default-features = false }
+zahirscan = { version = "0.4", default-features = false }
