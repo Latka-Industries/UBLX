@@ -79,7 +79,6 @@ impl ViewData {
     }
 
     /// Iterate over content rows. For [`ViewContents::SnapshotIndices`], pass `Some(all_rows)`; for [`ViewContents::DeltaRows`], pass `None`.
-    #[must_use]
     pub fn iter_contents<'a>(
         &'a self,
         all_rows: Option<&'a [TuiRow]>,

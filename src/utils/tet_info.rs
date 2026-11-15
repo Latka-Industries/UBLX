@@ -4,7 +4,7 @@ use std::path::Path;
 
 use tetration::catalog::read_tet_summary_v1;
 use tetration::layout::mmap_file_read;
-use tetration::query::{InfoMetadataDisplay, InfoViewSections, format_info_text};
+use tetration::query::cli::{InfoMetadataDisplay, InfoViewSections, format_info_text};
 
 /// `true` when `path` should use the tetration catalog viewer instead of raw bytes.
 #[inline]

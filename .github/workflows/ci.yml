@@ -1,18 +1,22 @@
-name: Build
+name: CI
 
 # Native ublx only (fmt / clippy / test / MSRV). Web WASM is `.github/workflows/ublx-web.yml`.
-# Do **not** list Cargo.lock: web-only deps (crates/ublx-web) bump the workspace lockfile and
-# would otherwise fire this NetCDF matrix. Native dep intent is root `Cargo.toml`.
-# Markdown under matching trees is excluded with `!**/*.md` (GitHub forbids pairing `paths`
-# with `paths-ignore` on the same event — use `!` negation instead).
+# Prefer `paths` (allowlist) over `paths-ignore`: docs-only PRs skip the suite.
+# Do **not** list Cargo.lock alone as the sole trigger for web bumps — but do include it
+# when native deps change. Markdown under matching trees is excluded with `!**/*.md`
+# (GitHub forbids pairing `paths` with `paths-ignore` on the same event).
+#
+# NetCDF (+ HDF5 via zahirscan → hdf5-metno-sys) is Linux-only in CI: Homebrew hdf5 is 2.x
+# and hdf5-metno-sys rejects H5_VERSION 2.x. macOS/Windows cover TUI without `zahir-netcdf`.
 on:
   push:
     branches: [main, master, dev]
     paths:
       - "src/**"
       - "tests/**"
+      - "crates/ublx-catalog/**"
       - "Cargo.toml"
-      # Keep CI self-testing when the workflow or Windows dep scripts change.
+      - "Cargo.lock"
       - ".github/workflows/ci.yml"
       - ".github/scripts/ci-deps-windows-*"
       - "!**/*.md"
@@ -21,20 +25,41 @@ on:
     paths:
       - "src/**"
       - "tests/**"
+      - "crates/ublx-catalog/**"
       - "Cargo.toml"
+      - "Cargo.lock"
       - ".github/workflows/ci.yml"
       - ".github/scripts/ci-deps-windows-*"
       - "!**/*.md"
 
 jobs:
   test:
-    name: Test Suite
+    name: Test (${{ matrix.label }})
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        include:
+          # Default features (TUI + zahir-netcdf) — Ubuntu only (see header)
+          - os: ubuntu-latest
+            label: ubuntu + netcdf
+            cargo_flags: ""
+            need_netcdf: true
+          # TUI without NetCDF — all OSes (Tesscriptor / no-libnetcdf path)
+          - os: ubuntu-latest
+            label: ubuntu tui no-netcdf
+            cargo_flags: "--no-default-features --features tui"
+            need_netcdf: false
+          - os: macos-latest
+            label: macos tui no-netcdf
+            cargo_flags: "--no-default-features --features tui"
+            need_netcdf: false
+          - os: windows-latest
+            label: windows tui no-netcdf
+            cargo_flags: "--no-default-features --features tui"
+            need_netcdf: false
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -43,30 +68,10 @@ jobs:
           components: rustfmt, clippy
 
       - name: Install system deps (Ubuntu)
-        if: matrix.os == 'ubuntu-latest'
+        if: matrix.os == 'ubuntu-latest' && matrix.need_netcdf
         run: |
           sudo apt-get update
-          sudo apt-get install -y libnetcdf-dev pkg-config
-
-      - name: Install system deps (macOS)
-        if: matrix.os == 'macos-latest'
-        run: |
-          brew install netcdf
-
-      - name: Install system deps (Windows)
-        if: matrix.os == 'windows-latest'
-        uses: conda-incubator/setup-miniconda@v3
-        with:
-          auto-update-conda: true
-          activate-environment: ci
-          python-version: "3.11"
-          channels: conda-forge
-          channel-priority: strict
-
-      - name: Conda NetCDF + env (Windows)
-        if: matrix.os == 'windows-latest'
-        shell: bash -el {0}
-        run: source .github/scripts/ci-deps-windows-conda.sh
+          sudo apt-get install -y libnetcdf-dev libhdf5-dev pkg-config
 
       - name: Install OpenSSL (Windows)
         if: runner.os == 'Windows'
@@ -80,28 +85,45 @@ jobs:
 
       - name: Rust cache
         uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: "ci-${{ matrix.os }}-${{ matrix.label }}"
 
       - name: Check formatting
         run: cargo fmt -- --check
 
       - name: Run clippy
-        run: cargo clippy -- -D warnings
+        shell: bash
+        run: cargo clippy --locked ${{ matrix.cargo_flags }} -- -D warnings
 
       - name: Run tests
-        run: cargo test --verbose
+        shell: bash
+        run: cargo test --locked ${{ matrix.cargo_flags }} --verbose
 
-      # THI-214: default build omits serve; keep the opt-in path green (Ubuntu only — matrix cost).
+      # THI-214: default build omits serve; keep the opt-in path green (Ubuntu + netcdf only).
       - name: Clippy + test (features serve)
-        if: matrix.os == 'ubuntu-latest'
+        if: matrix.os == 'ubuntu-latest' && matrix.need_netcdf
         run: |
-          cargo clippy --features serve -- -D warnings
-          cargo test --features serve --verbose
+          cargo clippy --locked --features serve -- -D warnings
+          cargo test --locked --features serve --verbose
 
   msrv:
-    name: MSRV Check
+    name: MSRV (${{ matrix.label }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: default
+            cargo_flags: ""
+            need_netcdf: true
+          - label: tui no-netcdf
+            cargo_flags: "--no-default-features --features tui"
+            need_netcdf: false
+          - label: serve
+            cargo_flags: "--features serve"
+            need_netcdf: true
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Install Rust (MSRV)
         uses: dtolnay/rust-toolchain@stable
@@ -109,23 +131,16 @@ jobs:
           toolchain: 1.95
 
       - name: Install NetCDF (Ubuntu)
+        if: matrix.need_netcdf
         run: |
           sudo apt-get update
-          sudo apt-get install -y libnetcdf-dev pkg-config
+          sudo apt-get install -y libnetcdf-dev libhdf5-dev pkg-config
 
-      - name: Cache Cargo dependencies
-        uses: actions/cache@v5
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
         with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: ${{ runner.os }}-cargo-msrv-${{ hashFiles('**/Cargo.lock') }}
+          shared-key: "ci-msrv-${{ matrix.label }}"
 
       - name: Check MSRV
-        run: cargo check --all-targets
-
-      - name: Check MSRV (features serve)
-        run: cargo check --all-targets --features serve
+        shell: bash
+        run: cargo check --locked --all-targets ${{ matrix.cargo_flags }}
